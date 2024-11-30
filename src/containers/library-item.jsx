@@ -4,6 +4,7 @@ import React from 'react';
 import {injectIntl, intlShape, defineMessages} from 'react-intl';
 
 import LibraryItemComponent from '../components/library-item/library-item.jsx';
+import {APP_DOMAIN} from '../lib/brand';
 
 const messages = defineMessages({
     incompatible: {
@@ -45,16 +46,6 @@ class LibraryItem extends React.PureComponent {
     handleClick (e) {
         if (e.target.closest('a')) {
             // Allow clicking on links inside the item
-            return;
-        }
-
-        if (
-            !this.props.favorite &&
-            this.props.incompatibleWithScratch &&
-            !e.shiftKey &&
-            // eslint-disable-next-line no-alert
-            !confirm(this.props.intl.formatMessage(messages.incompatible))
-        ) {
             return;
         }
 
@@ -139,7 +130,7 @@ class LibraryItem extends React.PureComponent {
     render () {
         const iconMd5 = this.curIconMd5();
         const iconURL = iconMd5 ?
-            `https://cdn.assets.scratch.mit.edu/internalapi/asset/${iconMd5}/get/` :
+            (APP_DOMAIN+`/Assets/sprites/${iconMd5}`) :
             this.props.iconRawURL;
         return (
             <LibraryItemComponent

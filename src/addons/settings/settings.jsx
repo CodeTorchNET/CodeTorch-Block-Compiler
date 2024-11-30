@@ -1101,16 +1101,13 @@ class AddonSettingsComponent extends React.Component {
                                 onClick={this.handleClickSearchButton}
                             />
                         </div>
-                        <a
-                            href="https://scratch.mit.edu/users/GarboMuffin/#comments"
+                        <p style={{marginLeft: "auto", marginRight: "auto"}}>Thanks To <span><a
+                            href="https://scratch.mit.edu/users/GarboMuffin/"
                             target="_blank"
                             rel="noreferrer"
-                            className={styles.feedbackButtonOuter}
                         >
-                            <span className={styles.feedbackButtonInner}>
-                                {settingsTranslations.addonFeedback}
-                            </span>
-                        </a>
+                            Garbomuffin
+                        </a></span> & all the other contributors of Turbowarp for making this possible.</p>
                     </div>
                     {this.state.dirty && (
                         <Dirty

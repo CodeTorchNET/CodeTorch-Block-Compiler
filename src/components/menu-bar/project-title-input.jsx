@@ -15,7 +15,7 @@ const messages = defineMessages({
     projectTitlePlaceholder: {
         id: 'gui.gui.projectTitlePlaceholder',
         description: 'Placeholder for project title when blank',
-        defaultMessage: 'Project title here'
+        defaultMessage: 'Your Torch title here'
     }
 });
 

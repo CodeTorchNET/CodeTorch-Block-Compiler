@@ -10,11 +10,11 @@ const shuffle = list => {
 
 const fromHardcoded = ({userID = '0', username}) => {
     const result = {
-        image: `https://trampoline.turbowarp.org/avatars/${userID}`,
+        image: `https://codetorch.net/IMGStorage/Logos/${username}.jpeg?width=32&height=32`,
         text: username
     };
     if (username && userID !== '0') {
-        result.href = `https://scratch.mit.edu/users/${username}/`;
+        result.href = `https://codetorch.net/users/${username}/`;
     }
     return result;
 };

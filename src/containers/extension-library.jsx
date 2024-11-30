@@ -4,6 +4,7 @@ import React from 'react';
 import VM from 'scratch-vm';
 import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import log from '../lib/log';
+const {APP_DOMAIN} = require('../lib/brand');
 
 import extensionLibraryContent, {
     galleryError,
@@ -42,7 +43,7 @@ const translateGalleryItem = (extension, locale) => ({
 let cachedGallery = null;
 
 const fetchLibrary = async () => {
-    const res = await fetch('https://extensions.turbowarp.org/generated-metadata/extensions-v0.json');
+    const res = await fetch(APP_DOMAIN+'/extensions/extensions.json');
     if (!res.ok) {
         throw new Error(`HTTP status ${res.status}`);
     }
@@ -53,8 +54,8 @@ const fetchLibrary = async () => {
         description: extension.description,
         descriptionTranslations: extension.descriptionTranslations || {},
         extensionId: extension.id,
-        extensionURL: `https://extensions.turbowarp.org/${extension.slug}.js`,
-        iconURL: `https://extensions.turbowarp.org/${extension.image || 'images/unknown.svg'}`,
+        extensionURL: APP_DOMAIN+ `/extensions/extensions/${extension.slug}.js`,
+        iconURL: APP_DOMAIN +`/extensions/${extension.image || 'images/unknown.svg'}`,
         tags: ['tw'],
         credits: [
             ...(extension.by || []),

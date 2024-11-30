@@ -15,6 +15,7 @@ const manifest = {
     {
       "url": "blockcount.js"
     }
-  ]
+  ],
+  "enabledByDefault": true
 };
 export default manifest;

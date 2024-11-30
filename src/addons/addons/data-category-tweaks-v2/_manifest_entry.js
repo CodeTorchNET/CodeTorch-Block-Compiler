@@ -27,7 +27,7 @@ const manifest = {
       "name": "Separate Sprite-only Variables",
       "id": "separateLocalVariables",
       "type": "boolean",
-      "default": false
+      "default": true
     },
     {
       "dynamic": true,
@@ -40,6 +40,6 @@ const manifest = {
   "tags": [
     "recommended"
   ],
-  "enabledByDefault": false
+  "enabledByDefault": true
 };
 export default manifest;

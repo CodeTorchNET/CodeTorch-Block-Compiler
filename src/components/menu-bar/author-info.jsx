@@ -5,6 +5,7 @@ import {FormattedMessage} from 'react-intl';
 import UserAvatar from './user-avatar.jsx';
 
 import styles from './author-info.css';
+const {APP_DOMAIN} = require('../../lib/brand');
 
 const ActualAuthorInfo = ({
     className,
@@ -26,7 +27,7 @@ const ActualAuthorInfo = ({
         />
         <div className={styles.titleAuthor}>
             <h1 className={styles.projectTitle}>
-                {projectTitle}
+                {decodeURIComponent(projectTitle)}
             </h1>
             <div>
                 <span className={styles.usernameLine}>
@@ -56,7 +57,7 @@ const AuthorInfo = ({projectId, ...props}) => (
     projectId ? (
         <a
             className={styles.link}
-            href={`https://scratch.mit.edu/projects/${projectId}`}
+            href={APP_DOMAIN+`/projects/${projectId}`}
             target="_blank"
             rel="noreferrer"
         >

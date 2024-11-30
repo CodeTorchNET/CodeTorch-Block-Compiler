@@ -60,8 +60,16 @@ const getLocalStorage = key => {
 };
 
 const readHashProjectId = () => {
-    const match = location.hash.match(/#(\d+)/);
-    return match === null ? null : match[1];
+    if(location.pathname == '/projects/editor'){
+        return '0'
+    }else{
+        try{
+            return location.pathname.split('/projects/')[1].split('/editor')[0].split('/fullscreen')[0].replaceAll('/','');
+        }catch(e){
+            const match = location.hash.match(/#(\d+)/);
+            return match === null ? null : match[1];
+        }
+    }
 };
 
 class Router {

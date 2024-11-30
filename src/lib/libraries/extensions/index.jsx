@@ -360,7 +360,7 @@ export default [
     {
         name: (
             <FormattedMessage
-                defaultMessage="{APP_NAME} Blocks"
+                defaultMessage="Advanced Blocks"
                 description="Name of the strange 'TurboWarp Blocks' extension"
                 id="tw.twExtension.name"
                 values={{
@@ -372,7 +372,7 @@ export default [
         iconURL: twIcon,
         description: (
             <FormattedMessage
-                defaultMessage="Weird new blocks."
+                defaultMessage="Weird new blocks. (Originally created for TurboWarp.)"
                 description="Description of the strange 'TurboWarp Blocks' extension"
                 id="tw.twExtension.description"
             />
@@ -407,17 +407,14 @@ export default [
 export const galleryLoading = {
     name: (
         <FormattedMessage
-            defaultMessage="{APP_NAME} Extension Gallery"
+            defaultMessage="Turbowarp Extension Gallery"
             description="Name of extensions.turbowarp.org in extension library"
             id="tw.extensionGallery.name"
-            values={{
-                APP_NAME
-            }}
         />
     ),
     href: 'https://extensions.turbowarp.org/',
     extensionId: 'gallery',
-    iconURL: galleryIcon,
+    iconURL: galleryIcon,  // Ensure galleryIcon is valid
     description: (
         <FormattedMessage
             // eslint-disable-next-line max-len
@@ -433,12 +430,9 @@ export const galleryLoading = {
 export const galleryMore = {
     name: (
         <FormattedMessage
-            defaultMessage="{APP_NAME} Extension Gallery"
+            defaultMessage="Turbowarp Extension Gallery"
             description="Name of extensions.turbowarp.org in extension library"
             id="tw.extensionGallery.name"
-            values={{
-                APP_NAME
-            }}
         />
     ),
     href: 'https://extensions.turbowarp.org/',
@@ -459,7 +453,7 @@ export const galleryMore = {
 export const galleryError = {
     name: (
         <FormattedMessage
-            defaultMessage="{APP_NAME} Extension Gallery"
+            defaultMessage="Turbowarp Extension Gallery"
             description="Name of extensions.turbowarp.org in extension library"
             id="tw.extensionGallery.name"
             values={{

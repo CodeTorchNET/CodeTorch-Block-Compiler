@@ -270,26 +270,6 @@ class LibraryComponent extends React.Component {
                                 onClear={this.handleFilterClear}
                             />
                         )}
-                        {this.props.filterable && this.props.tags && (
-                            <Divider className={classNames(styles.filterBarItem, styles.divider)} />
-                        )}
-                        {this.props.tags &&
-                            <div className={styles.tagWrapper}>
-                                {tagListPrefix.concat(this.props.tags).map((tagProps, id) => (
-                                    <TagButton
-                                        active={this.state.selectedTag === tagProps.tag.toLowerCase()}
-                                        className={classNames(
-                                            styles.filterBarItem,
-                                            styles.tagButton,
-                                            tagProps.className
-                                        )}
-                                        key={`tag-button-${id}`}
-                                        onClick={this.handleTagClick}
-                                        {...tagProps}
-                                    />
-                                ))}
-                            </div>
-                        }
                     </div>
                 )}
                 <div
@@ -337,14 +317,6 @@ class LibraryComponent extends React.Component {
                             />
                         )
                     ))}
-                    {filteredData && this.props.removedTrademarks && (
-                        <React.Fragment>
-                            {filteredData.length > 0 && (
-                                <Separator />
-                            )}
-                            <RemovedTrademarks />
-                        </React.Fragment>
-                    )}
                     {!filteredData && (
                         <div className={styles.spinnerWrapper}>
                             <Spinner

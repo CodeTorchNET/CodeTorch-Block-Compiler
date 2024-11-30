@@ -346,7 +346,7 @@ const CustomStageSize = ({
                     onSubmit={onStageWidthChange}
                     className={styles.customStageSizeInput}
                     type="number"
-                    min="0"
+                    min="280"
                     max="1024"
                     step="1"
                 />
@@ -356,7 +356,7 @@ const CustomStageSize = ({
                     onSubmit={onStageHeightChange}
                     className={styles.customStageSizeInput}
                     type="number"
-                    min="0"
+                    min="480"
                     max="1024"
                     step="1"
                 />

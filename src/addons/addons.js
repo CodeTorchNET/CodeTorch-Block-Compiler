@@ -77,7 +77,6 @@ const addons = [
     'hide-stage',
     'tw-straighten-comments',
     'tw-remove-backpack',
-    'tw-remove-feedback',
     'tw-disable-cloud-variables',
     'tw-disable-compiler',
     'editor-stepping'

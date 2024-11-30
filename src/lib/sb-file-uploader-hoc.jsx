@@ -82,7 +82,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                                 {
                                     description: 'Scratch Project',
                                     accept: {
-                                        'application/x.scratch.sb3': ['.sb', '.sb2', '.sb3']
+                                        'application/x.scratch.sb3': ['.sb', '.sb2', '.sb3','.torch']
                                     }
                                 }
                             ]
@@ -106,7 +106,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             } else {
                 // create <input> element and add it to DOM
                 this.inputElement = document.createElement('input');
-                this.inputElement.accept = '.sb,.sb2,.sb3';
+                this.inputElement.accept = '.sb,.sb2,.sb3,.torch';
                 this.inputElement.style = 'display: none;';
                 this.inputElement.type = 'file';
                 this.inputElement.onchange = this.handleChange; // connects to step 3
@@ -143,7 +143,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                     // Don't update file handle until after confirming replace.
                     const handle = thisFileInput.handle;
                     if (handle) {
-                        if (this.fileToUpload.name.endsWith('.sb3')) {
+                        if (this.fileToUpload.name.endsWith('.sb3') || this.fileToUpload.name.endsWith('.torch')) {
                             this.props.onSetFileHandle(handle);
                         } else {
                             this.props.onSetFileHandle(null);

@@ -4,21 +4,13 @@ import {FormattedMessage} from 'react-intl';
 import cloudIcon from './clouddata.svg';
 import CloudServerButton from './cloud-server-button.jsx';
 import styles from './cloud-variable-badge.css';
-import {APP_NAME} from '../../lib/brand';
+import {APP_NAME,DEFAULT_CLOUD_HOST} from '../../lib/brand';
 
 const hosts = [
     {
-        name: 'US East',
-        cloudHost: 'wss://clouddata.turbowarp.org'
+        name: 'Default Cloud Server',
+        cloudHost: DEFAULT_CLOUD_HOST
     },
-    {
-        name: 'EU',
-        cloudHost: 'wss://clouddata-eu.turbowarp.org',
-        provider: {
-            name: '9gr',
-            href: 'https://scratch.mit.edu/users/9gr/'
-        }
-    }
 ];
 
 const CloudVariableBadge = props => {
@@ -84,8 +76,8 @@ const CloudVariableBadge = props => {
                 <FormattedMessage
                     defaultMessage="Using a custom cloud variable server: {server}"
                     // eslint-disable-next-line max-len
-                    description="Appears when using a non-TurboWarp provided cloud variable server. {server} is replaced with the server's URL, eg. wss://clouddata.turbowarp.org"
-                    id="tw.customCloudServer"
+                    description="Appears when using a non-TurboWarp provided cloud variable server. {server} is replaced with the server's URL, eg. {DEFAULT_CLOUD_HOST}"
+                    id="tw.customCloudServer.CT"
                     values={{
                         server: props.cloudHost
                     }}

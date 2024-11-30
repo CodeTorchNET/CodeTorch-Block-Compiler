@@ -134,49 +134,6 @@ const PromptComponent = props => (
                             </label>
                         </Box> : null}
                 </div> : null}
-
-            {props.cloudSelected && !props.isAddingCloudVariableScratchSafe && (
-                <Box className={styles.infoMessage}>
-                    <FormattedMessage
-                        // eslint-disable-next-line max-len
-                        defaultMessage="If you make this cloud variable, the project will exceed Scratch's limit of {number} variables, and some variables will not function if you upload the project to Scratch."
-                        // eslint-disable-next-line max-len
-                        description="Warning that appears when adding a new cloud variable will make it exceeded Scratch's cloud variable limit. number will be 10."
-                        id="tw.scratchUnsafeCloud"
-                        values={{
-                            number: SCRATCH_MAX_CLOUD_VARIABLES
-                        }}
-                    />
-                </Box>
-            )}
-
-            {props.cloudSelected && props.canAddCloudVariable && (
-                <Box className={styles.infoMessage}>
-                    {isScratchDesktop() ? (
-                        <FormattedMessage
-                            // eslint-disable-next-line max-len
-                            defaultMessage="In the desktop app, cloud variables sync between all desktop app windows on this computer. Upload the project to Scratch or use a tool like the {packager} for them to sync globally."
-                            description="Appears when creating a cloud variable in the desktop app"
-                            values={{
-                                packager: <Packager />
-                            }}
-                            id="tw.desktopCloud"
-                        />
-                    ) : (
-                        <FormattedMessage
-                            /* eslint-disable-next-line max-len */
-                            defaultMessage="Although you can create cloud variables, they won't work unless this project is uploaded to Scratch or converted using a tool like the {packager}."
-                            // eslint-disable-next-line max-len
-                            description="Reminder that cloud variables may not work when the editor is open. {packager} is replaced with a link to open the TurboWarp Packager, always English."
-                            values={{
-                                packager: <Packager />
-                            }}
-                            id="tw.cantUseCloud"
-                        />
-                    )}
-                </Box>
-            )}
-
             <Box className={styles.buttonRow}>
                 <button
                     className={styles.cancelButton}

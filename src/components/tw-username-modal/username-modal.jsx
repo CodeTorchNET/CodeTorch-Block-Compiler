@@ -24,27 +24,13 @@ const UsernameModalComponent = props => (
         id="usernameModal"
     >
         <Box className={styles.body}>
-            {props.mustChangeUsername && <React.Fragment>
+            {1 == 1 && <React.Fragment>
                 <p className={classNames(styles.helpText, styles.mustChange)}>
                     <FormattedMessage
                         // eslint-disable-next-line max-len
-                        defaultMessage="Sorry, the cloud variable server thinks your username may be unsafe. Please change it to something else or {resetIt}."
+                        defaultMessage="Sorry, the cloud variable server thinks your username may be unsafe. Please contact @CodeTorch as this should not happen."
                         description="Text in change username modal"
-                        id="tw.usernameModal.mustChange"
-                        values={{
-                            resetIt: (
-                                <a
-                                    className={styles.resetLink}
-                                    onClick={props.onReset}
-                                >
-                                    <FormattedMessage
-                                        defaultMessage="reset it (recommended)"
-                                        description="link to reset username"
-                                        id="tw.usernameModal.mustChange.resetIt"
-                                    />
-                                </a>
-                            )
-                        }}
+                        id="tw.usernameModal.mustChange.CT"
                     />
                 </p>
             </React.Fragment>}
