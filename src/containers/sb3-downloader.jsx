@@ -7,6 +7,7 @@ import downloadBlob from '../lib/download-blob';
 import {setProjectUnchanged} from '../reducers/project-changed';
 import {showStandardAlert, showAlertWithTimeout} from '../reducers/alerts';
 import {setFileHandle} from '../reducers/tw';
+import FileSystemAPI from '../lib/tw-filesystem-api';
 import {getIsShowingProject} from '../reducers/project-state';
 import log from '../lib/log';
 
@@ -96,18 +97,7 @@ class SB3Downloader extends React.Component {
             return;
         }
         try {
-            const handle = await this.props.showSaveFilePicker({
-                suggestedName: this.props.projectFilename,
-                types: [
-                    {
-                        description: 'CodeTorch Project',
-                        accept: {
-                            'application/x.scratch.sb3': '.torch'
-                        }
-                    }
-                ],
-                excludeAcceptAllOption: true
-            });
+            const handle = await FileSystemAPI.showSaveFilePicker(this.props.projectFilename);
             await this.saveToHandle(handle);
             this.props.onSetFileHandle(handle);
             const title = getProjectTitleFromFilename(handle.name);
@@ -251,7 +241,7 @@ class SB3Downloader extends React.Component {
         return children(
             this.props.className,
             this.downloadProject,
-            this.props.showSaveFilePicker ? {
+            FileSystemAPI.available() ? {
                 available: true,
                 name: this.props.fileHandle ? this.props.fileHandle.name : null,
                 saveAsNew: this.saveAsNew,
@@ -290,12 +280,10 @@ SB3Downloader.propTypes = {
     onShowSavingAlert: PropTypes.func,
     onShowSaveSuccessAlert: PropTypes.func,
     onShowSaveErrorAlert: PropTypes.func,
-    onProjectUnchanged: PropTypes.func,
-    showSaveFilePicker: PropTypes.func
+    onProjectUnchanged: PropTypes.func
 };
 SB3Downloader.defaultProps = {
-    className: '',
-    showSaveFilePicker: typeof showSaveFilePicker === 'function' ? window.showSaveFilePicker.bind(window) : null
+    className: ''
 };
 
 const mapStateToProps = state => ({
