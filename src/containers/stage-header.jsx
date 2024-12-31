@@ -98,8 +98,56 @@ const mapDispatchToProps = dispatch => ({
     onSetStageLarge: () => dispatch(setStageSize(STAGE_SIZE_MODES.large)),
     onSetStageSmall: () => dispatch(setStageSize(STAGE_SIZE_MODES.small)),
     onSetStageFull: () => dispatch(setStageSize(STAGE_SIZE_MODES.full)),
-    onSetStageFullScreen: () => dispatch(setFullScreen(true)),
-    onSetStageUnFullScreen: () => dispatch(setFullScreen(false)),
+    onSetStageFullScreen: () => {
+        if (window.location.pathname === "/") {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().then(() => {
+                    dispatch(setFullScreen(true));
+                }).catch(err => {
+                    console.error('Failed to enter fullscreen:', err);
+                });
+            } else if (document.documentElement.webkitRequestFullscreen) { // Safari
+                document.documentElement.webkitRequestFullscreen();
+                dispatch(setFullScreen(true));
+            } else if (document.documentElement.mozRequestFullScreen) { // Firefox
+                document.documentElement.mozRequestFullScreen();
+                dispatch(setFullScreen(true));
+            } else if (document.documentElement.msRequestFullscreen) { // IE/Edge
+                document.documentElement.msRequestFullscreen();
+                dispatch(setFullScreen(true));
+            } else {
+                console.warn('Fullscreen API is not supported in this browser.');
+            }
+        } else {
+            dispatch(setFullScreen(true));
+        }
+    },
+    onSetStageUnFullScreen: () => {
+        // Check if the document is currently in fullscreen
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().then(() => {
+                    dispatch(setFullScreen(false));
+                }).catch(err => {
+                    console.error('Failed to exit fullscreen:', err);
+                });
+            } else if (document.webkitExitFullscreen) { // Safari
+                document.webkitExitFullscreen();
+                dispatch(setFullScreen(false));
+            } else if (document.mozCancelFullScreen) { // Firefox
+                document.mozCancelFullScreen();
+                dispatch(setFullScreen(false));
+            } else if (document.msExitFullscreen) { // IE/Edge
+                document.msExitFullscreen();
+                dispatch(setFullScreen(false));
+            } else {
+                console.warn('Fullscreen API is not supported in this browser.');
+            }
+        } else {
+            // Not in fullscreen, just dispatch the action
+            dispatch(setFullScreen(false));
+        }
+    },
     onOpenSettings: () => dispatch(openSettingsModal())
 });
 
