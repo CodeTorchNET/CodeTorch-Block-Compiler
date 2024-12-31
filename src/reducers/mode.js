@@ -32,10 +32,8 @@ const setFullScreen = function (isFullScreen) {
     };
 };
 const setPlayer = function (isPlayerOnly) {
-    return {
-        type: SET_PLAYER,
-        isPlayerOnly: isPlayerOnly
-    };
+    //reload page (ASSUMES HASH MODE)
+    window.location.href = window.location.origin + "/" + window.location.hash;
 };
 
 export {
