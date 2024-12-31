@@ -10,6 +10,10 @@ const STORAGE_KEY = 'tw:theme';
  * @returns {Theme} detected theme
  */
 const systemPreferencesTheme = () => {
+    // @OVERRIDE if is on home page, return light theme
+    if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
+        return Theme.light;
+    }
     if (PREFERS_HIGH_CONTRAST_QUERY && PREFERS_HIGH_CONTRAST_QUERY.matches) {
         return Theme.highContrast;
     }

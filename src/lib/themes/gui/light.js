@@ -6,12 +6,12 @@ const guiColors = {
     'ui-tertiary': 'hsla(215, 50%, 90%, 1)', /* #D9E3F2 */
 
     'ui-modal-overlay': 'var(--motion-primary-transparent)',
-    'ui-modal-background': 'hsla(0, 100%, 100%, 1)', /* #FFFFFF */
+    'ui-modal-background': 'hsl(0, 0.00%, 94.10%)', /*#F0F0F0 */
     'ui-modal-foreground': 'hsla(225, 15%, 40%, 1)', /* #575E75 */
     'ui-modal-header-background': 'var(--looks-secondary)',
     'ui-modal-header-foreground': 'hsla(0, 100%, 100%, 1)', /* #FFFFFF */
 
-    'ui-white': 'hsla(0, 100%, 100%, 1)', /* #FFFFFF */
+    'ui-white': 'hsl(0, 0.00%, 94.10%)', /* #f0f0f0 */
     'ui-white-dim': 'hsla(0, 100%, 100%, 0.75)', /* 25% transparent version of ui-white */
     'ui-white-transparent': 'hsla(0, 100%, 100%, 0.25)', /* 25% transparent version of ui-white */
     'ui-transparent': 'hsla(0, 100%, 100%, 0)', /* 25% transparent version of ui-white */
@@ -57,27 +57,27 @@ const guiColors = {
 
     'menu-bar-background': 'var(--looks-secondary)',
     'menu-bar-background-image': 'none',
-    'menu-bar-foreground': '#ffffff',
+    'menu-bar-foreground': '#f0f0f0',
 
-    'assets-background': '#ffffff',
+    'assets-background': '#f0f0f0',
 
-    'input-background': '#ffffff',
+    'input-background': '#f0f0f0',
 
-    'popover-background': '#ffffff',
+    'popover-background': '#f0f0f0',
 
     'shadow': 'hsla(0, 0%, 0%, 0.15)',
 
     'badge-background': '#dbebff',
     'badge-border': '#b9d6ff',
 
-    'fullscreen-background': '#ffffff',
+    'fullscreen-background': '#f0f0f0',
     'fullscreen-accent': '#e8edf1',
 
-    'page-background': '#ffffff',
+    'page-background': '#f0f0f0',
     'page-foreground': '#000000',
 
     'project-title-inactive': 'var(--ui-white-transparent)',
-    'project-title-hover': '#ffffff7f',
+    'project-title-hover': '#f0f0f07f',
 
     'link-color': '#2255dd',
 
