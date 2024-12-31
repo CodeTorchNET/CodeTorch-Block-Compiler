@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import {intlShape, injectIntl} from 'react-intl';
 import bindAll from 'lodash.bindall';
 import {connect} from 'react-redux';
+const {API_HOST} = require('./brand');
 
 import {setProjectUnchanged} from '../reducers/project-changed';
 import {
@@ -198,8 +199,8 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         vm: PropTypes.instanceOf(VM)
     };
     ProjectFetcherComponent.defaultProps = {
-        assetHost: 'https://assets.scratch.mit.edu',
-        projectHost: 'https://projects.scratch.mit.edu'
+        assetHost: API_HOST + '/API/assets',
+        projectHost: API_HOST + '/API/projects',
     };
 
     const mapStateToProps = state => ({

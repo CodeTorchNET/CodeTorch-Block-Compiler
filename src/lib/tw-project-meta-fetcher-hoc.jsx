@@ -3,13 +3,16 @@ import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
 import log from './log';
 
+
+const {API_HOST} = require('./brand');
+
 import {setProjectTitle} from '../reducers/project-title';
 import {setAuthor, setDescription} from '../reducers/tw';
 
 export const fetchProjectMeta = async projectId => {
     const urls = [
-        `https://trampoline.turbowarp.org/api/projects/${projectId}`,
-        `https://trampoline.turbowarp.xyz/api/projects/${projectId}`
+        API_HOST+`/API/projectsMETA?${projectId}`,
+        API_HOST+`/API/projectsMETA?${projectId}`
     ];
     let firstError;
     for (const url of urls) {
