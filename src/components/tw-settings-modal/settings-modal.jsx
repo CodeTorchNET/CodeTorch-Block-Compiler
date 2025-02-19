@@ -305,7 +305,7 @@ const DisableCompiler = props => (
         {...props}
         label={
             <FormattedMessage
-                defaultMessage="Disable Compiler"
+                defaultMessage="Use Scratch Compiler"
                 description="Disable Compiler setting"
                 id="tw.settingsModal.disableCompiler"
             />
@@ -313,7 +313,8 @@ const DisableCompiler = props => (
         help={
             <FormattedMessage
                 // eslint-disable-next-line max-len
-                defaultMessage="Disables the {APP_NAME} compiler. You may want to enable this while editing projects so that scripts update immediately. Otherwise, you should never enable this."
+                //defaultMessage="Disables the {APP_NAME} compiler. You may want to enable this while editing projects so that scripts update immediately. Otherwise, you should never enable this. (as it will run projects on Scratch's compiler, instead of {APP_NAME}'s making projects run ~50x slower)"
+                defaultMessage="Uses the Scratch compiler instead of {APP_NAME}'s compiler. The only time you should enable this is when you are editing projects and want scripts to update without having to restart the project. Otherwise, you should never enable this. (As Scratch's compiler runs projects 50x slower)"
                 description="Disable Compiler help"
                 id="tw.settingsModal.disableCompilerHelp"
                 values={{

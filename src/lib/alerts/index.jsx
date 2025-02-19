@@ -276,6 +276,19 @@ const alerts = [
         ),
         iconSpinner: true,
         level: AlertLevels.SUCCESS
+    },{
+        alertId: 'LiveReloadDisabledNotice',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                defaultMessage="Live code editing is disabled (changes take effect only after rerunning the project). To enable it, go to Edit → Advanced Settings → Disable Compiler."
+                description="Message indicating that Live Reload is disabled in this project."
+                id="gui.alerts.LiveReloadDisabledNotice"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
     }
 ];
 

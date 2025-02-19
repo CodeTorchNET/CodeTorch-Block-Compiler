@@ -4,6 +4,9 @@ import React from 'react';
 import VM from 'scratch-vm';
 import {connect} from 'react-redux';
 
+import {showStandardAlert, showAlertWithTimeout} from '../reducers/alerts';
+
+
 import ControlsComponent from '../components/controls/controls.jsx';
 
 class Controls extends React.Component {
@@ -13,8 +16,15 @@ class Controls extends React.Component {
             'handleGreenFlagClick',
             'handleStopAllClick'
         ]);
+        this.state = {
+            showedPopup: false
+        };
     }
     handleGreenFlagClick (e) {
+        if(!this.props.disableCompiler && !this.state.showedPopup) {
+            this.setState({showedPopup: true});
+            this.props.onShowSaveErrorAlert();
+        }
         e.preventDefault();
         // tw: implement alt+click and right click to toggle FPS
         if (e.shiftKey || e.altKey || e.type === 'contextmenu') {
@@ -74,9 +84,12 @@ const mapStateToProps = state => ({
     projectRunning: state.scratchGui.vmStatus.running,
     framerate: state.scratchGui.tw.framerate,
     interpolation: state.scratchGui.tw.interpolation,
-    turbo: state.scratchGui.vmStatus.turbo
+    turbo: state.scratchGui.vmStatus.turbo,
+    disableCompiler: !state.scratchGui.tw.compilerOptions.enabled
 });
 // no-op function to prevent dispatch prop being passed to component
-const mapDispatchToProps = () => ({});
+const mapDispatchToProps = dispatch => ({
+    onShowSaveErrorAlert: () => dispatch(showStandardAlert('LiveReloadDisabledNotice')),
+});
 
 export default connect(mapStateToProps, mapDispatchToProps)(Controls);
