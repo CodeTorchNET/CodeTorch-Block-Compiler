@@ -31,15 +31,16 @@ export default function (projectId, vmState, params) {
     if (Object.prototype.hasOwnProperty.call(params, 'title')) queryParams.title = params.title;
     let qs = queryString.stringify(queryParams);
     if (qs) qs = `?${qs}`;
-    if (creatingProject) {
+    const projectToken = vm.runtime.storage.projectToken ? "?token=" + vm.runtime.storage.projectToken : "";
+    if (creatingProject) { //POST request to create new project
         Object.assign(opts, {
             method: 'post',
-            url: `${storage.projectHost}/${qs}`
+            url: `${storage.projectHost}/${qs}${projectToken}`
         });
-    } else {
+    } else { //PUT request to update existing project
         Object.assign(opts, {
             method: 'put',
-            url: `${storage.projectHost}/${projectId}${qs}`
+            url: `${storage.projectHost}/${projectId}${qs}${projectToken}`
         });
     }
     return new Promise((resolve, reject) => {

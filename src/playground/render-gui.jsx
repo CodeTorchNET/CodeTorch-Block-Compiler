@@ -9,7 +9,7 @@ const RenderGUI = props => (
         cloudHost={cloudHost}
         canUseCloud
         hasCloudPermission
-        canSave={false}
+        canSave={true}
         basePath={process.env.ROOT}
         canEditTitle
         enableCommunity
