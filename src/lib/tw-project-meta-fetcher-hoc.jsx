@@ -11,8 +11,8 @@ import {setAuthor, setDescription} from '../reducers/tw';
 
 export const fetchProjectMeta = async projectId => {
     const urls = [
-        API_HOST+`/API/projectsMETA?${projectId}`,
-        API_HOST+`/API/projectsMETA?${projectId}`
+        API_HOST+`/projectsMETA?${projectId}`,
+        API_HOST+`/projectsMETA?${projectId}`
     ];
     let firstError;
     for (const url of urls) {
