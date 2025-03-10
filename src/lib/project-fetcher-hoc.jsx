@@ -35,18 +35,29 @@ const fetchProjectToken = async projectId => {
     // Parse ?token=abcdef
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.has('token')) {
-        return searchParams.get('token');
+        const token = searchParams.get('token');
+        // for security reasons, remove token from URL without reloading and without history
+        searchParams.delete('token');
+        const newUrl = `${location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}${location.hash}`;
+        window.history.replaceState({}, document.title, newUrl);
+        return token;
     }
     // Parse #1?token=abcdef
     const hashParams = new URLSearchParams(location.hash.split('?')[1]);
-    if (hashParams.has('token')) {
-        return hashParams.get('token');
+    if (hashParams && hashParams.has('token')) {
+        const token = hashParams.get('token');
+        // for security reasons, remove token from URL without reloading and without history
+        hashParams.delete('token');
+        const newHash = hashParams.toString() ? `?${hashParams.toString()}` : '';
+        const newUrl = `${location.pathname}${location.search}${location.hash.split('?')[0]}${newHash}`;
+        window.history.replaceState({}, document.title, newUrl);
+        return token;
     }
     try {
         const metadata = await fetchProjectMeta(projectId);
         return metadata.project_token;
     } catch (e) {
-        log.error(e);
+        console.error(e); // Use console.error instead of log.error for browser compatibility.
         throw new Error('Cannot access project token. Project is probably unshared. See https://docs.turbowarp.org/unshared-projects');
     }
 };
