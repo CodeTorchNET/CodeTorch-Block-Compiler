@@ -34,7 +34,10 @@ export default function (projectId, vmState, params) {
         queryParams.token = vm.runtime.storage.projectToken;
     }else if (creatingProject) {//vm.runtime.storage.projectToken is not set when creating a new project
         const searchParams = new URLSearchParams(location.search);
-        if (searchParams.has('token')) queryParams.token = searchParams.get('token');
+        if (searchParams.has('token')){
+            vm.runtime.storage.projectToken = searchParams.get('token');
+            queryParams.token = searchParams.get('token');
+        }
         if(searchParams.has('username')) queryParams.username = searchParams.get('username');
     }
     
