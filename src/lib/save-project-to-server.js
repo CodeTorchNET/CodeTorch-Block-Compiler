@@ -29,18 +29,27 @@ export default function (projectId, vmState, params) {
     if (Object.prototype.hasOwnProperty.call(params, 'isCopy')) queryParams.is_copy = params.isCopy;
     if (Object.prototype.hasOwnProperty.call(params, 'isRemix')) queryParams.is_remix = params.isRemix;
     if (Object.prototype.hasOwnProperty.call(params, 'title')) queryParams.title = params.title;
+
+    if (vm.runtime.storage.projectToken) {
+        queryParams.token = vm.runtime.storage.projectToken;
+    }else if (creatingProject) {//vm.runtime.storage.projectToken is not set when creating a new project
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.has('token')) queryParams.token = searchParams.get('token');
+        if(searchParams.has('username')) queryParams.username = searchParams.get('username');
+    }
+    
+
     let qs = queryString.stringify(queryParams);
     if (qs) qs = `?${qs}`;
-    const projectToken = vm.runtime.storage.projectToken ? "?token=" + vm.runtime.storage.projectToken : "";
     if (creatingProject) { //POST request to create new project
         Object.assign(opts, {
             method: 'post',
-            url: `${storage.projectHost}/${qs}${projectToken}`
+            url: `${storage.projectHost}/${qs}`
         });
     } else { //PUT request to update existing project
         Object.assign(opts, {
             method: 'put',
-            url: `${storage.projectHost}/${projectId}${qs}${projectToken}`
+            url: `${storage.projectHost}/${projectId}${qs}`
         });
     }
     return new Promise((resolve, reject) => {

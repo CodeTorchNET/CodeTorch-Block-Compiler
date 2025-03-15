@@ -374,6 +374,13 @@ const createProject = () => ({
 });
 
 const doneCreatingProject = (id, loadingState) => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.has('new_project')) searchParams.delete('new_project');
+    if(searchParams.has('username')) searchParams.delete('username');
+    if(searchParams.has('token')) searchParams.delete('token');
+    const newUrl = `${location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}${location.hash}`;
+    window.history.replaceState({}, document.title, newUrl);
+    
     switch (loadingState) {
     case LoadingState.CREATING_NEW:
         return {
