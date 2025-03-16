@@ -374,6 +374,8 @@ const createProject = () => ({
 });
 
 const doneCreatingProject = (id, loadingState) => {
+    window.parent.postMessage({ type: "block-compiler-action", action: "doneCreatingProject", projectID: id}, "*");
+
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.has('new_project')) searchParams.delete('new_project');
     if(searchParams.has('username')) searchParams.delete('username');

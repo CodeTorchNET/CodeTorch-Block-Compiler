@@ -6,6 +6,8 @@ const cloudHost = searchParams.get('cloud_host') || 'wss://clouddata.turbowarp.o
 
 const creatingNewProject = new URLSearchParams(location.search).get('new_project') === '1';
 
+const restrictedMode = new URLSearchParams(location.search).get('onlyEditor') === '1';
+
 const RenderGUI = props => (
     <GUI
         cloudHost={cloudHost}
@@ -13,9 +15,12 @@ const RenderGUI = props => (
         hasCloudPermission
         canSave={true}
         canCreateNew={creatingNewProject}
+        //isShared,canRemix,canEditTitle
+        isShared={!restrictedMode}
+        canShare={false} //just do it from project page
         basePath={process.env.ROOT}
-        canEditTitle
-        enableCommunity
+        canEditTitle={false} //just do it from project page
+        enableCommunity={!restrictedMode}
         {...props}
     />
 );

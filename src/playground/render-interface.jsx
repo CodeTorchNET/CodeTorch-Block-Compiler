@@ -45,13 +45,14 @@ import {APP_NAME} from '../lib/brand.js';
 
 import styles from './interface.css';
 
-const isInvalidEmbed = window.parent !== window;
+const isInvalidEmbed = window.parent == window;
 
 const handleClickAddonSettings = addonId => {
     // addonId might be a string of the addon to focus on, undefined, or an event (treat like undefined)
-    const path = process.env.ROUTING_STYLE === 'wildcard' ? 'addons' : 'addons.html';
+    /*const path = process.env.ROUTING_STYLE === 'wildcard' ? 'addons' : 'addons.html';
     const url = `${process.env.ROOT}${path}${typeof addonId === 'string' ? `#${addonId}` : ''}`;
-    window.open(url);
+    window.open(url);*/
+    window.parent.postMessage({ type: "block-compiler-action", action: "addonsPage"}, "*");
 };
 
 const messages = defineMessages({
@@ -80,117 +81,6 @@ if (AddonChannels.changeChannel) {
 }
 
 runAddons();
-
-const Footer = () => (
-    <footer className={styles.footer}>
-        <div className={styles.footerContent}>
-            <div className={styles.footerText}>
-                <FormattedMessage
-                    // eslint-disable-next-line max-len
-                    defaultMessage="{APP_NAME} is not affiliated with Scratch, the Scratch Team, or the Scratch Foundation."
-                    description="Disclaimer that TurboWarp is not connected to Scratch"
-                    id="tw.footer.disclaimer"
-                    values={{
-                        APP_NAME
-                    }}
-                />
-            </div>
-
-            <div className={styles.footerText}>
-                <FormattedMessage
-                    // eslint-disable-next-line max-len
-                    defaultMessage="Scratch is a project of the Scratch Foundation. It is available for free at {scratchDotOrg}."
-                    description="A disclaimer that Scratch requires when referring to Scratch. {scratchDotOrg} is a link with text 'https://scratch.org/'"
-                    id="tw.footer.scratchDisclaimer"
-                    values={{
-                        scratchDotOrg: (
-                            <a
-                                href="https://scratch.org/"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                {'https://scratch.org/'}
-                            </a>
-                        )
-                    }}
-                />
-            </div>
-
-            <div className={styles.footerColumns}>
-                <div className={styles.footerSection}>
-                    <a href="credits.html">
-                        <FormattedMessage
-                            defaultMessage="Credits"
-                            description="Credits link in footer"
-                            id="tw.footer.credits"
-                        />
-                    </a>
-                    <a href="https://github.com/sponsors/GarboMuffin">
-                        <FormattedMessage
-                            defaultMessage="Donate"
-                            description="Donation link in footer"
-                            id="tw.footer.donate"
-                        />
-                    </a>
-                </div>
-                <div className={styles.footerSection}>
-                    <a href="https://desktop.turbowarp.org/">
-                        {/* Do not translate */}
-                        {'TurboWarp Desktop'}
-                    </a>
-                    <a href="https://packager.turbowarp.org/">
-                        {/* Do not translate */}
-                        {'TurboWarp Packager'}
-                    </a>
-                    <a href="https://docs.turbowarp.org/embedding">
-                        <FormattedMessage
-                            defaultMessage="Embedding"
-                            description="Link in footer to embedding documentation for embedding link"
-                            id="tw.footer.embed"
-                        />
-                    </a>
-                    <a href="https://docs.turbowarp.org/url-parameters">
-                        <FormattedMessage
-                            defaultMessage="URL Parameters"
-                            description="Link in footer to URL parameters documentation"
-                            id="tw.footer.parameters"
-                        />
-                    </a>
-                    <a href="https://docs.turbowarp.org/">
-                        <FormattedMessage
-                            defaultMessage="Documentation"
-                            description="Link in footer to additional documentation"
-                            id="tw.footer.documentation"
-                        />
-                    </a>
-                </div>
-                <div className={styles.footerSection}>
-                    <a href="https://scratch.mit.edu/users/GarboMuffin/#comments">
-                        <FormattedMessage
-                            defaultMessage="Feedback & Bugs"
-                            description="Link to feedback/bugs page"
-                            id="tw.feedback"
-                        />
-                    </a>
-                    <a href="https://github.com/TurboWarp/">
-                        <FormattedMessage
-                            defaultMessage="Source Code"
-                            description="Link to source code"
-                            id="tw.code"
-                        />
-                    </a>
-                    <a href="privacy.html">
-                        <FormattedMessage
-                            defaultMessage="Privacy Policy"
-                            description="Link to privacy policy"
-                            id="tw.privacy"
-                        />
-                    </a>
-                </div>
-            </div>
-        </div>
-    </footer>
-);
 
 class Interface extends React.Component {
     constructor (props) {
@@ -237,17 +127,6 @@ class Interface extends React.Component {
                 })}
                 dir={isRtl ? 'rtl' : 'ltr'}
             >
-                {isHomepage ? (
-                    <div className={styles.menu}>
-                        <WrappedMenuBar
-                            canChangeLanguage
-                            canManageFiles
-                            canChangeTheme
-                            enableSeeInside
-                            onClickAddonSettings={handleClickAddonSettings}
-                        />
-                    </div>
-                ) : null}
                 <div
                     className={styles.center}
                     style={isPlayerOnly ? ({
@@ -262,96 +141,7 @@ class Interface extends React.Component {
                         backpackHost="_local_"
                         {...props}
                     />
-                    {isHomepage ? (
-                        <React.Fragment>
-                            {isBrowserSupported() ? null : (
-                                <BrowserModal isRtl={isRtl} />
-                            )}
-                            <div className={styles.section}>
-                                <ProjectInput />
-                            </div>
-                            {(
-                                // eslint-disable-next-line max-len
-                                description.instructions === 'unshared' || description.credits === 'unshared'
-                            ) && (
-                                <div className={classNames(styles.infobox, styles.unsharedUpdate)}>
-                                    <p>
-                                        <FormattedMessage
-                                            defaultMessage="Unshared projects are no longer visible."
-                                            description="Appears on unshared projects"
-                                            id="tw.unshared2.1"
-                                        />
-                                    </p>
-                                    <p>
-                                        <FormattedMessage
-                                            defaultMessage="For more information, visit: {link}"
-                                            description="Appears on unshared projects"
-                                            id="tw.unshared.2"
-                                            values={{
-                                                link: (
-                                                    <a
-                                                        href="https://docs.turbowarp.org/unshared-projects"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        {'https://docs.turbowarp.org/unshared-projects'}
-                                                    </a>
-                                                )
-                                            }}
-                                        />
-                                    </p>
-                                    <p>
-                                        <FormattedMessage
-                                            // eslint-disable-next-line max-len
-                                            defaultMessage="If the project was shared recently, this message may appear incorrectly for a few minutes."
-                                            description="Appears on unshared projects"
-                                            id="tw.unshared.cache"
-                                        />
-                                    </p>
-                                    <p>
-                                        <FormattedMessage
-                                            // eslint-disable-next-line max-len
-                                            defaultMessage="If this project is actually shared, please report a bug."
-                                            description="Appears on unshared projects"
-                                            id="tw.unshared.bug"
-                                        />
-                                    </p>
-                                </div>
-                            )}
-                            {hasCloudVariables && projectId !== '0' && (
-                                <div className={styles.section}>
-                                    <CloudVariableBadge />
-                                </div>
-                            )}
-                            {description.instructions || description.credits ? (
-                                <div className={styles.section}>
-                                    <Description
-                                        instructions={description.instructions}
-                                        credits={description.credits}
-                                        projectId={projectId}
-                                    />
-                                </div>
-                            ) : null}
-                            <div className={styles.section}>
-                                <p>
-                                    <FormattedMessage
-                                        // eslint-disable-next-line max-len
-                                        defaultMessage="{APP_NAME} is a Scratch mod that compiles projects to JavaScript to make them run really fast. Try it out by inputting a project ID or URL above or choosing a featured project below."
-                                        description="Description of TurboWarp on the homepage"
-                                        id="tw.home.description"
-                                        values={{
-                                            APP_NAME
-                                        }}
-                                    />
-                                </p>
-                            </div>
-                            <div className={styles.section}>
-                                <FeaturedProjects studio="27205657" />
-                            </div>
-                        </React.Fragment>
-                    ) : null}
                 </div>
-                {isHomepage && <Footer />}
             </div>
         );
     }

@@ -21,10 +21,6 @@ const ActualAuthorInfo = ({
             styles.authorInfo
         )}
     >
-        <UserAvatar
-            className={styles.avatar}
-            imageUrl={imageUrl}
-        />
         <div className={styles.titleAuthor}>
             <h1 className={styles.projectTitle}>
                 {decodeURIComponent(projectTitle)}

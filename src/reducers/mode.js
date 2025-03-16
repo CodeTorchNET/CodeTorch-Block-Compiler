@@ -33,7 +33,9 @@ const setFullScreen = function (isFullScreen) {
 };
 const setPlayer = function (isPlayerOnly) {
     //reload page (ASSUMES HASH MODE)
-    window.location.href = window.location.origin + "/" + window.location.hash;
+    //window.location.href = window.location.origin + "/" + window.location.hash;
+    window.parent.postMessage({ type: "block-compiler-action", action: "communityPage", projectID: window.location.hash.replace("#","")}, "*");
+    return {};
 };
 
 export {
