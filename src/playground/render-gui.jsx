@@ -13,12 +13,10 @@ const RenderGUI = props => (
         cloudHost={cloudHost}
         canUseCloud
         hasCloudPermission
-        canSave={true}
         canCreateNew={creatingNewProject}
-        //isShared,canRemix,canEditTitle
         isShared={!restrictedMode}
         canShare={false} //just do it from project page
-        basePath={process.env.ROOT}
+        basePath={process.env.ROOT} 
         canEditTitle={false} //just do it from project page
         enableCommunity={!restrictedMode}
         {...props}

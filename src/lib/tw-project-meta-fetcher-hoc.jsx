@@ -54,6 +54,13 @@ const setIndexable = indexable => {
 
 const TWProjectMetaFetcherHOC = function (WrappedComponent) {
     class ProjectMetaFetcherComponent extends React.Component {
+        constructor(props) {
+            super(props);
+            this.state = {
+                canSave: false,
+                canRemix: false
+            };
+        }
         componentDidUpdate (prevProps) {
             // project title resetting is handled in titled-hoc.jsx
             if (this.props.reduxProjectId !== prevProps.reduxProjectId) {
@@ -86,6 +93,9 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         if (instructions || credits) {
                             this.props.onSetDescription(instructions, credits);
                         }
+
+                        this.setState({ canSave: data.canSave == "true" });
+                        this.setState({ canRemix: data.canRemix == "true" });
                         setIndexable(true);
                     })
                         .catch(err => {
@@ -112,6 +122,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             return (
                 <WrappedComponent
                     {...props}
+                    canSave={this.state.canSave}
+                    canRemix={this.state.canRemix}
                 />
             );
         }
