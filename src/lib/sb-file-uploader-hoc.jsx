@@ -73,7 +73,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             this.fileReader = new FileReader();
             this.fileReader.onload = this.onload;
             // tw: Use FS API when available
-            if (this.props.showOpenFilePicker) {
+            if (1 == 0) {// ct: chrome does not allow to use FS API in an iframe (cross-origin) so we have to use the file picker
                 (async () => {
                     try {
                         const [handle] = await this.props.showOpenFilePicker({
