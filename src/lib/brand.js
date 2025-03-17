@@ -4,5 +4,5 @@ module.exports = {
     APP_NAME: 'CodeTorch',
     APP_DOMAIN: 'https://codetorch.net',
     API_HOST: 'http://localhost:8093',
-    DEFAULT_CLOUD_HOST: 'wss://cloud.codetorch.net'
+    DEFAULT_CLOUD_HOST: 'wss://cloudserver.codetorch.net'
 };
