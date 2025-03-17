@@ -308,24 +308,6 @@ const TWStateManager = function (WrappedComponent) {
                 this.props.vm.setInterpolation(true);
             }
 
-            if (urlParams.has('username')) {
-                const username = urlParams.get('username');
-                // Do not save username when loaded from URL
-                this.doNotPersistUsername = username;
-                this.props.onSetUsername(username);
-            } else {
-                const persistentUsername = this.props.isEmbedded ? null : getLocalStorage(USERNAME_KEY);
-                if (persistentUsername === null) {
-                    const randomUsername = generateRandomUsername();
-                    this.props.onSetUsername(randomUsername);
-                    if (this.props.isEmbedded) {
-                        this.doNotPersistUsername = randomUsername;
-                    }
-                } else {
-                    this.props.onSetUsername(persistentUsername);
-                }
-            }
-
             if (urlParams.has('hqpen')) {
                 this.props.vm.renderer.setUseHighQualityRender(true);
             }

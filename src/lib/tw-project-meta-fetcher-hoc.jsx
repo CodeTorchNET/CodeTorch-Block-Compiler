@@ -7,7 +7,7 @@ import log from './log';
 const {API_HOST} = require('./brand');
 
 import {setProjectTitle} from '../reducers/project-title';
-import {setAuthor, setDescription} from '../reducers/tw';
+import {setAuthor, setDescription,setUsername} from '../reducers/tw';
 
 export const fetchProjectMeta = async projectId => {
     const urls = [
@@ -72,6 +72,10 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         if (title) {
                             this.props.onSetProjectTitle(title);
                         }
+                        const username = data.username;
+                        if (username) {
+                            this.props.onSetUsername(username);
+                        }
                         const authorName = data.author.username;
                         const authorThumbnail = `https://trampoline.turbowarp.org/avatars/${data.author.id}`;
                         this.props.onSetAuthor(authorName, authorThumbnail);
@@ -99,7 +103,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 onSetAuthor,
                 onSetDescription,
                 onSetProjectTitle,
-                /* eslint-enable no-unused-vars */
+                onSetUsername,
+                /* eslint-enable no-unused-vars */ 
                 ...props
             } = this.props;
             return (
@@ -127,7 +132,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             instructions,
             credits
         })),
-        onSetProjectTitle: title => dispatch(setProjectTitle(title))
+        onSetProjectTitle: title => dispatch(setProjectTitle(title)),
+        onSetUsername: username => dispatch(setUsername(username))
     });
     return connect(
         mapStateToProps,

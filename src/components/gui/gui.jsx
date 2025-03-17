@@ -186,7 +186,7 @@ const GUIComponent = props => {
             <React.Fragment>
                 <TWSecurityManager securityManager={securityManager} />
                 <TWRestorePointManager />
-                {usernameModalVisible && <TWUsernameModal />}
+                {/*usernameModalVisible && <TWUsernameModal />*/}
                 {settingsModalVisible && <TWSettingsModal />}
                 {customExtensionModalVisible && <TWCustomExtensionModal />}
                 {fontsModalVisible && <TWFontsModal />}
