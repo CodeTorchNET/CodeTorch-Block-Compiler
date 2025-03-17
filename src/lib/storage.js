@@ -34,9 +34,12 @@ class Storage extends ScratchStorage {
     setProjectToken (projectToken) {
         this.projectToken = projectToken;
     }
+    getProjectToken () {
+        return this.projectToken;
+    }
     getProjectGetConfig (projectAsset) {
         const path = `${this.projectHost}/${projectAsset.assetId}`;
-        const qs = this.projectToken ? `?token=${this.projectToken}` : '';
+        const qs = this.projectToken ? `?token=${this.projectToken}` : ''; 
         return path + qs;
     }
     getProjectCreateConfig () {
