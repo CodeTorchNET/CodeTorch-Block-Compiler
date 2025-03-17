@@ -9,10 +9,12 @@ const {API_HOST} = require('./brand');
 import {setProjectTitle} from '../reducers/project-title';
 import {setAuthor, setDescription,setUsername} from '../reducers/tw';
 
+import storage from './storage';
+
 export const fetchProjectMeta = async projectId => {
     const urls = [
-        API_HOST+`/projectsMETA?id=${projectId}`,
-        API_HOST+`/projectsMETA?id=${projectId}`
+        API_HOST+`/projectsMETA?id=${projectId}&token=${storage.getProjectToken()}`, 
+        API_HOST+`/projectsMETA?id=${projectId}&token=${storage.getProjectToken()}`
     ];
     let firstError;
     for (const url of urls) {

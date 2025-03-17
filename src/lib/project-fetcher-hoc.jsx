@@ -40,6 +40,7 @@ const fetchProjectToken = async projectId => {
         searchParams.delete('token');
         const newUrl = `${location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}${location.hash}`;
         window.history.replaceState({}, document.title, newUrl);
+        storage.setProjectToken(token);
         return token;
     }
     // Parse #1?token=abcdef
@@ -51,6 +52,7 @@ const fetchProjectToken = async projectId => {
         const newHash = hashParams.toString() ? `?${hashParams.toString()}` : '';
         const newUrl = `${location.pathname}${location.search}${location.hash.split('?')[0]}${newHash}`;
         window.history.replaceState({}, document.title, newUrl);
+        storage.setProjectToken(token);
         return token;
     }
     try {
