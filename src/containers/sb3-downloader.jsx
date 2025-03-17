@@ -97,7 +97,18 @@ class SB3Downloader extends React.Component {
             return;
         }
         try {
-            const handle = await FileSystemAPI.showSaveFilePicker(this.props.projectFilename);
+            const handle = await this.props.showSaveFilePicker({
+                suggestedName: this.props.projectFilename,
+                types: [
+                    {
+                        description: 'Scratch 3 Project',
+                        accept: {
+                            'application/octet-stream': '.sb3'
+                        }
+                    }
+                ],
+                excludeAcceptAllOption: true
+            });
             await this.saveToHandle(handle);
             this.props.onSetFileHandle(handle);
             const title = getProjectTitleFromFilename(handle.name);
