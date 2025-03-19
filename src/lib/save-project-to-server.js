@@ -63,6 +63,10 @@ export default function (projectId, vmState, params) {
             try {
                 // Since we didn't set json: true, we have to parse manually
                 body = JSON.parse(response.body);
+                //check if creating remix
+                if(queryParams.is_remix){
+                    window.parent.postMessage({ type: "block-compiler-action", action: "createdRemix", remixId: body["content-name"], remixTitle: body["content-title"], originalId: queryParams.original_id}, "*");
+                }
             } catch (e) {
                 return reject(e);
             }
