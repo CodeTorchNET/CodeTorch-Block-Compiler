@@ -7,6 +7,8 @@ import SecurityManagerModal from '../components/tw-security-manager-modal/securi
 import SecurityModals from '../lib/tw-security-manager-constants';
 import {getPersistedUnsandboxed, setPersistedUnsandboxed} from '../lib/tw-persisted-unsandboxed.js';
 
+
+import {API_HOST} from '../lib/brand.js';
 /* eslint-disable require-atomic-updates */
 
 /**
@@ -28,8 +30,7 @@ const isTrustedExtension = url => (
     url.startsWith('https://extensions.turbowarp.org/') ||
    
     url.startsWith('https://codetorch.net/') ||
-    // For development.
-    url.startsWith('http://localhost/') ||
+    url.startsWith(API_HOST) ||
     // For development.
     url.startsWith('http://localhost:8000/') ||
 
