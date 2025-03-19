@@ -55,6 +55,8 @@ class Controls extends React.Component {
             isStarted, // eslint-disable-line no-unused-vars
             projectRunning,
             turbo,
+            disableCompiler,
+            onShowSaveErrorAlert,
             ...props
         } = this.props;
         return (
