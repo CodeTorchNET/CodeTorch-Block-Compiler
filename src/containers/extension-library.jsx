@@ -4,7 +4,7 @@ import React from 'react';
 import VM from 'scratch-vm';
 import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import log from '../lib/log';
-const {APP_DOMAIN} = require('../lib/brand');
+const {API_HOST} = require('../lib/brand');
 
 import extensionLibraryContent, {
     galleryError,
@@ -43,7 +43,7 @@ const translateGalleryItem = (extension, locale) => ({
 let cachedGallery = null;
 
 const fetchLibrary = async () => {
-    const res = await fetch(APP_DOMAIN+'/extensions/extensions.json');
+    const res = await fetch(API_HOST+'/extensions/extensions.json');
     if (!res.ok) {
         throw new Error(`HTTP status ${res.status}`);
     }
@@ -54,8 +54,8 @@ const fetchLibrary = async () => {
         description: extension.description,
         descriptionTranslations: extension.descriptionTranslations || {},
         extensionId: extension.id,
-        extensionURL: APP_DOMAIN+ `/extensions/extensions/${extension.slug}.js`,
-        iconURL: APP_DOMAIN +`/extensions/${extension.image || 'images/unknown.svg'}`,
+        extensionURL: API_HOST+ `/extensions/extensions/${extension.slug}.js`,
+        iconURL: API_HOST +`/extensions/${extension.image || 'images/unknown.svg'}`,
         tags: ['tw'],
         credits: [
             ...(extension.original || []),
