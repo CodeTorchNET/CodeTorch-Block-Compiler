@@ -1,3 +1,31 @@
+## CodeTorch Block Compiler
+
+Modified version of TurboWarp (a modified version of Scratch) for use in the `CodeTorch Block Compiler Parent` project. ([CodeTorch Block Compiler Parent](https://github.com/CodeTorchNET/Block-Compiler-Parent))
+
+For setup instructions, follow [these steps](https://github.com/CodeTorchNET/Block-Compiler-Parent?tab=readme-ov-file#step-4-install-the-compiler) to install the compiler. If you'd like to set up the entire project, refer to the complete [installation guide](https://github.com/CodeTorchNET/Block-Compiler-Parent?tab=readme-ov-file#installation-guide).
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+---
+
 scratch-gui modified for use in [TurboWarp](https://turbowarp.org/)
 
 ## Setup
