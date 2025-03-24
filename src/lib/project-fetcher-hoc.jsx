@@ -60,7 +60,11 @@ const fetchProjectToken = async projectId => {
         return metadata.project_token;
     } catch (e) {
         console.error(e); // Use console.error instead of log.error for browser compatibility.
+        if (e.message && e.message.includes('429')) {
+            throw new Error('You sent too many requests in a short amount of time. Please wait 1 minute and try again.');
+        } else{
         throw new Error('Cannot access project token. Project is probably unshared. See https://docs.turbowarp.org/unshared-projects');
+        }
     }
 };
 
