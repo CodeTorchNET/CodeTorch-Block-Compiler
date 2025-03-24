@@ -187,7 +187,7 @@ const GUIComponent = props => {
                 <TWSecurityManager securityManager={securityManager} />
                 <TWRestorePointManager />
                 {/*usernameModalVisible && <TWUsernameModal />*/}
-                {settingsModalVisible && <TWSettingsModal />}
+                {settingsModalVisible && <TWSettingsModal canSave={canSave}/>}
                 {customExtensionModalVisible && <TWCustomExtensionModal />}
                 {fontsModalVisible && <TWFontsModal />}
                 {unknownPlatformModalVisible && <TWUnknownPlatformModal />}

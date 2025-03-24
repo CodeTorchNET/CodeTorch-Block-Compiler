@@ -411,9 +411,9 @@ const StoreProjectOptions = ({onStoreProjectOptions}) => (
             <p>
                 <FormattedMessage
                     // eslint-disable-next-line max-len
-                    defaultMessage="Stores the selected settings in the project so they will be automatically applied when TurboWarp loads this project. Warp timer and disable compiler will not be saved."
+                    defaultMessage="Stores the selected settings in the project so they will be automatically applied when anyone loads this project. Warp timer and disable compiler will not be saved."
                     description="Help text for the store settings in project button"
-                    id="tw.settingsModal.storeProjectOptionsHelp"
+                    id="tw.settingsModal.storeProjectOptionsHelp.ct"
                 />
             </p>
         </div>
@@ -500,11 +500,11 @@ const SettingsModalComponent = props => (
                 value={props.disableCompiler}
                 onChange={props.onDisableCompilerChange}
             />
-            {!props.isEmbedded && (
+            {!props.isEmbedded && props.canSave && (
                 <StoreProjectOptions
                     {...props}
                 />
-            )}
+            )} 
         </Box>
     </Modal>
 );
@@ -529,7 +529,8 @@ SettingsModalComponent.propTypes = {
     warpTimer: PropTypes.bool,
     onWarpTimerChange: PropTypes.func,
     disableCompiler: PropTypes.bool,
-    onDisableCompilerChange: PropTypes.func
+    onDisableCompilerChange: PropTypes.func,
+    canSave: PropTypes.bool,
 };
 
 export default injectIntl(SettingsModalComponent);
