@@ -207,6 +207,23 @@ const StageHeaderComponent = function (props) {
                         key="editor" // addons require the HTML element to be not be re-used by in-editor buttons
                     >
                         {stageControls}
+                        {isPlayerOnly && !isEmbedded && !isFullScreen ? <div
+                            className={styles.settingsButton}
+                            style={{marginRight: ".2rem"}}
+                            >
+                            <Button
+                                className={styles.stageButton}
+                                onClick={onOpenSettings}
+                            >
+                                <img
+                                    alt={props.intl.formatMessage(messages.openSettingsMessage)}
+                                    className={styles.stageButtonIcon}
+                                    draggable={false}
+                                    src={settingsIcon}
+                                    title={props.intl.formatMessage(messages.openSettingsMessage)}
+                                />
+                            </Button>
+                        </div> : null}
                         <div>
                             <Button
                                 className={styles.stageButton}
