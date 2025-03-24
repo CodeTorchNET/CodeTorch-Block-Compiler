@@ -77,7 +77,7 @@ const fetchLibrary = async () => {
         }),
         docsURI: extension.docs ? `https://extensions.turbowarp.org/${extension.slug}` : null,
         samples: extension.samples ? extension.samples.map(sample => ({
-            href: `${process.env.ROOT}editor?project_url=https://extensions.turbowarp.org/samples/${encodeURIComponent(sample)}.sb3`,
+            href: `https://turbowarp.org/editor?project_url=https://extensions.turbowarp.org/samples/${encodeURIComponent(sample)}.sb3`, //force to go to turbowarp as parent doesn't nessarily support ?project_url
             text: sample
         })) : null,
         incompatibleWithScratch: !extension.scratchCompatible,
