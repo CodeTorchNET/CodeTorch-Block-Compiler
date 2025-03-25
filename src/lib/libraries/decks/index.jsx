@@ -8,7 +8,7 @@ import { FormattedMessage } from 'react-intl';
 // Animate A Character
 import libraryAnimateChar from './thumbnails/animate-a-character.jpg';
 
-const { AI_HOST } = require('../../brand');
+const { API_HOST } = require('../../brand');
 
 
 export const CATEGORIES = {
@@ -48,7 +48,7 @@ export default {
                         id="gui.gettingStarted.ai-use.addApiKeys"
                     />
                 ),
-                video: AI_HOST + '/open-addons-tab.mp4',
+                video: API_HOST + '/torchy/open-addons-tab.mp4',
             },
             {
                 title: (
@@ -58,7 +58,7 @@ export default {
                         id="gui.gettingStarted.ai-use.openPopup"
                     />
                 ),
-                video: AI_HOST + '/open-popup.mp4',
+                video: API_HOST + '/torchy/open-popup.mp4',
             },
             {
                 title: (
@@ -68,7 +68,7 @@ export default {
                         id="gui.gettingStarted.ai-use.popupUI"
                     />
                 ),
-                img: AI_HOST + '/popup-ui.png',
+                img: API_HOST + '/torchy/popup-ui.png',
             },
             {
              title: (
@@ -78,7 +78,7 @@ export default {
                         id="gui.gettingStarted.ai-use.insertCode"
                     />
                 ),
-                img: AI_HOST + '/insert-code.png',
+                img: API_HOST + '/torchy/insert-code.png',
             },
             {
                 title: (

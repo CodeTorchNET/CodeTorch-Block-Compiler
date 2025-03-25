@@ -2,8 +2,8 @@ import GetSVG from "./helpers/parser.js";
 import helpers from "./helpers/helpers.js";
 import Attachment from "./helpers/attachment.js";
 import main from "./main.js";
+const {API_HOST} = require('../../../lib/brand.js');
 
-const apiUrl = "http://127.0.0.1:5000";
 let authToken = {};
 
 var mainWorkspace;
@@ -47,7 +47,7 @@ export default async function ({ addon, console }) {
   const Blockly = await addon.tab.traps.getBlockly();
   //mainWorkspace = Blockly.getMainWorkspace();
   mainWorkspace = addon.tab.traps.getWorkspace();
-  main.apiUrl = apiUrl;
+  main.apiUrl = API_HOST+"/torchy/";
   main.authToken = authToken;
   main.mainWorkspace = mainWorkspace;
   main.Gaddon = addon;
@@ -58,7 +58,7 @@ export default async function ({ addon, console }) {
   //create new CSS (style for popup)
   const style = document.createElement('link');
   style.setAttribute('rel', 'stylesheet');
-  style.setAttribute('href', apiUrl + '/main.css');
+  style.setAttribute('href', API_HOST + '/torchy/main.css');
   document.head.appendChild(style);
 
   if (authToken.gemini == "" && authToken.openrouter == "") {
@@ -68,8 +68,8 @@ export default async function ({ addon, console }) {
     });
     return;
   }else{
-    //fetch apiUrl + "/AI_models"
-    fetch(apiUrl + "/AI_models", {
+    //fetch API_HOST + "/torchy/AI_models"
+    fetch(API_HOST + "/torchy/AI_models", {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
