@@ -11,8 +11,7 @@ const restrictedMode = searchParams.get('onlyEditor') === '1';
 
 const RenderGUI = props => (
     <GUI
-        cloudHost={cloudHost}
-        canUseCloud
+        cloudHost={cloudHost} 
         hasCloudPermission
         canCreateNew={creatingNewProject}
         isShared={!restrictedMode}

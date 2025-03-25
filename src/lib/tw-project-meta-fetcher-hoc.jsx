@@ -58,7 +58,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             super(props);
             this.state = {
                 canSave: false,
-                canRemix: false
+                canRemix: false,
+                canUseCloud: false
             };
         }
         componentDidUpdate (prevProps) {
@@ -84,6 +85,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         const username = data.username;
                         if (username) {
                             this.props.onSetUsername(username);
+                            this.setState({ canUseCloud: true });
                         }
                         const authorName = data.author.username;
                         const authorThumbnail = `https://trampoline.turbowarp.org/avatars/${data.author.id}`;
@@ -124,6 +126,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                     {...props}
                     canSave={this.state.canSave}
                     canRemix={this.state.canRemix}
+                    canUseCloud={this.state.canUseCloud}
                 />
             );
         }
