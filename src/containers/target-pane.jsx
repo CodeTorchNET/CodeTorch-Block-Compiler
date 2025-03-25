@@ -6,7 +6,9 @@ import {intlShape, injectIntl} from 'react-intl';
 
 import {
     openSpriteLibrary,
-    closeSpriteLibrary
+    closeSpriteLibrary,
+    openAIModal,
+    closeAIModal
 } from '../reducers/modals';
 import {activateTab, COSTUMES_TAB_INDEX, BLOCKS_TAB_INDEX} from '../reducers/editor-tab';
 import {setReceivedBlocks} from '../reducers/hovered-target';
@@ -269,6 +271,7 @@ const mapStateToProps = state => ({
     hoveredTarget: state.scratchGui.hoveredTarget,
     isRtl: state.locales.isRtl,
     spriteLibraryVisible: state.scratchGui.modals.spriteLibrary,
+    aiModalVisible: state.scratchGui.modals.aiModal,
     sprites: state.scratchGui.targets.sprites,
     stage: state.scratchGui.targets.stage,
     raiseSprites: state.scratchGui.blockDrag,
@@ -283,6 +286,15 @@ const mapDispatchToProps = dispatch => ({
     onRequestCloseSpriteLibrary: () => {
         dispatch(closeSpriteLibrary());
     },
+
+    onAIClick: e => {
+        e.preventDefault();
+        dispatch(openAIModal());
+    },     
+    onRequestCloseAIModal: () => {
+        dispatch(closeAIModal());
+    },
+
     onActivateTab: tabIndex => {
         dispatch(activateTab(tabIndex));
     },

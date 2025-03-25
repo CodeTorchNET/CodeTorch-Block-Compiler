@@ -78,6 +78,7 @@ class Prompt extends React.Component {
                 onKeyPress={this.handleKeyPress}
                 onOk={this.handleOk}
                 onScopeOptionSelection={this.handleScopeOptionSelection}
+                noInput={this.props.noInput}
             />
         );
     }

@@ -289,7 +289,7 @@ class SettingsStore extends EventTargetShim {
                 if (typeof value !== 'number') {
                     throw new Error('Setting value is invalid.');
                 }
-            } else if (settingObject.type === 'string' || settingObject.type === 'untranslated') {
+            } else if (settingObject.type === 'string' || settingObject.type === 'long_string' || settingObject.type === 'untranslated') {
                 // always valid
             } else if (settingObject.type === 'color') {
                 if (typeof value !== 'string') {

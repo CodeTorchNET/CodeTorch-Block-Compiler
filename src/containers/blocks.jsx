@@ -589,8 +589,8 @@ class Blocks extends React.Component {
     setBlocks (blocks) {
         this.blocks = blocks;
     }
-    handlePromptStart (message, defaultValue, callback, optTitle, optVarType) {
-        const p = {prompt: {callback, message, defaultValue}};
+    handlePromptStart (message, defaultValue = "", callback, optTitle, optVarType,noInput=false) {
+        const p = {prompt: {callback, message, defaultValue: defaultValue}}; // Set defaultValue to empty string or null
         p.prompt.title = optTitle ? optTitle :
             this.ScratchBlocks.Msg.VARIABLE_MODAL_TITLE;
         p.prompt.varType = typeof optVarType === 'string' ?
@@ -600,6 +600,7 @@ class Blocks extends React.Component {
             p.prompt.title !== this.ScratchBlocks.Msg.RENAME_VARIABLE_MODAL_TITLE &&
             p.prompt.title !== this.ScratchBlocks.Msg.RENAME_LIST_MODAL_TITLE;
         p.prompt.showCloudOption = (optVarType === this.ScratchBlocks.SCALAR_VARIABLE_TYPE) && this.props.canUseCloud;
+        p.prompt.noInput = noInput; // Add a flag to indicate no input is needed
         this.setState(p);
     }
     handleConnectionModalStart (extensionId) {
@@ -618,6 +619,10 @@ class Blocks extends React.Component {
      * to the variable validation prompt callback used in scratch-blocks.
      */
     handlePromptCallback (input, variableOptions) {
+        // If there is no input, set the input to null.
+        if (this.state.prompt.noInput) {
+            input = null;
+        }
         this.state.prompt.callback(
             input,
             this.props.vm.runtime.getAllVarNamesOfType(this.state.prompt.varType),
@@ -688,6 +693,7 @@ class Blocks extends React.Component {
             updateMetrics: updateMetricsProp,
             useCatBlocks,
             workspaceMetrics,
+            noInput,
             ...props
         } = this.props;
         /* eslint-enable no-unused-vars */
@@ -710,6 +716,7 @@ class Blocks extends React.Component {
                         vm={vm}
                         onCancel={this.handlePromptClose}
                         onOk={this.handlePromptCallback}
+                        noInput={this.state.prompt.noInput}
                     />
                 ) : null}
                 {extensionLibraryVisible ? (
@@ -775,7 +782,8 @@ Blocks.propTypes = {
     vm: PropTypes.instanceOf(VM).isRequired,
     workspaceMetrics: PropTypes.shape({
         targets: PropTypes.objectOf(PropTypes.object)
-    })
+    }),
+    noInput: PropTypes.bool
 };
 
 Blocks.defaultOptions = {
@@ -797,7 +805,8 @@ Blocks.defaultOptions = {
 Blocks.defaultProps = {
     isVisible: true,
     options: Blocks.defaultOptions,
-    theme: Theme.light
+    theme: Theme.light,
+    noInput: false
 };
 
 const mapStateToProps = state => ({

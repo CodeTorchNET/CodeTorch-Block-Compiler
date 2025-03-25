@@ -277,6 +277,34 @@ const alerts = [
         iconSpinner: true,
         level: AlertLevels.SUCCESS
     },{
+        alertId: 'TorchyCustomBlockWarning',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                defaultMessage="Enabling use of custom extensions blocks may cause Torchy to not generate functional code."
+                description="Warning message indicating that custom blocks may cause Torchy to not generate functional code"
+                id="gui.alerts.TorchyCustomBlockWarning"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN,
+        maxDisplaySecs: 15
+    },{
+        alertId: 'TorchyWaitForAIToFinishWarning',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                defaultMessage="Please wait for Torchy to complete its message before sending another one."
+                description="Warning message indicating that Torchy is still processing a message"
+                id="gui.alerts.TorchyWaitForAIToFinishWarning"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN,
+        maxDisplaySecs: 15
+    },{
         alertId: 'LiveReloadDisabledNotice',
         alertType: AlertTypes.STANDARD,
         clearList: [],

@@ -1,13 +1,13 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import {defineMessages, injectIntl, intlShape} from 'react-intl';
+import { defineMessages, injectIntl, intlShape } from 'react-intl';
 
 import Box from '../box/box.jsx';
 import SpriteInfo from '../../containers/sprite-info.jsx';
 import SpriteList from './sprite-list.jsx';
 import ActionMenu from '../action-menu/action-menu.jsx';
-import {STAGE_DISPLAY_SIZES} from '../../lib/layout-constants';
-import {isRtl} from '@turbowarp/scratch-l10n';
+import { STAGE_DISPLAY_SIZES } from '../../lib/layout-constants';
+import { isRtl } from '@turbowarp/scratch-l10n';
 
 import styles from './sprite-selector.css';
 
@@ -16,6 +16,9 @@ import paintIcon from '../action-menu/icon--paint.svg';
 import spriteIcon from '../action-menu/icon--sprite.svg';
 import surpriseIcon from '../action-menu/icon--surprise.svg';
 import searchIcon from '../action-menu/icon--search.svg';
+import AIIcon from '../action-menu/icon--AI.svg';
+
+import { enableGenerate } from '../../lib/brand';
 
 const messages = defineMessages({
     addSpriteFromLibrary: {
@@ -27,6 +30,11 @@ const messages = defineMessages({
         id: 'gui.spriteSelector.addSpriteFromPaint',
         description: 'Button to add a sprite in the target pane from paint',
         defaultMessage: 'Paint'
+    },
+    addSpriteFromAI: {
+        defaultMessage: 'Generate with AI',
+        description: 'Button to generate a new costume by using AI',
+        id: 'gui.spriteSelector.addSpriteFromAI'
     },
     addSpriteFromSurprise: {
         id: 'gui.spriteSelector.addSpriteFromSurprise',
@@ -58,6 +66,7 @@ const SpriteSelectorComponent = function (props) {
         onExportSprite,
         onFileUploadClick,
         onNewSpriteClick,
+        onAIClick,
         onPaintSpriteClick,
         onSelectSprite,
         onSpriteUpload,
@@ -136,7 +145,15 @@ const SpriteSelectorComponent = function (props) {
                         title: intl.formatMessage(messages.addSpriteFromLibrary),
                         img: searchIcon,
                         onClick: onNewSpriteClick
-                    }
+                    }, 
+                    ...(enableGenerate
+                        ? [{
+                            title: intl.formatMessage(messages.addSpriteFromAI),
+                            img: AIIcon,
+                            onClick: onAIClick
+                        }]
+                        : []
+                    )
                 ]}
                 title={intl.formatMessage(messages.addSpriteFromLibrary)}
                 tooltipPlace={isRtl(intl.locale) ? 'right' : 'left'}
@@ -166,6 +183,7 @@ SpriteSelectorComponent.propTypes = {
     onExportSprite: PropTypes.func,
     onFileUploadClick: PropTypes.func,
     onNewSpriteClick: PropTypes.func,
+    onAIClick: PropTypes.func,
     onPaintSpriteClick: PropTypes.func,
     onSelectSprite: PropTypes.func,
     onSpriteUpload: PropTypes.func,

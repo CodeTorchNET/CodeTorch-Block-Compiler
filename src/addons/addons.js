@@ -48,6 +48,7 @@ const addons = [
     'folders',
     'block-switching',
     'load-extensions',
+    'ai-integration',
     'custom-zoom',
     'copy-reporter',
     'initialise-sprite-position',

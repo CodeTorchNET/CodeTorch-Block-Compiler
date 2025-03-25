@@ -378,7 +378,7 @@ a:active, a:focus {
 }
 
 .description {
-
+white-space: pre-line;
 }
 
 .notice {
@@ -446,6 +446,13 @@ a:active, a:focus {
     height: 35px;
     box-sizing: border-box;
 }
+
+.longStringSetting {
+    border-radius: 20px !important;
+    width: 100% !important;
+    margin-top: 20px;
+}
+
 .setting input[type="color"] {
     height: 30px;
     width: 100px;

@@ -60,9 +60,17 @@ const PromptComponent = props => (
         id="promptModal"
     >
         <Box className={styles.body}>
+            {!props.noInput ? (
             <Box className={styles.label}>
                 {props.label}
             </Box>
+            ) :
+            <Box
+                className={styles.label}
+                dangerouslySetInnerHTML={{__html: props.label}}
+            />
+            }
+            {!props.noInput ? (
             <Box>
                 <input
                     autoFocus
@@ -74,6 +82,7 @@ const PromptComponent = props => (
                     onKeyPress={props.onKeyPress}
                 />
             </Box>
+            ) : null}
             {props.showVariableOptions ?
                 <div>
                     {props.isStage ?
@@ -178,7 +187,8 @@ PromptComponent.propTypes = {
     onScopeOptionSelection: PropTypes.func.isRequired,
     showCloudOption: PropTypes.bool.isRequired,
     showVariableOptions: PropTypes.bool.isRequired,
-    title: PropTypes.string.isRequired
+    title: PropTypes.string.isRequired,
+    noInput: PropTypes.bool
 };
 
 export default PromptComponent;

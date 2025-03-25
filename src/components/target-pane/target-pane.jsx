@@ -4,9 +4,10 @@ import React from 'react';
 import VM from 'scratch-vm';
 
 import SpriteLibrary from '../../containers/sprite-library.jsx';
+import AIModal from '../../containers/ai-modal.jsx';
 import SpriteSelectorComponent from '../sprite-selector/sprite-selector.jsx';
 import StageSelector from '../../containers/stage-selector.jsx';
-import {STAGE_DISPLAY_SIZES} from '../../lib/layout-constants';
+import { STAGE_DISPLAY_SIZES } from '../../lib/layout-constants';
 
 import styles from './target-pane.css';
 
@@ -21,6 +22,7 @@ const TargetPane = ({
     fileInputRef,
     hoveredTarget,
     spriteLibraryVisible,
+    aiModalVisible,
     onActivateBlocksTab,
     onChangeSpriteDirection,
     onChangeSpriteName,
@@ -35,8 +37,10 @@ const TargetPane = ({
     onExportSprite,
     onFileUploadClick,
     onNewSpriteClick,
+    onAIClick,
     onPaintSpriteClick,
     onRequestCloseSpriteLibrary,
+    onRequestCloseAIModal,
     onSelectSprite,
     onSpriteUpload,
     onSurpriseSpriteClick,
@@ -73,6 +77,7 @@ const TargetPane = ({
             onExportSprite={onExportSprite}
             onFileUploadClick={onFileUploadClick}
             onNewSpriteClick={onNewSpriteClick}
+            onAIClick={onAIClick}
             onPaintSpriteClick={onPaintSpriteClick}
             onSelectSprite={onSelectSprite}
             onSpriteUpload={onSpriteUpload}
@@ -97,6 +102,14 @@ const TargetPane = ({
                         onRequestClose={onRequestCloseSpriteLibrary}
                     />
                 ) : null}
+                {aiModalVisible ? (
+                    <AIModal
+                        vm={vm}
+                        onActivateBlocksTab={onActivateBlocksTab}
+                        onRequestClose={onRequestCloseAIModal}
+                    />
+                ) : null
+                }
             </div>
         </div>
     </div>
@@ -147,14 +160,17 @@ TargetPane.propTypes = {
     onExportSprite: PropTypes.func,
     onFileUploadClick: PropTypes.func,
     onNewSpriteClick: PropTypes.func,
+    onAIClick: PropTypes.func,
     onPaintSpriteClick: PropTypes.func,
     onRequestCloseExtensionLibrary: PropTypes.func,
     onRequestCloseSpriteLibrary: PropTypes.func,
+    onRequestCloseAIModal: PropTypes.func,
     onSelectSprite: PropTypes.func,
     onSpriteUpload: PropTypes.func,
     onSurpriseSpriteClick: PropTypes.func,
     raiseSprites: PropTypes.bool,
     spriteLibraryVisible: PropTypes.bool,
+    aiModalVisible: PropTypes.bool,
     sprites: PropTypes.objectOf(spriteShape),
     stage: spriteShape,
     stageSize: PropTypes.oneOf(Object.keys(STAGE_DISPLAY_SIZES)).isRequired,

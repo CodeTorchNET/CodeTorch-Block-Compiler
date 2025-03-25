@@ -1,18 +1,21 @@
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import React from 'react';
-import {defineMessages, intlShape, injectIntl, FormattedMessage} from 'react-intl';
+import { defineMessages, intlShape, injectIntl, FormattedMessage } from 'react-intl';
 
 import Box from '../box/box.jsx';
 import ActionMenu from '../action-menu/action-menu.jsx';
 import styles from './stage-selector.css';
-import {isRtl} from '@turbowarp/scratch-l10n';
+import { isRtl } from '@turbowarp/scratch-l10n';
 
 import backdropIcon from '../action-menu/icon--backdrop.svg';
 import fileUploadIcon from '../action-menu/icon--file-upload.svg';
 import paintIcon from '../action-menu/icon--paint.svg';
 import surpriseIcon from '../action-menu/icon--surprise.svg';
 import searchIcon from '../action-menu/icon--search.svg';
+import AIIcon from '../action-menu/icon--AI.svg';
+
+import { enableGenerate } from '../../lib/brand';
 
 const messages = defineMessages({
     addBackdropFromLibrary: {
@@ -24,6 +27,11 @@ const messages = defineMessages({
         id: 'gui.stageSelector.addBackdropFromPaint',
         description: 'Button to add a stage in the target pane from paint',
         defaultMessage: 'Paint'
+    },
+    addSpriteFromAI: {
+        defaultMessage: 'Generate with AI',
+        description: 'Button to generate a new costume by using AI',
+        id: 'gui.spriteSelector.addSpriteFromAI'
     },
     addBackdropFromSurprise: {
         id: 'gui.stageSelector.addBackdropFromSurprise',
@@ -107,25 +115,38 @@ const StageSelector = props => {
                         fileChange: onBackdropFileUpload,
                         fileInput: fileInputRef,
                         fileMultiple: true
-                    }, {
+                    },
+                    {
                         title: intl.formatMessage(messages.addBackdropFromSurprise),
                         img: surpriseIcon,
                         onClick: onSurpriseBackdropClick
-
-                    }, {
+                    },
+                    {
                         title: intl.formatMessage(messages.addBackdropFromPaint),
                         img: paintIcon,
                         onClick: onEmptyBackdropClick
-                    }, {
+                    },
+                    {
                         title: intl.formatMessage(messages.addBackdropFromLibrary),
                         img: searchIcon,
                         onClick: onNewBackdropClick
-                    }
+                    },
+                    ...(enableGenerate
+                        ? [{
+                            title: intl.formatMessage(messages.addSpriteFromAI),
+                            img: AIIcon,
+                            onClick: () => {
+                                console.log("AI Clicked"); //CHANGE FOR AI
+                            }
+                        }]
+                        : []
+                    )
                 ]}
                 title={intl.formatMessage(messages.addBackdropFromLibrary)}
                 tooltipPlace={isRtl(intl.locale) ? 'right' : 'left'}
                 onClick={onNewBackdropClick}
             />
+
         </Box>
     );
 };
