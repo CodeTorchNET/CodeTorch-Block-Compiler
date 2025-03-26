@@ -70,7 +70,11 @@ const WrappedMenuBar = compose(
 
 if (AddonChannels.reloadChannel) {
     AddonChannels.reloadChannel.addEventListener('message', () => {
-        location.reload();
+        if (window.top !== window.self) { // if in iframe
+            window.parent.postMessage({ type: "block-compiler-action", action: "reload"}, "*");
+        } else {
+            location.reload();
+        }
     });
 }
 
