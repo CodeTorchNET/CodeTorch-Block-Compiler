@@ -418,7 +418,7 @@ export default class main {
                 var data = {
                     api_key: authTokenToUse,
                     message: messageContents,
-                    history: [{ "role": "user", "message": helpers.returnSterilizedToolbox(main.Gaddon, main.mainWorkspace, document.getElementById("AATUCEB_CB").checked) }, ...document.AI_INTEGRATION.chatHistory],
+                    history: [{ "role": "user", "message": helpers.returnSterilizedToolbox(main.Gaddon, document.getElementById("AATUCEB_CB").checked) }, ...document.AI_INTEGRATION.chatHistory],
                     ai_model: document.getElementById('AI_Selector_select').value,
                 };
 
