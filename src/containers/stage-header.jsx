@@ -99,7 +99,7 @@ const mapDispatchToProps = dispatch => ({
     onSetStageSmall: () => dispatch(setStageSize(STAGE_SIZE_MODES.small)),
     onSetStageFull: () => dispatch(setStageSize(STAGE_SIZE_MODES.full)),
     onSetStageFullScreen: () => {
-        if (window.location.pathname === "/") {
+        if (window.location.pathname === "/" || window.location.pathname.includes("/index.html") || window.location.pathname === "/build/") {
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().then(() => {
                     dispatch(setFullScreen(true));
