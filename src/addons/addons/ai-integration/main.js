@@ -461,15 +461,15 @@ export default class main {
                                             var randomId = Math.random().toString(36).substr(2, 5).toUpperCase();
                                             document.AI_INTEGRATION.CodeChunks = streamResult.match(/```(.*?)```/gs) || [];
                                             document.AI_INTEGRATION.processedCodeChunks = [];
-
+                                        
                                             const processedChunks = await Promise.all(
                                                 document.AI_INTEGRATION.CodeChunks.map((chunk, index) =>
                                                     handleRawCodeChunk(chunk, `${randomId}_${index}`, main.mainWorkspace)
                                                 )
                                             );
-
+                                        
                                             document.AI_INTEGRATION.processedCodeChunks = processedChunks;
-
+                                        
                                             let instanceCount = -1;
                                             var editedStreamResult = streamResult.replaceAll(/```(.*?)```/gs, "CODECHUNK23407283947");
                                             editedStreamResult = converter.makeHtml(editedStreamResult)
@@ -477,6 +477,8 @@ export default class main {
                                                 instanceCount++;
                                                 if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error") {
                                                     return "<h1 class=\"errorMessage\">failed to parse Code Chunk</h1><br>"
+                                                }else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable"){ 
+                                                    return "<div class=\"codeChunkOverlay\" id=\"errorFixable_" + randomId + "_" + instanceCount + "\"></div>";
                                                 }
                                                 document.AI_INTEGRATION.AllCodeChunksEverAdded.push(document.AI_INTEGRATION.processedCodeChunks[instanceCount]);
                                                 let Div = document.createElement('div');
@@ -496,7 +498,7 @@ export default class main {
                                                     codeBlockHeight.push(theDiv.children[xx].children[1].getBoundingClientRect().height);
                                                 }
                                                 document.getElementById(`TEMPCODEBLOCK${instanceCount}`).remove();
-
+                                        
                                                 let svg = domParser.parseFromString(document.AI_INTEGRATION.processedCodeChunks[instanceCount].blocksAsSVG, "text/html");
                                                 svg = svg.body.children[0];
                                                 for (var i = 0; i < svg.children.length; i++) {
@@ -505,7 +507,7 @@ export default class main {
                                                 }
                                                 return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${document.AI_INTEGRATION.AllCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;
                                             });
-
+                                        
                                             document.getElementById('currentlyBlabberingOnThis').innerHTML = editedStreamResult;
                                             for (let i = 0; i <= instanceCount; i++) { // each code block
                                                 try {
@@ -513,6 +515,38 @@ export default class main {
                                                         document.getElementById('currentlyBlabberingOnThis').id = '';
                                                         console.warn("DEBUG: skipping codeblock #" + instanceCount + " due to status failure", document.AI_INTEGRATION.processedCodeChunks[instanceCount])
                                                         return;
+                                                    }else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
+                                                        var div = document.createElement('div');
+                                                        div.innerHTML = `<p style="text-align: center;">A fatal issue was detected with this code</p><div style="display: flex;margin: 10px;"></div>`;
+                                                        var button = document.createElement('button');
+                                                        button.innerHTML = "Attempt to Repair";
+                                                        button.style = "margin-left:auto;margin-right: auto;background-color: transparent;border: 1px solid var(--ui-tertiary);padding: 5px 10px;border-radius: 5px;";
+                                                        button.addEventListener('click', (e) => {
+                                                            button.innerHTML = "Attempting to Repair...";
+                                                            button.disabled = true;
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            //create new message
+                                                            var userMessage = document.createElement('div');
+                                                            userMessage.className = 'user-message';
+                                                            userMessage.innerHTML = `
+                                                                <div class="message">
+                                                                    <span>Attempting to repair code block</span>
+                                                                    <span>
+                                                                        <div class="FileAttachment">
+                                                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="svg">
+                                                                                <path d="M2 7V14.7519H4.53246L5.9122 16.0909H8.12402L9.50376 14.7519H22V7H9.50376L8.12402 8.33905H5.9122L4.53246 7H2Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentcolor"></path>
+                                                                            </svg>
+                                                                            <p class="p">Error Logs</p>
+                                                                        </div>
+                                                                    </span>
+                                                                </div>    
+                                                            `;
+                                                            document.getElementById('chat_content').appendChild(userMessage);
+                                                            requestChat(document.AI_INTEGRATION.processedCodeChunks[instanceCount].errorLog);
+                                                        });
+                                                        div.children[1].appendChild(button);
+                                                        document.getElementById(`errorFixable_${randomId}_${i}`).appendChild(div);
                                                     }
                                                     let currentWidth = 150;
                                                     for (var xx = 0; xx < document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children.length; xx++) { //each top level block
@@ -520,15 +554,15 @@ export default class main {
                                                             document.querySelector('.container').style.display = '';
                                                             document.querySelector('.container').style.zIndex = 509;
                                                         }
-
+                                        
                                                         const currentElement = document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children[xx];
                                                         currentElement.style.width = (currentElement.getBoundingClientRect().width * (currentWidth / currentElement.children[1].children[0].getBoundingClientRect().width)) + "px";
-
+                                        
                                                         //THE SMARTED/MOST INSANE CODE THAT WORKS IN THE HISTORY OF JS
                                                         const currentText = currentElement.querySelector("text");
                                                         const oldText = currentText.innerHTML;
                                                         currentText.innerHTML = "a";
-
+                                        
                                                         var currentHeight = currentText.getBoundingClientRect().height;
                                                         //console.log(currentText);
                                                         while (currentHeight > 16 && currentWidth > 5) {
@@ -582,7 +616,7 @@ export default class main {
                                                                     }
                                                                 });
                                                             }
-
+                                        
                                                             var totalWidth = 0;
                                                             //Blockly.Xml.domToWorkspace(xml, workspace);
                                                             Array.from(xml.children).forEach(block => {
@@ -603,7 +637,7 @@ export default class main {
                                                             newBlock.moveBy(x, y);*/
                                                         }
                                                         var message = `<p style="font-weight: 900;margin-bottom: 10px;">Adding this code will:</p><ul>`;
-
+                                        
                                                         var [listNames, variableNames] = helpers.workspaceVariables(false, main.mainWorkspace);
                                                         var newVariables = [];
                                                         var newLists = [];
@@ -641,7 +675,7 @@ export default class main {
                                                         var replacingBlocks = [];
                                                         var replacingBlocksInternal = [];
                                                         var trulyNewBlocks = [];
-
+                                        
                                                         for (var block of newBlocks) {
                                                             var matchingBlock = currentWorkspaceBlocks.find(currentBlock => currentBlock.customBlockName === block.customBlockName);
                                                             if (matchingBlock) {
@@ -655,7 +689,7 @@ export default class main {
                                                         if (trulyNewBlocks.length > 0) {
                                                             message += `<li>Create ${trulyNewBlocks.length} new block${trulyNewBlocks.length == 1 ? "" : "s"}: ${trulyNewBlocks.join(", ")}</li>`;
                                                         }
-
+                                        
                                                         // List blocks that are being replaced
                                                         if (replacingBlocks.length > 0) {
                                                             message += `<li>Replace ${replacingBlocks.length} existing block${replacingBlocks.length == 1 ? "" : "s"}: ${replacingBlocks.join(", ")} <span><p class="errorMessage">(THIS WILL REPLACE YOUR CURRENT BLOCK DEFINITION)</p></span></li>`;
@@ -668,14 +702,14 @@ export default class main {
                                                         const title = "Add Code to Workspace?";
                                                         ScratchBlocks.prompt(message, null, callback, title, ScratchBlocks.BROADCAST_MESSAGE_VARIABLE_TYPE, true);
                                                     });
-
+                                        
                                                     var errorForChunk = [];
                                                     for (var xx = 0; xx < document.AI_INTEGRATION.errorsDetected.length; xx++) {
                                                         if (document.AI_INTEGRATION.errorsDetected[xx].uniqueCommentID == currentElement.parentElement.id.replace("CODEBLOCK_", "")) {
                                                             errorForChunk.push(document.AI_INTEGRATION.errorsDetected[xx]);
                                                         }
                                                     }
-
+                                        
                                                     if (errorForChunk.length == 0) {
                                                         currentElement.parentElement.style = "width: fit-content;height: fit-content;margin: auto;";
                                                     } else {
@@ -708,18 +742,18 @@ export default class main {
                                                             var userMessage = document.createElement('div');
                                                             userMessage.className = 'user-message';
                                                             userMessage.innerHTML = `
-                              <div class="message">
-                                <span>Attempting to repair code block</span>
-                                  <span>
-                                      <div class="FileAttachment">
-                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="svg">
-                                              <path d="M2 7V14.7519H4.53246L5.9122 16.0909H8.12402L9.50376 14.7519H22V7H9.50376L8.12402 8.33905H5.9122L4.53246 7H2Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentcolor"></path>
-                                          </svg>
-                                          <p class="p">Error Logs</p>
-                                      </div>
-                                  </span>
-                              </div>    
-                          `;
+                                                                      <div class="message">
+                                                                        <span>Attempting to repair code block</span>
+                                                                          <span>
+                                                                              <div class="FileAttachment">
+                                                                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="svg">
+                                                                                      <path d="M2 7V14.7519H4.53246L5.9122 16.0909H8.12402L9.50376 14.7519H22V7H9.50376L8.12402 8.33905H5.9122L4.53246 7H2Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentcolor"></path>
+                                                                                  </svg>
+                                                                                  <p class="p">Error Logs</p>
+                                                                              </div>
+                                                                          </span>
+                                                                      </div>    
+                                                                  `;
                                                             document.getElementById('chat_content').appendChild(userMessage);
                                                             requestChat("the following errors occured while trying to parse the code (attempt to fix them):" + errorForChunk.map(error => error.error || "Unknown error").join("\n"));
                                                         });
