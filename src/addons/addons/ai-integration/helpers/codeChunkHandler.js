@@ -8,6 +8,7 @@ const blockParser = new GetSVG();
 
 const allowedTags = [
     "xml",
+    "statement",
     "block",
     "value",
     "shadow",
