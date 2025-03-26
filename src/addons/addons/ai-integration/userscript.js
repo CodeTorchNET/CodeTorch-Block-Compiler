@@ -47,7 +47,7 @@ export default async function ({ addon, console }) {
   const Blockly = await addon.tab.traps.getBlockly();
   //mainWorkspace = Blockly.getMainWorkspace();
   mainWorkspace = addon.tab.traps.getWorkspace();
-  main.apiUrl = API_HOST+"/torchy/";
+  main.apiUrl = API_HOST+"/torchy";
   main.authToken = authToken;
   main.mainWorkspace = mainWorkspace;
   main.Gaddon = addon;
