@@ -182,12 +182,15 @@ export default class helpers {
               <div class="c">
                  ${this.FireAnimation}
               </div>
-              <p class="d">To use Torchy, please add your API key in the addons page</p></div>
+              <p class="d">To use Torchy, please add your API key in the <span id="addonsPage">addons page</span></p></div>  
       </div>`;
         document.body.appendChild(div);
         document.getElementById('closePopup').addEventListener('click', () => {
             document.getElementById('torchyPopup').remove();
             document.AI_INTEGRATION.popupOpen = false;
+        });
+        document.getElementById('addonsPage').addEventListener('click', () => {
+            window.parent.postMessage({ type: "block-compiler-action", action: "addonsPage"}, "*");
         });
     }
     static returnSterilizedToolbox(Gaddon, allowExtensions = false) {
