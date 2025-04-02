@@ -310,7 +310,7 @@ const alerts = [
         clearList: [],
         content: (
             <FormattedMessage
-                defaultMessage="Live code editing is disabled (changes take effect only after rerunning the project). To enable it, go to Edit → Advanced Settings → Disable Compiler."
+                defaultMessage="Live code editing is disabled (changes take effect only after rerunning the project). To enable it, go to Edit → Advanced Settings → Use Scratch Interpreter."
                 description="Message indicating that Live Reload is disabled in this project."
                 id="gui.alerts.LiveReloadDisabledNotice"
             />

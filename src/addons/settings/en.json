@@ -7,7 +7,7 @@
   "dirty": "Reload tabs to apply settings.",
   "dirtyButton": "Reload now",
   "presets": "Presets",
-  "noCompiler": "This addon only works when the compiler is disabled through the Advanced > Disable Compiler menu or using the \"Disable compiler in editor\" addon.",
+  "noCompiler": "This addon only works when the compiler is disabled through the Advanced > Use Scratch Interpreter menu or using the \"Disable compiler in editor\" addon.",
   "tagRecommended": "Recommended",
   "tagDanger": "Dangerous",
   "tagTheme": "Theme",
