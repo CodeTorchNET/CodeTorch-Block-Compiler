@@ -39,7 +39,7 @@ export default class main {
 
             textareaa.value = inputValue;
 
-            if (textareaa.value.length > 64 || textareaa.value.includes('\n')) {
+            if (textareaa.value.length > (textareaa.offsetWidth / 5.84375) || textareaa.value.includes('\n')) {
                 textareaa.style.height = 'auto';
                 textareaa.style.height = `${textareaa.scrollHeight}px`;
                 textareaa.style.top = '0px';
@@ -58,11 +58,23 @@ export default class main {
             return;
         }
 
-
         const div = document.createElement('div');
-        div.className = 'container';
         div.style.zIndex = 509;
         div.style.position = 'fixed';
+        div.style.display = 'flex';
+
+        //intial popup dimensions
+        div.style.width = '452px';
+        div.style.height = '302px';
+        div.style.minWidth = '452px';
+        div.style.minHeight = '302px';
+
+        const verticalDiv = document.createElement('div');
+        verticalDiv.style.width = '100%';
+
+
+        const div2 = document.createElement('div');
+        div2.className = 'container';
         const divWidth = 452;
         const divHeight = 302;
         const viewportWidth = window.innerWidth;
@@ -76,7 +88,7 @@ export default class main {
         if (newTop + divHeight > viewportHeight - tolerance) newTop = viewportHeight - divHeight - tolerance;
         div.style.left = `${newLeft}px`;
         div.style.top = `${newTop}px`;
-        div.innerHTML = `
+        div2.innerHTML = `
   <div class="headerT">
   <svg id="clearChat" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -206,8 +218,108 @@ export default class main {
             isDragging = false;
             div.style.cursor = "default";
         });
+        // Add resize functionality
+        let isResizing = false;
+        let resizeDirection = null;
+        let startWidth, startHeight, startLeft, startTop;
+
+        const handleResizeMouseDown = (direction, e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isResizing = true;
+            resizeDirection = direction;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = parseInt(div.style.width, 10);
+            startHeight = parseInt(div.style.height, 10);
+            startLeft = parseInt(div.style.left, 10);
+            startTop = parseInt(div.style.top, 10);
+            document.body.style.userSelect = 'none';
+        };
+
+        const handleResizeMouseMove = (e) => {
+            if (!isResizing) return;
+
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const tolerance = 10;
+            const minWidth = 452;
+            const minHeight = 302;
+
+            if (resizeDirection === 'right') {
+                let newWidth = startWidth + (e.clientX - startX);
+                if (newWidth < minWidth) newWidth = minWidth;
+                if (startLeft + newWidth > viewportWidth - tolerance) {
+                    newWidth = viewportWidth - startLeft - tolerance;
+                }
+                div.style.width = `${newWidth}px`;
+            }
+            else if (resizeDirection === 'left') {
+                let newWidth = startWidth - (e.clientX - startX);
+                if (newWidth < minWidth) return;
+                let newLeft = startLeft + (e.clientX - startX);
+                if (newLeft < tolerance) {
+                    newLeft = tolerance;
+                    newWidth = startWidth + (startLeft - tolerance);
+                }
+                div.style.width = `${newWidth}px`;
+                div.style.left = `${newLeft}px`;
+            }
+            else if (resizeDirection === 'bottom') {
+                let newHeight = startHeight + (e.clientY - startY);
+                if (newHeight < minHeight) newHeight = minHeight;
+                if (startTop + newHeight > viewportHeight - tolerance) {
+                    newHeight = viewportHeight - startTop - tolerance;
+                }
+                div.style.height = `${newHeight}px`;
+            }
+            else if (resizeDirection === 'top') {
+                let newHeight = startHeight - (e.clientY - startY);
+                if (newHeight < minHeight) return;
+                let newTop = startTop + (e.clientY - startY);
+                if (newTop < tolerance) {
+                    newTop = tolerance;
+                    newHeight = startHeight + (startTop - tolerance);
+                }
+                div.style.height = `${newHeight}px`;
+                div.style.top = `${newTop}px`;
+            }
+        };
+
+        const handleResizeMouseUp = () => {
+            isResizing = false;
+            resizeDirection = null;
+            document.body.style.userSelect = '';
+        };
+
+        const leftResize = document.createElement('div');
+        leftResize.className = 'left-resize';
+        const rightResize = document.createElement('div');
+        rightResize.className = 'right-resize';
+        const topResize = document.createElement('div');
+        topResize.className = 'top-resize';
+        const bottomResize = document.createElement('div');
+        bottomResize.className = 'bottom-resize';
+
+        // Add event listeners for resize handles
+        leftResize.addEventListener('mousedown', (e) => handleResizeMouseDown('left', e));
+        rightResize.addEventListener('mousedown', (e) => handleResizeMouseDown('right', e));
+        topResize.addEventListener('mousedown', (e) => handleResizeMouseDown('top', e));
+        bottomResize.addEventListener('mousedown', (e) => handleResizeMouseDown('bottom', e));
+
+        document.addEventListener('mousemove', handleResizeMouseMove);
+        document.addEventListener('mouseup', handleResizeMouseUp);
+
 
         //add to body
+        //document.body.appendChild(div);
+        //add to resizeDiv
+        div.appendChild(leftResize);
+        verticalDiv.appendChild(topResize);
+        verticalDiv.appendChild(div2);
+        verticalDiv.appendChild(bottomResize);
+        div.appendChild(verticalDiv);
+        div.appendChild(rightResize);
         document.body.appendChild(div);
 
         var textareaa = document.getElementById('auto-resizing-textarea');
@@ -215,7 +327,7 @@ export default class main {
         textareaa.focus();
 
         textareaa.value = inputValue;
-        if (textareaa.value.length > 64 || textareaa.value.includes('\n')) { //must be done once in the beginning due to the fact that `inputValue` might be a long string
+        if (textareaa.value.length > (textareaa.offsetWidth / 5.84375) || textareaa.value.includes('\n')) { //must be done once in the beginning due to the fact that `inputValue` might be a long string
             textareaa.style.height = 'auto';
             textareaa.style.height = `${textareaa.scrollHeight}px`;
             textareaa.style.top = '0px';
@@ -224,7 +336,7 @@ export default class main {
             textareaa.style.top = '2px';
         }
         textareaa.addEventListener('input', () => {
-            if (textareaa.value.length > 64 || textareaa.value.includes('\n')) { //make sure there is more than one line
+            if (textareaa.value.length > (textareaa.offsetWidth / 5.84375) || textareaa.value.includes('\n')) { //make sure there is more than one line
                 textareaa.style.height = 'auto';
                 textareaa.style.height = `${textareaa.scrollHeight}px`;
                 textareaa.style.top = '0px';
@@ -461,15 +573,15 @@ export default class main {
                                             var randomId = Math.random().toString(36).substr(2, 5).toUpperCase();
                                             document.AI_INTEGRATION.CodeChunks = streamResult.match(/```(.*?)```/gs) || [];
                                             document.AI_INTEGRATION.processedCodeChunks = [];
-                                        
+
                                             const processedChunks = await Promise.all(
                                                 document.AI_INTEGRATION.CodeChunks.map((chunk, index) =>
                                                     handleRawCodeChunk(chunk, `${randomId}_${index}`, main.mainWorkspace)
                                                 )
                                             );
-                                        
+
                                             document.AI_INTEGRATION.processedCodeChunks = processedChunks;
-                                        
+
                                             let instanceCount = -1;
                                             var editedStreamResult = streamResult.replaceAll(/```(.*?)```/gs, "CODECHUNK23407283947");
                                             editedStreamResult = converter.makeHtml(editedStreamResult)
@@ -477,7 +589,7 @@ export default class main {
                                                 instanceCount++;
                                                 if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error") {
                                                     return "<h1 class=\"errorMessage\">failed to parse Code Chunk</h1><br>"
-                                                }else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable"){ 
+                                                } else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
                                                     return "<div class=\"codeChunkOverlay\" id=\"errorFixable_" + randomId + "_" + instanceCount + "\"></div>";
                                                 }
                                                 document.AI_INTEGRATION.AllCodeChunksEverAdded.push(document.AI_INTEGRATION.processedCodeChunks[instanceCount]);
@@ -498,7 +610,7 @@ export default class main {
                                                     codeBlockHeight.push(theDiv.children[xx].children[1].getBoundingClientRect().height);
                                                 }
                                                 document.getElementById(`TEMPCODEBLOCK${instanceCount}`).remove();
-                                        
+
                                                 let svg = domParser.parseFromString(document.AI_INTEGRATION.processedCodeChunks[instanceCount].blocksAsSVG, "text/html");
                                                 svg = svg.body.children[0];
                                                 for (var i = 0; i < svg.children.length; i++) {
@@ -507,7 +619,7 @@ export default class main {
                                                 }
                                                 return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${document.AI_INTEGRATION.AllCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;
                                             });
-                                        
+
                                             document.getElementById('currentlyBlabberingOnThis').innerHTML = editedStreamResult;
                                             for (let i = 0; i <= instanceCount; i++) { // each code block
                                                 try {
@@ -515,7 +627,7 @@ export default class main {
                                                         document.getElementById('currentlyBlabberingOnThis').id = '';
                                                         console.warn("DEBUG: skipping codeblock #" + instanceCount + " due to status failure", document.AI_INTEGRATION.processedCodeChunks[instanceCount])
                                                         return;
-                                                    }else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
+                                                    } else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
                                                         var div = document.createElement('div');
                                                         div.innerHTML = `<p style="text-align: center;">A fatal issue was detected with this code</p><div style="display: flex;margin: 10px;"></div>`;
                                                         var button = document.createElement('button');
@@ -554,15 +666,15 @@ export default class main {
                                                             document.querySelector('.container').style.display = '';
                                                             document.querySelector('.container').style.zIndex = 509;
                                                         }
-                                        
+
                                                         const currentElement = document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children[xx];
                                                         currentElement.style.width = (currentElement.getBoundingClientRect().width * (currentWidth / currentElement.children[1].children[0].getBoundingClientRect().width)) + "px";
-                                        
+
                                                         //THE SMARTED/MOST INSANE CODE THAT WORKS IN THE HISTORY OF JS
                                                         const currentText = currentElement.querySelector("text");
                                                         const oldText = currentText.innerHTML;
                                                         currentText.innerHTML = "a";
-                                        
+
                                                         var currentHeight = currentText.getBoundingClientRect().height;
                                                         //console.log(currentText);
                                                         while (currentHeight > 16 && currentWidth > 5) {
@@ -616,7 +728,7 @@ export default class main {
                                                                     }
                                                                 });
                                                             }
-                                        
+
                                                             var totalWidth = 0;
                                                             //Blockly.Xml.domToWorkspace(xml, workspace);
                                                             Array.from(xml.children).forEach(block => {
@@ -637,7 +749,7 @@ export default class main {
                                                             newBlock.moveBy(x, y);*/
                                                         }
                                                         var message = `<p style="font-weight: 900;margin-bottom: 10px;">Adding this code will:</p><ul>`;
-                                        
+
                                                         var [listNames, variableNames] = helpers.workspaceVariables(false, main.mainWorkspace);
                                                         var newVariables = [];
                                                         var newLists = [];
@@ -675,7 +787,7 @@ export default class main {
                                                         var replacingBlocks = [];
                                                         var replacingBlocksInternal = [];
                                                         var trulyNewBlocks = [];
-                                        
+
                                                         for (var block of newBlocks) {
                                                             var matchingBlock = currentWorkspaceBlocks.find(currentBlock => currentBlock.customBlockName === block.customBlockName);
                                                             if (matchingBlock) {
@@ -689,7 +801,7 @@ export default class main {
                                                         if (trulyNewBlocks.length > 0) {
                                                             message += `<li>Create ${trulyNewBlocks.length} new block${trulyNewBlocks.length == 1 ? "" : "s"}: ${trulyNewBlocks.join(", ")}</li>`;
                                                         }
-                                        
+
                                                         // List blocks that are being replaced
                                                         if (replacingBlocks.length > 0) {
                                                             message += `<li>Replace ${replacingBlocks.length} existing block${replacingBlocks.length == 1 ? "" : "s"}: ${replacingBlocks.join(", ")} <span><p class="errorMessage">(THIS WILL REPLACE YOUR CURRENT BLOCK DEFINITION)</p></span></li>`;
@@ -702,14 +814,14 @@ export default class main {
                                                         const title = "Add Code to Workspace?";
                                                         ScratchBlocks.prompt(message, null, callback, title, ScratchBlocks.BROADCAST_MESSAGE_VARIABLE_TYPE, true);
                                                     });
-                                        
+
                                                     var errorForChunk = [];
                                                     for (var xx = 0; xx < document.AI_INTEGRATION.errorsDetected.length; xx++) {
                                                         if (document.AI_INTEGRATION.errorsDetected[xx].uniqueCommentID == currentElement.parentElement.id.replace("CODEBLOCK_", "")) {
                                                             errorForChunk.push(document.AI_INTEGRATION.errorsDetected[xx]);
                                                         }
                                                     }
-                                        
+
                                                     if (errorForChunk.length == 0) {
                                                         currentElement.parentElement.style = "width: fit-content;height: fit-content;margin: auto;";
                                                     } else {
