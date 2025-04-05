@@ -4,16 +4,7 @@ import Attachment from "./helpers/attachment.js";
 import main from "./main.js";
 const {API_HOST} = require('../../../lib/brand.js');
 
-let authToken = {};
-
-var mainWorkspace;
-
-
-window.addEventListener('blockError', (event) => {
-  document.AI_INTEGRATION.errorsDetected.push(event.detail);
-});
-
-document.AI_INTEGRATION = { //probably the dumbest way to possibly do this, it just make debugging alot easier (will do it properly later)
+const AI_INTEGRATION = {
   AI_currently_blabbering: false,
   CodeChunks: [],
   AllCodeChunksEverAdded: [],
@@ -24,7 +15,18 @@ document.AI_INTEGRATION = { //probably the dumbest way to possibly do this, it j
   errorsDetected: [],
   AIModels: [],
 };
+// TODO: possibly push this into the addons api?
+document.AI_INTEGRATION = AI_INTEGRATION;
 
+let authToken = {};
+let mainWorkspace;
+
+// TODO: dont use global events
+window.addEventListener('blockError', (event) => {
+  AI_INTEGRATION.errorsDetected.push(event.detail);
+});
+
+// TODO: find a better way to do this, this may break other monkey-patching and it eats RAM...
 function workspaceOverride() {
   if (typeof Blockly !== 'undefined') {
     Blockly.getMainWorkspace = function () { // I have to do this as the getmainworkspace gets linked to the getSVG parsing one 
@@ -38,9 +40,10 @@ function workspaceOverride() {
 }
 workspaceOverride();
 
+// TODO: this should use a global hook
 document.addEventListener("mousemove", (event) => {
-  document.AI_INTEGRATION.X_COORDINATE = event.clientX;
-  document.AI_INTEGRATION.Y_COORDINATE = event.clientY;
+  AI_INTEGRATION.X_COORDINATE = event.clientX;
+  AI_INTEGRATION.Y_COORDINATE = event.clientY;
 });
 
 export default async function ({ addon, console }) {
@@ -62,7 +65,7 @@ export default async function ({ addon, console }) {
   document.head.appendChild(style);
 
   if (authToken.gemini == "" && authToken.openrouter == "") {
-    document.AI_INTEGRATION.canUse = false;
+    AI_INTEGRATION.canUse = false;
     window.addEventListener('ai-button-clicked', function () {
       main.createBasePopup(2, "");
     });
@@ -84,7 +87,7 @@ export default async function ({ addon, console }) {
         }
       })
       .then(data => {
-        document.AI_INTEGRATION.AIModels = data;
+        AI_INTEGRATION.AIModels = data;
         helpers.updateAIModels(authToken.gemini, authToken.openrouter);
       })
       .catch(error => {
@@ -166,6 +169,7 @@ export default async function ({ addon, console }) {
     }
   });
 
+  // TODO: dont use global events
   window.addEventListener('ai-button-clicked', function () {
     main.createBasePopup(2, "");
   });
