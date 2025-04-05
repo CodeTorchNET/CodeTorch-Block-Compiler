@@ -428,23 +428,23 @@ const Setting = ({
                     />
                 </React.Fragment>
             )}
-            {(setting.type === 'string' || setting.type === 'long_string' || setting.type === 'untranslated') && (
+            {(setting.type === 'string' || setting.type === 'long_string' || setting.type === 'untranslated' || setting.type === 'password') && (
                 <React.Fragment>
                     {label}
                     <TextInput
                         id={uniqueId}
-                        type="text"
+                        type={setting.type === 'password' ? 'password' : 'text'}
                         value={value}
                         className={setting.type === 'long_string' ? styles.longStringSetting : ''}
                         onChange={newValue => SettingsStore.setAddonSetting(addonId, settingId, newValue)}
                     />
                     {setting.type !== 'long_string' && (
-                    <ResetButton
-                        addonId={addonId}
-                        settingId={settingId}
-                        forTextInput
-                    />
-        )}
+                        <ResetButton
+                            addonId={addonId}
+                            settingId={settingId}
+                            forTextInput
+                        />
+                    )}
                 </React.Fragment>
             )}
             {setting.type === 'color' && (
