@@ -30,7 +30,7 @@ export default class main {
         fileAttachmentType = String(fileAttachmentType);
         if (document.getElementById("popupParentDiv") != null || document.AI_INTEGRATION.popupOpen) { //reopen the popup
             document.AI_INTEGRATION.popupOpen = true;
-            document.getElementById("popupParentDiv").style.display = ''; 
+            document.getElementById("popupParentDiv").style.display = 'flex'; 
             document.getElementById("popupParentDiv").style.zIndex = 509;
             //FINISH ADDING SUPPORT TO reopening popup
             var textareaa = document.getElementById('auto-resizing-textarea');
@@ -663,8 +663,8 @@ export default class main {
                                                     }
                                                     let currentWidth = 150;
                                                     for (var xx = 0; xx < document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children.length; xx++) { //each top level block
-                                                        if (document.getElementById("popupParentDiv").style.display != "") {
-                                                            document.getElementById("popupParentDiv").style.display = '';
+                                                        if (document.getElementById("popupParentDiv").style.display != "flex") {
+                                                            document.getElementById("popupParentDiv").style.display = 'flex';
                                                             document.getElementById("popupParentDiv").style.zIndex = 509;
                                                         }
 
