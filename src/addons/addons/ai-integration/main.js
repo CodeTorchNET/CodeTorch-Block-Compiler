@@ -28,10 +28,10 @@ export default class main {
      */
     static createBasePopup(fileAttachmentType = 0, inputValue = "") {
         fileAttachmentType = String(fileAttachmentType);
-        if (document.querySelector('.container') != null || document.AI_INTEGRATION.popupOpen) { //reopen the popup
+        if (document.getElementById("popupParentDiv") != null || document.AI_INTEGRATION.popupOpen) { //reopen the popup
             document.AI_INTEGRATION.popupOpen = true;
-            document.querySelector('.container').style.display = '';
-            document.querySelector('.container').style.zIndex = 509;
+            document.getElementById("popupParentDiv").style.display = ''; 
+            document.getElementById("popupParentDiv").style.zIndex = 509;
             //FINISH ADDING SUPPORT TO reopening popup
             var textareaa = document.getElementById('auto-resizing-textarea');
             //focus on textarea
@@ -663,9 +663,9 @@ export default class main {
                                                     }
                                                     let currentWidth = 150;
                                                     for (var xx = 0; xx < document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children.length; xx++) { //each top level block
-                                                        if (document.querySelector('.container').style.display != "") {
-                                                            document.querySelector('.container').style.display = '';
-                                                            document.querySelector('.container').style.zIndex = 509;
+                                                        if (document.getElementById("popupParentDiv").style.display != "") {
+                                                            document.getElementById("popupParentDiv").style.display = '';
+                                                            document.getElementById("popupParentDiv").style.zIndex = 509;
                                                         }
 
                                                         const currentElement = document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children[xx];
