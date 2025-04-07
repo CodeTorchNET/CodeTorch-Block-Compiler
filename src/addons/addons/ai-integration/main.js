@@ -62,6 +62,7 @@ export default class main {
         div.style.zIndex = 509;
         div.style.position = 'fixed';
         div.style.display = 'flex';
+        div.id = "popupParentDiv";
 
         //intial popup dimensions
         div.style.width = '452px';

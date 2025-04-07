@@ -56,6 +56,8 @@ export async function handleRawCodeChunk(codeChunk, uniqueCommentID,mainWorkspac
     }
     try {
         codeChunk = "<xml>" + codeChunk.replace("```xml", "").replaceAll("```", "") + "</xml>";
+        //remove all comments <!-- and --> (Gemini has a tendency to add them)
+        codeChunk = codeChunk.replace(/<!--.*?-->/gs, "");
         let xmlCode = xmlParser.parseFromString(codeChunk, "text/xml");
         //check if it successfully parsed
         if (xmlCode.getElementsByTagName("parsererror").length > 0) {
