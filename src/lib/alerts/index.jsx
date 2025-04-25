@@ -276,13 +276,15 @@ const alerts = [
         ),
         iconSpinner: true,
         level: AlertLevels.SUCCESS
-    },{
+    }, {
         alertId: 'TorchyCustomBlockWarning',
         alertType: AlertTypes.STANDARD,
         clearList: [],
         content: (
             <FormattedMessage
+                // eslint-disable-next-line max-len
                 defaultMessage="Enabling use of custom extensions blocks may cause Torchy to not generate functional code."
+                // eslint-disable-next-line max-len
                 description="Warning message indicating that custom blocks may cause Torchy to not generate functional code"
                 id="gui.alerts.TorchyCustomBlockWarning"
             />
@@ -290,7 +292,7 @@ const alerts = [
         closeButton: true,
         level: AlertLevels.WARN,
         maxDisplaySecs: 15
-    },{
+    }, {
         alertId: 'TorchyWaitForAIToFinishWarning',
         alertType: AlertTypes.STANDARD,
         clearList: [],
@@ -304,12 +306,13 @@ const alerts = [
         closeButton: true,
         level: AlertLevels.WARN,
         maxDisplaySecs: 15
-    },{
+    }, {
         alertId: 'LiveReloadDisabledNotice',
         alertType: AlertTypes.STANDARD,
         clearList: [],
         content: (
             <FormattedMessage
+                // eslint-disable-next-line max-len
                 defaultMessage="Live code editing is disabled (changes take effect only after rerunning the project). To enable it, go to Edit → Advanced Settings → Use Scratch Interpreter."
                 description="Message indicating that Live Reload is disabled in this project."
                 id="gui.alerts.LiveReloadDisabledNotice"

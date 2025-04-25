@@ -29,11 +29,9 @@ import Alerts from '../../containers/alerts.jsx';
 import DragLayer from '../../containers/drag-layer.jsx';
 import ConnectionModal from '../../containers/connection-modal.jsx';
 import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
-import TWUsernameModal from '../../containers/tw-username-modal.jsx';
 import TWSettingsModal from '../../containers/tw-settings-modal.jsx';
 import TWSecurityManager from '../../containers/tw-security-manager.jsx';
 import TWCustomExtensionModal from '../../containers/tw-custom-extension-modal.jsx';
-import TWRestorePointManager from '../../containers/tw-restore-point-manager.jsx';
 import TWFontsModal from '../../containers/tw-fonts-modal.jsx';
 import TWUnknownPlatformModal from '../../containers/tw-unknown-platform-modal.jsx';
 import TWInvalidProjectModal from '../../containers/tw-invalid-project-modal.jsx';
@@ -152,7 +150,6 @@ const GUIComponent = props => {
         telemetryModalVisible,
         theme,
         tipsLibraryVisible,
-        usernameModalVisible,
         settingsModalVisible,
         customExtensionModalVisible,
         fontsModalVisible,
@@ -185,9 +182,7 @@ const GUIComponent = props => {
         const alwaysEnabledModals = (
             <React.Fragment>
                 <TWSecurityManager securityManager={securityManager} />
-                <TWRestorePointManager />
-                {/*usernameModalVisible && <TWUsernameModal />*/}
-                {settingsModalVisible && <TWSettingsModal canSave={canSave}/>}
+                {settingsModalVisible && <TWSettingsModal canSave={canSave} />}
                 {customExtensionModalVisible && <TWCustomExtensionModal />}
                 {fontsModalVisible && <TWFontsModal />}
                 {unknownPlatformModalVisible && <TWUnknownPlatformModal />}
