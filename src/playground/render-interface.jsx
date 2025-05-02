@@ -19,24 +19,16 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import {connect} from 'react-redux';
 import {compose} from 'redux';
-import {FormattedMessage, defineMessages, injectIntl, intlShape} from 'react-intl';
+import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import {getIsLoading} from '../reducers/project-state.js';
 import AppStateHOC from '../lib/app-state-hoc.jsx';
 import ErrorBoundaryHOC from '../lib/error-boundary-hoc.jsx';
 import TWProjectMetaFetcherHOC from '../lib/tw-project-meta-fetcher-hoc.jsx';
 import TWStateManagerHOC from '../lib/tw-state-manager-hoc.jsx';
-import SBFileUploaderHOC from '../lib/sb-file-uploader-hoc.jsx';
 import TWPackagerIntegrationHOC from '../lib/tw-packager-integration-hoc.jsx';
 import SettingsStore from '../addons/settings-store-singleton';
 import '../lib/tw-fix-history-api';
 import GUI from './render-gui.jsx';
-import MenuBar from '../components/menu-bar/menu-bar.jsx';
-import ProjectInput from '../components/tw-project-input/project-input.jsx';
-import FeaturedProjects from '../components/tw-featured-projects/featured-projects.jsx';
-import Description from '../components/tw-description/description.jsx';
-import BrowserModal from '../components/browser-modal/browser-modal.jsx';
-import CloudVariableBadge from '../containers/tw-cloud-variable-badge.jsx';
-import {isBrowserSupported} from '../lib/tw-environment-support-prober';
 import AddonChannels from '../addons/channels';
 import {loadServiceWorker} from './load-service-worker';
 import runAddons from '../addons/entry';
@@ -45,14 +37,14 @@ import {APP_NAME} from '../lib/brand.js';
 
 import styles from './interface.css';
 
-const isInvalidEmbed = window.parent == window;
+const isInvalidEmbed = window.parent === window;
 
-const handleClickAddonSettings = addonId => {
+const handleClickAddonSettings = () => {
     // addonId might be a string of the addon to focus on, undefined, or an event (treat like undefined)
-    /*const path = process.env.ROUTING_STYLE === 'wildcard' ? 'addons' : 'addons.html';
+    /* const path = process.env.ROUTING_STYLE === 'wildcard' ? 'addons' : 'addons.html';
     const url = `${process.env.ROOT}${path}${typeof addonId === 'string' ? `#${addonId}` : ''}`;
-    window.open(url);*/
-    window.parent.postMessage({ type: "block-compiler-action", action: "addonsPage"}, "*");
+    window.open(url); */
+    window.parent.postMessage({type: 'block-compiler-action', action: 'addonsPage'}, '*');
 };
 
 const messages = defineMessages({
@@ -63,15 +55,11 @@ const messages = defineMessages({
     }
 });
 
-const WrappedMenuBar = compose(
-    SBFileUploaderHOC,
-    TWPackagerIntegrationHOC
-)(MenuBar);
-
 if (AddonChannels.reloadChannel) {
     AddonChannels.reloadChannel.addEventListener('message', () => {
+        // eslint-disable-next-line no-negated-condition
         if (window.top !== window.self) { // if in iframe
-            window.parent.postMessage({ type: "block-compiler-action", action: "reload"}, "*");
+            window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
         } else {
             location.reload();
         }

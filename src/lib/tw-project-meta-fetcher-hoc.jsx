@@ -4,17 +4,18 @@ import {connect} from 'react-redux';
 import log from './log';
 
 
+// eslint-disable-next-line import/no-commonjs
 const {API_HOST} = require('./brand');
 
 import {setProjectTitle} from '../reducers/project-title';
-import {setAuthor, setDescription,setUsername} from '../reducers/tw';
+import {setAuthor, setDescription, setUsername} from '../reducers/tw';
 
 import storage from './storage';
 
 export const fetchProjectMeta = async projectId => {
     const urls = [
-        API_HOST+`/projectsMETA?id=${projectId}&token=${storage.getProjectToken()}`, 
-        API_HOST+`/projectsMETA?id=${projectId}&token=${storage.getProjectToken()}`
+        `${API_HOST}/projectsMETA?id=${projectId}&token=${storage.getProjectToken()}`,
+        `${API_HOST}/projectsMETA?id=${projectId}&token=${storage.getProjectToken()}`
     ];
     let firstError;
     for (const url of urls) {
@@ -54,7 +55,7 @@ const setIndexable = indexable => {
 
 const TWProjectMetaFetcherHOC = function (WrappedComponent) {
     class ProjectMetaFetcherComponent extends React.Component {
-        constructor(props) {
+        constructor (props) {
             super(props);
             this.state = {
                 canSave: false,
@@ -85,7 +86,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         const username = data.username;
                         if (username) {
                             this.props.onSetUsername(username);
-                            this.setState({ canUseCloud: true });
+                            this.setState({canUseCloud: true});
                         }
                         const authorName = data.author.username;
                         const authorThumbnail = `https://trampoline.turbowarp.org/avatars/${data.author.id}`;
@@ -96,8 +97,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                             this.props.onSetDescription(instructions, credits);
                         }
 
-                        this.setState({ canSave: data.canSave == "true" });
-                        this.setState({ canRemix: data.canRemix == "true" });
+                        this.setState({canSave: data.canSave === 'true'});
+                        this.setState({canRemix: data.canRemix === 'true'});
                         setIndexable(true);
                     })
                         .catch(err => {
@@ -118,7 +119,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 onSetDescription,
                 onSetProjectTitle,
                 onSetUsername,
-                /* eslint-enable no-unused-vars */ 
+                /* eslint-enable no-unused-vars */
                 ...props
             } = this.props;
             return (
@@ -135,7 +136,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         reduxProjectId: PropTypes.string,
         onSetAuthor: PropTypes.func,
         onSetDescription: PropTypes.func,
-        onSetProjectTitle: PropTypes.func
+        onSetProjectTitle: PropTypes.func,
+        onSetUsername: PropTypes.func
     };
     const mapStateToProps = state => ({
         reduxProjectId: state.scratchGui.projectState.projectId

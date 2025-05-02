@@ -11,13 +11,13 @@ import {
 } from '../reducers/tw';
 import {
     defaultProjectId,
-    setProjectId
+    setProjectId,
+    remixProject
 } from '../reducers/project-state';
 import {
     setPlayer,
     setFullScreen
 } from '../reducers/mode';
-import {generateRandomUsername} from './tw-username';
 import {setSearchParams} from './tw-navigation-utils';
 import {defaultStageSize} from '../reducers/custom-stage-size';
 
@@ -50,27 +50,25 @@ const setLocalStorage = (key, value) => {
     }
 };
 
-const getLocalStorage = key => {
-    try {
-        return localStorage.getItem(key);
-    } catch (e) {
-        // ignore
-    }
-    return null;
-};
 
 const readHashProjectId = () => {
-    if(location.pathname == '/projects/editor'){
-        return '0'
-    }else{
-        try{
-            return location.pathname.split('/projects/')[1].split('/editor')[0].split('/fullscreen')[0].replaceAll('/','');
-        }catch(e){
-            const match = location.hash.match(/#(\d+)/);
-            return match === null ? null : match[1];
-        }
+    if (location.pathname === '/projects/editor'){
+        return '0';
     }
+    try {
+        return location.pathname.split('/projects/')[1].split('/editor')[0].split('/fullscreen')[0].replaceAll('/', '');
+    } catch (e){
+        const match = location.hash.match(/#(\d+)/);
+        return match === null ? null : match[1];
+    }
+    
 };
+
+const shouldRemix = () => {
+    const urlParams = new URLSearchParams(location.search);
+    return urlParams.has('triggerRemix');
+};
+
 
 class Router {
     constructor ({onSetProjectId, onSetIsPlayerOnly, onSetIsFullScreen}) {
@@ -366,6 +364,18 @@ const TWStateManager = function (WrappedComponent) {
             window.addEventListener('popstate', this.handlePopState);
         }
         componentDidUpdate (prevProps) {
+            // eslint-disable-next-line max-len
+            if (this.props.projectState.loadingState === 'SHOWING_WITH_ID' && prevProps.projectState.loadingState === 'SHOWING_WITH_ID'){
+                if (shouldRemix()){
+                    // remove triggerRemix from URL
+                    const searchParams = new URLSearchParams(location.search);
+                    searchParams.delete('triggerRemix');
+                    setSearchParams(searchParams);
+
+                    this.props.handleRemix();
+                }
+            }
+            
             if (this.props.username !== prevProps.username && this.props.username !== this.doNotPersistUsername) {
                 // TODO: this always restores the current username once at startup, which is unnecessary
                 setLocalStorage(USERNAME_KEY, this.props.username);
@@ -562,6 +572,10 @@ const TWStateManager = function (WrappedComponent) {
         reduxProjectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         routingStyle: PropTypes.oneOf(Object.keys(routers)),
         username: PropTypes.string,
+        projectState: PropTypes.shape({
+            loadingState: PropTypes.string
+        }),
+        handleRemix: PropTypes.func,
         vm: PropTypes.instanceOf(VM)
     };
     StateManagerComponent.defaultProps = {
@@ -581,13 +595,15 @@ const TWStateManager = function (WrappedComponent) {
         interpolation: state.scratchGui.tw.interpolation,
         turbo: state.scratchGui.vmStatus.turbo,
         username: state.scratchGui.tw.username,
+        projectState: state.scratchGui.projectState,
         vm: state.scratchGui.vm
     });
     const mapDispatchToProps = dispatch => ({
         onSetIsFullScreen: isFullScreen => dispatch(setFullScreen(isFullScreen)),
         onSetIsPlayerOnly: isPlayerOnly => dispatch(setPlayer(isPlayerOnly)),
         onSetProjectId: projectId => dispatch(setProjectId(projectId)),
-        onSetUsername: username => dispatch(setUsername(username))
+        onSetUsername: username => dispatch(setUsername(username)),
+        handleRemix: () => dispatch(remixProject())
     });
     return injectIntl(connect(
         mapStateToProps,

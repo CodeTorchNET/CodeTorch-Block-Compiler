@@ -374,13 +374,14 @@ const createProject = () => ({
 });
 
 const doneCreatingProject = (id, loadingState) => {
-    window.parent.postMessage({ type: "block-compiler-action", action: "doneCreatingProject", projectID: id}, "*");
+    window.parent.postMessage({type: 'block-compiler-action', action: 'doneCreatingProject', projectID: id}, '*');
 
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.has('new_project')) searchParams.delete('new_project');
-    if(searchParams.has('username')) searchParams.delete('username');
-    if(searchParams.has('token')) searchParams.delete('token');
-    const newUrl = `${location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}${location.hash}`;
+    if (searchParams.has('username')) searchParams.delete('username');
+    if (searchParams.has('token')) searchParams.delete('token');
+    // eslint-disable-next-line max-len
+    const newUrl = `${location.pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}${location.hash}`;
     window.history.replaceState({}, document.title, newUrl);
     
     switch (loadingState) {
