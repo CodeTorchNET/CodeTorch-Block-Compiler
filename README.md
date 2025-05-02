@@ -4,6 +4,9 @@ Modified version of TurboWarp (a modified version of Scratch) for use in the `Co
 
 For setup instructions, follow [these steps](https://github.com/CodeTorchNET/Block-Compiler-Parent?tab=readme-ov-file#step-4-install-the-compiler) to install the compiler. If you'd like to set up the entire project, refer to the complete [installation guide](https://github.com/CodeTorchNET/Block-Compiler-Parent?tab=readme-ov-file#installation-guide).
 
+
+NOTE: The SVG assets located at src/lib/default-project/frame1.svg and src/lib/default-project/frame2.svg are not distributed under the GNU Affero General Public License (AGPL). These specific assets are proprietary and are governed by separate licensing terms. They are provided solely for use within the context of the CodeTorch organization and website. Redistribution, modification, or use in derivative works is strictly prohibited without the express written consent of the copyright holder.
+
 <br>
 <br>
 <br>
