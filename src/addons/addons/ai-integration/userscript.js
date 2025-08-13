@@ -47,7 +47,7 @@ export default async function ({ addon, console }) {
   const Blockly = await addon.tab.traps.getBlockly();
   //mainWorkspace = Blockly.getMainWorkspace();
   mainWorkspace = addon.tab.traps.getWorkspace();
-  main.apiUrl = API_HOST+"/torchy";
+  main.apiUrl = `${API_HOST}/v1/torchy`;
   main.authToken = authToken;
   main.mainWorkspace = mainWorkspace;
   main.Gaddon = addon;
@@ -55,11 +55,6 @@ export default async function ({ addon, console }) {
   Attachment._blockly = Blockly;
   authToken.gemini = addon.settings.get("GeminiAPIKey");
   authToken.openrouter = addon.settings.get("OpenRouterAPIKey");
-  //create new CSS (style for popup)
-  const style = document.createElement('link');
-  style.setAttribute('rel', 'stylesheet');
-  style.setAttribute('href', API_HOST + '/torchy/main.css');
-  document.head.appendChild(style);
 
   if (authToken.gemini == "" && authToken.openrouter == "") {
     document.AI_INTEGRATION.canUse = false;
@@ -68,8 +63,7 @@ export default async function ({ addon, console }) {
     });
     return;
   }else{
-    //fetch API_HOST + "/torchy/AI_models"
-    fetch(API_HOST + "/torchy/AI_models", {
+    fetch(`${API_HOST}/v1/torchy/ai_models`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

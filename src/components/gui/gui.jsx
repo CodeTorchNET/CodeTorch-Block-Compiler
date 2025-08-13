@@ -156,6 +156,7 @@ const GUIComponent = props => {
         unknownPlatformModalVisible,
         invalidProjectModalVisible,
         vm,
+        isCollabSyncing,
         ...componentProps
     } = omit(props, 'dispatch');
     if (children) {
@@ -242,6 +243,12 @@ const GUIComponent = props => {
                 ) : null}
                 {loading ? (
                     <Loader isFullScreen />
+                ) : null}
+                {isCollabSyncing ? (
+                    <Loader
+                        isFullScreen
+                        messageId="gui.loader.syncing"
+                    />
                 ) : null}
                 {isCreating ? (
                     <Loader
@@ -535,7 +542,8 @@ GUIComponent.propTypes = {
     fontsModalVisible: PropTypes.bool,
     unknownPlatformModalVisible: PropTypes.bool,
     invalidProjectModalVisible: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM).isRequired
+    vm: PropTypes.instanceOf(VM).isRequired,
+    isCollabSyncing: PropTypes.bool
 };
 GUIComponent.defaultProps = {
     backpackHost: null,
@@ -567,7 +575,8 @@ const mapStateToProps = state => ({
     // This is the button's mode, as opposed to the actual current state
     blocksId: state.scratchGui.timeTravel.year.toString(),
     stageSizeMode: state.scratchGui.stageSize.stageSize,
-    theme: state.scratchGui.theme.theme
+    theme: state.scratchGui.theme.theme,
+    isCollabSyncing: state.scratchGui.collaboration.isCollabSyncing
 });
 
 export default injectIntl(connect(

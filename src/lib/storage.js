@@ -28,19 +28,63 @@ class Storage extends ScratchStorage {
             this.getAssetCreateConfig.bind(this)
         );
     }
+    setCloudOTT (cloudOTT) {
+        this.cloudOTT = cloudOTT;
+    }
+    getCloudOTT () {
+        return this.cloudOTT;
+    }
     setProjectHost (projectHost) {
         this.projectHost = projectHost;
     }
     setProjectToken (projectToken) {
         this.projectToken = projectToken;
     }
-    getProjectToken () {
+    getTrustedHost (inputUrl){
+        const url = new URL(inputUrl);
+        const parts = url.hostname.split('.');
+
+        // Keep only the last two parts (e.g., "b" and "com")
+        const baseDomain = parts.slice(-2).join('.');
+
+        // Build the new clean URL
+        return `${url.protocol}//${baseDomain}`;
+    }
+    async loadAccessToken () {
+        const trustedOrigin = this.getTrustedHost(window.location.href);
+
+        window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
+
+        const jwt = await new Promise(resolve => {
+            // eslint-disable-next-line require-jsdoc, func-style
+            function handleMessage (event) {
+                if (event.origin !== trustedOrigin) {
+                    console.warn('Ignored message from untrusted origin:', event.origin);
+                    return;
+                }
+
+                if (event.data?.type === 'JWT_AUTH CREDS' && event.data?.token) {
+                    window.removeEventListener('message', handleMessage);
+                    resolve(event.data.token);
+                }
+            }
+
+            window.addEventListener('message', handleMessage);
+        });
+
+        console.log('Received JWT:', jwt);
+        this.projectToken = jwt;
+        return jwt;
+    }
+    async getProjectToken () {
+        if (!this.projectToken) {
+            await this.loadAccessToken();
+        }
         return this.projectToken;
     }
     getProjectGetConfig (projectAsset) {
         const path = `${this.projectHost}/${projectAsset.assetId}`;
-        const qs = this.projectToken ? `?token=${this.projectToken}` : ''; 
-        return path + qs;
+        return path;
     }
     getProjectCreateConfig () {
         return {
@@ -57,8 +101,11 @@ class Storage extends ScratchStorage {
     setAssetHost (assetHost) {
         this.assetHost = assetHost;
     }
+    setAssetLoadHost (assetLoadHost) {
+        this.assetLoadHost = assetLoadHost;
+    }
     getAssetGetConfig (asset) {
-        return `${this.assetHost}/${asset.assetId}.${asset.dataFormat}`;
+        return `${this.assetLoadHost}/${asset.assetId}.${asset.dataFormat}`;
     }
     getAssetCreateConfig (asset) {
         return {
@@ -67,6 +114,9 @@ class Storage extends ScratchStorage {
             // assetId as part of the create URI. So, force the method to POST.
             // Then when storage finds this config to use for the "update", still POSTs
             method: 'post',
+            headers: {
+                Authorization: `Bearer ${this.projectToken}`
+            },
             url: `${this.assetHost}/${asset.assetId}.${asset.dataFormat}`,
             withCredentials: true
         };

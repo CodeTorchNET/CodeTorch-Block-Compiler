@@ -29,52 +29,65 @@ export default function (projectId, vmState, params) {
     if (Object.prototype.hasOwnProperty.call(params, 'isCopy')) queryParams.is_copy = params.isCopy;
     if (Object.prototype.hasOwnProperty.call(params, 'isRemix')) queryParams.is_remix = params.isRemix;
     if (Object.prototype.hasOwnProperty.call(params, 'title')) queryParams.title = params.title;
-
-    if (vm.runtime.storage.projectToken) {
-        queryParams.token = vm.runtime.storage.projectToken;
-    }else if (creatingProject) {//vm.runtime.storage.projectToken is not set when creating a new project
-        const searchParams = new URLSearchParams(location.search);
-        if (searchParams.has('token')){
-            vm.runtime.storage.projectToken = searchParams.get('token');
-            queryParams.token = searchParams.get('token');
-        }
-        if(searchParams.has('username')) queryParams.username = searchParams.get('username');
-    }
-    
-
     let qs = queryString.stringify(queryParams);
     if (qs) qs = `?${qs}`;
-    if (creatingProject) { //POST request to create new project
-        Object.assign(opts, {
-            method: 'post',
-            url: `${storage.projectHost}/${qs}`
-        });
-    } else { //PUT request to update existing project
-        Object.assign(opts, {
-            method: 'put',
-            url: `${storage.projectHost}/${projectId}${qs}`
-        });
-    }
-    return new Promise((resolve, reject) => {
-        xhr(opts, (err, response) => {
-            if (err) return reject(err);
-            if (response.statusCode !== 200) return reject(response.statusCode);
-            let body;
-            try {
+
+    return storage.getProjectToken().then(token => {
+        // Add token to headers if present
+        if (token) {
+            opts.headers.Authorization = `Bearer ${token}`;
+        }
+
+        // Set method and URL
+        if (creatingProject) {
+            Object.assign(opts, {
+                method: 'post',
+                url: `${storage.projectHost}/${qs}`
+            });
+        } else {
+            Object.assign(opts, {
+                method: 'put',
+                url: `${storage.projectHost}/${projectId}${qs}`
+            });
+        }
+
+        return new Promise((resolve, reject) => {
+            xhr(opts, (err, response) => {
+                if (err) return reject(err);
+                if (response.statusCode !== 200) return reject(response.statusCode);
+                let body;
+                try {
                 // Since we didn't set json: true, we have to parse manually
-                body = JSON.parse(response.body);
-                //check if creating remix
-                if(queryParams.is_remix){
-                    window.parent.postMessage({ type: "block-compiler-action", action: "createdRemix", remixId: body["content-name"], remixTitle: body["content-title"], originalId: queryParams.original_id}, "*");
+                    body = JSON.parse(response.body);
+
+                    if (queryParams.is_remix){
+                    // eslint-disable-next-line max-len
+                        window.parent.postMessage({type: 'block-compiler-action', action: 'createdRemix', remixId: body['content-name'], remixTitle: body['content-title'], originalId: queryParams.original_id}, '*');
+                    }
+                    if (!(
+                        queryParams.is_remix ||
+                        queryParams.is_copy ||
+                        queryParams.isRemix ||
+                        queryParams.isCopy ||
+                        creatingProject
+                    )){ // if not of these things then its just a normal save
+                        if (body.status === 'ok'){
+                            const triggerData = {
+                                triggerId: 'savedProject'
+                            };
+                            // Dispatch the custom event for the addon to pick up
+                            window.dispatchEvent(new CustomEvent('collaboration_addon_trigger', {detail: triggerData}));
+                        }
+                    }
+                } catch (e) {
+                    return reject(e);
                 }
-            } catch (e) {
-                return reject(e);
-            }
-            body.id = projectId;
-            if (creatingProject) {
-                body.id = body['content-name'];
-            }
-            resolve(body);
+                body.id = projectId;
+                if (creatingProject) {
+                    body.id = body['content-name'];
+                }
+                resolve(body);
+            });
         });
     });
 }

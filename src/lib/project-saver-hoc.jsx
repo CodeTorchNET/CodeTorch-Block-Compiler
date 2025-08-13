@@ -398,7 +398,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
         vm: PropTypes.instanceOf(VM).isRequired
     };
     ProjectSaverComponent.defaultProps = {
-        autoSaveIntervalSecs: 600, // 10 minutes = 600 seconds
+        autoSaveIntervalSecs: 120, // 2 minutes = 120 seconds
         onRemixing: () => {},
         onSetProjectThumbnailer: () => {},
         onSetProjectSaver: () => {},

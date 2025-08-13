@@ -2,8 +2,9 @@
 // eslint-disable-next-line import/no-commonjs
 module.exports = {
     APP_NAME: 'CodeTorch',
-    APP_DOMAIN: 'https://codetorch.net',
-    API_HOST: 'http://localhost:8093',
-    DEFAULT_CLOUD_HOST: 'wss://cloudserver.codetorch.net',
-    enableGenerate: false,
+    APP_DOMAIN: 'http://localhost:8080',
+    API_HOST: 'http://localhost:8000',
+    ASSET_HOST: 'https://localhost:8000',
+    DEFAULT_CLOUD_HOST: 'ws://localhost:8001',
+    enableGenerate: false
 };

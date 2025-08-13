@@ -49,6 +49,7 @@ const addons = [
     'block-switching',
     'load-extensions',
     'ai-integration',
+    'collaboration',
     'custom-zoom',
     'copy-reporter',
     'initialise-sprite-position',

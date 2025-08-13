@@ -4,7 +4,7 @@ import React from 'react';
 import {injectIntl, intlShape, defineMessages} from 'react-intl';
 
 import LibraryItemComponent from '../components/library-item/library-item.jsx';
-import {API_HOST} from '../lib/brand';
+import {ASSET_HOST} from '../lib/brand';
 
 const messages = defineMessages({
     incompatible: {
@@ -130,7 +130,7 @@ class LibraryItem extends React.PureComponent {
     render () {
         const iconMd5 = this.curIconMd5();
         const iconURL = iconMd5 ?
-            (API_HOST+`/assets/${iconMd5}`) :
+            (`${ASSET_HOST}/block_project_assets/${iconMd5}`) :
             this.props.iconRawURL;
         return (
             <LibraryItemComponent

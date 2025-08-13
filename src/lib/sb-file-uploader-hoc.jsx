@@ -6,6 +6,7 @@ import {connect} from 'react-redux';
 import log from '../lib/log';
 import sharedMessages from './shared-messages';
 import {setFileHandle, setProjectError} from '../reducers/tw';
+import {showStandardAlert} from '../reducers/alerts';
 
 import {
     LoadingStates,
@@ -61,7 +62,11 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         // step 1: this is where the upload process begins
         handleStartSelectingFileUpload () {
             this.expectingFileUploadFinish = true;
-            this.createFileObjects(); // go to step 2
+            if (window.collaborationLocked) {
+                this.props.onShowCollaborationLock();
+            } else {
+                this.createFileObjects(); // go to step 2
+            }
         }
         // step 2: create a FileReader and an <input> element, and issue a
         // pseudo-click to it. That will open the file chooser dialog.
@@ -73,7 +78,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             this.fileReader = new FileReader();
             this.fileReader.onload = this.onload;
             // tw: Use FS API when available
-            if (1 == 0) {// ct: chrome does not allow to use FS API in an iframe (cross-origin) so we have to use the file picker
+            // eslint-disable-next-line max-len, no-constant-condition
+            if (1 === 0) { // ct: chrome does not allow to use FS API in an iframe (cross-origin) so we have to use the file picker
                 (async () => {
                     try {
                         const [handle] = await this.props.showOpenFilePicker({
@@ -84,7 +90,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                                     accept: {
                                         // Using application/x.scratch.sb3 as done in scratch-vm causes file pickers
                                         // to disallow picking any items in Chrome 133 on Android.
-                                        'application/octet-stream': ['.sb', '.sb2', '.sb3','.torch']
+                                        'application/octet-stream': ['.sb', '.sb2', '.sb3', '.torch']
                                     }
                                 }
                             ]
@@ -281,7 +287,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                 draw: PropTypes.func
             })
         }),
-        onSetFileHandle: PropTypes.func
+        onSetFileHandle: PropTypes.func,
+        onShowCollaborationLock: PropTypes.func
     };
     SBFileUploaderComponent.defaultProps = {
         showOpenFilePicker: typeof showOpenFilePicker === 'function' ? window.showOpenFilePicker.bind(window) : null
@@ -321,7 +328,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         // project data. When this is done, the project state transition will be
         // noticed by componentDidUpdate()
         requestProjectUpload: loadingState => dispatch(requestProjectUpload(loadingState)),
-        onSetFileHandle: fileHandle => dispatch(setFileHandle(fileHandle))
+        onSetFileHandle: fileHandle => dispatch(setFileHandle(fileHandle)),
+        onShowCollaborationLock: () => dispatch(showStandardAlert('CollaborationLockedNotice'))
     });
     // Allow incoming props to override redux-provided props. Used to mock in tests.
     const mergeProps = (stateProps, dispatchProps, ownProps) => Object.assign(

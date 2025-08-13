@@ -320,7 +320,65 @@ const alerts = [
         ),
         closeButton: true,
         level: AlertLevels.WARN
-    }
+    }, {
+        alertId: 'CollaborationLockedNotice',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage="You cannot load projects from computer while collaborating. To load a project, you must be the only user currently collaborating on this project."
+                description="Message indicating that the project is locked for collaboration."
+                id="gui.alerts.CollaborationLockedNotice"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    }, {
+        alertId: 'CollaborationLockedNoticeWipeProject',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage="You cannot clear a project while collaborating. To wipe a project, you must be the only user currently collaborating on this project."
+                description="Message indicating that the project is locked for collaboration."
+                id="gui.alerts.CollaborationLockedNoticeWipeProject"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    }, {
+        alertId: 'CollaborationLockedNoticeSaveProject',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage="To prevent losing your changes, be sure to manually save your projects, Collaborator Mode DOES NOT automatically save your work permanently."
+                description="Message indicating that the project is locked for collaboration."
+                id="gui.alerts.CollaborationLockedNoticeSaveProject"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    },
+    {
+        alertId: 'TitleChanged',
+        alertType: AlertTypes.INLINE,
+        clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess',
+            'twCreatingRestorePoint', 'twRestorePointSuccess', 'twRestorePointError'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Project title changed."
+                description="Message indicating that project title was successfully changed"
+                id="gui.alerts.titleChanged"
+            />
+        ),
+        iconURL: successImage,
+        level: AlertLevels.SUCCESS,
+        maxDisplaySecs: 3
+    },
 ];
 
 export {

@@ -48,7 +48,11 @@ class ErrorBoundary extends React.Component {
     }
 
     handleReload () {
-        window.location.replace(window.location.origin + window.location.pathname);
+        if (window.top === window.self) { // if not in iframe
+            window.location.replace(window.location.origin + window.location.pathname);
+        } else {
+            window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
+        }
     }
 
     formatErrorMessage () {

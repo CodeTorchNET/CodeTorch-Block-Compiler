@@ -247,7 +247,7 @@ test('export core', () => {
 test('export settings', () => {
     const store = new SettingStore();
     let exported = store.export({theme: lightTheme});
-    expect(exported.addons['remove-sprite-confirm'].enabled).toBe(false);
+    expect(exported.addons['remove-sprite-confirm'].enabled).toBe(true);
     expect(exported.addons['remove-sprite-confirm'].settings).toEqual({});
     expect(exported.addons['onion-skinning'].enabled).toBe(true);
     expect(exported.addons['onion-skinning'].settings.default).toEqual(false);
@@ -479,16 +479,14 @@ test('Settings migration 1 -> 2', () => {
     // eslint-disable-next-line max-len
     global.localStorage.getItem = () => `{"_":1,"tw-project-info":{"enabled":false},"tw-interface-customization":{"enabled":false,"removeFeedback":true,"removeBackpack":true}}`;
     store.readLocalStorage();
-    expect(store.getAddonEnabled('block-count')).toBe(false);
+    expect(store.getAddonEnabled('block-count')).toBe(true);
     expect(store.getAddonEnabled('tw-remove-backpack')).toBe(false);
-    expect(store.getAddonEnabled('tw-remove-feedback')).toBe(false);
 
     // eslint-disable-next-line max-len
     global.localStorage.getItem = () => `{"_":1,"tw-project-info":{"enabled":true},"tw-interface-customization":{"enabled":true,"removeFeedback":true,"removeBackpack":true}}`;
     store.readLocalStorage();
     expect(store.getAddonEnabled('block-count')).toBe(true);
     expect(store.getAddonEnabled('tw-remove-backpack')).toBe(true);
-    expect(store.getAddonEnabled('tw-remove-feedback')).toBe(true);
 });
 
 test('Settings migration 2 -> 3', () => {

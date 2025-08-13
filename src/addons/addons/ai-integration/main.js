@@ -618,7 +618,7 @@ export default class main {
                                                     //svg.setAttribute('viewBox', `0 0 ${codeBlockWidth} ${codeBlockHeight}`);
                                                     svg.children[i].setAttribute('viewBox', `0 0 ${codeBlockWidth[i]} ${codeBlockHeight[i]}`);
                                                 }
-                                                return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${document.AI_INTEGRATION.AllCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;
+                                                return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${document.AI_INTEGRATION.AllCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;
                                             });
 
                                             document.getElementById('currentlyBlabberingOnThis').innerHTML = editedStreamResult;

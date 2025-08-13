@@ -4,6 +4,8 @@ export default async ({ addon, console, msg }) => {
   if (!vm) return;
   const oldDeleteSprite = vm.deleteSprite;
   const newDeleteSprite = function (...args) {
+    //if args emit = false bypass the confirm
+    if (args.length > 1 && (args[1] === false)) return oldDeleteSprite.apply(this, args);
     if (addon.self.disabled) return oldDeleteSprite.apply(this, args);
     const canDelete = confirm(msg("confirm"));
     if (canDelete) return oldDeleteSprite.apply(this, args);

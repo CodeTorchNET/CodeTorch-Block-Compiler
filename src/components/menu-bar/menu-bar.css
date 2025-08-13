@@ -111,6 +111,14 @@
     height: 34px;
 }
 
+.torchy-button{
+    color: inherit;
+    height: 34px;
+}
+
+.torchy-button img{
+    margin-right: .25 !important;
+}
 .divider {
     height: 34px;
 }

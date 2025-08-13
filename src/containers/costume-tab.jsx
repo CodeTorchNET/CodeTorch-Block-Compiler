@@ -1,18 +1,19 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import bindAll from 'lodash.bindall';
-import { defineMessages, intlShape, injectIntl } from 'react-intl';
+import {defineMessages, intlShape, injectIntl} from 'react-intl';
 import VM from 'scratch-vm';
 
 import AssetPanel from '../components/asset-panel/asset-panel.jsx';
 import PaintEditorWrapper from './paint-editor-wrapper.jsx';
-import { connect } from 'react-redux';
-import { handleFileUpload, costumeUpload } from '../lib/file-uploader.js';
+import {connect} from 'react-redux';
+import {handleFileUpload, costumeUpload} from '../lib/file-uploader.js';
 import errorBoundaryHOC from '../lib/error-boundary-hoc.jsx';
 import DragConstants from '../lib/drag-constants';
-import { emptyCostume } from '../lib/empty-assets';
+import {emptyCostume} from '../lib/empty-assets';
 import sharedMessages from '../lib/shared-messages';
 import downloadBlob from '../lib/download-blob';
+import LockedCostumeNotice from '../components/collaboration/lockedCostumeNotice.jsx';
 
 import {
     openCostumeLibrary,
@@ -24,8 +25,8 @@ import {
     SOUNDS_TAB_INDEX
 } from '../reducers/editor-tab';
 
-import { setRestore } from '../reducers/restore-deletion';
-import { showStandardAlert, closeAlertWithId } from '../reducers/alerts';
+import {setRestore} from '../reducers/restore-deletion';
+import {showStandardAlert, closeAlertWithId} from '../reducers/alerts';
 
 import addLibraryBackdropIcon from '../components/asset-panel/icon--add-backdrop-lib.svg';
 import addLibraryCostumeIcon from '../components/asset-panel/icon--add-costume-lib.svg';
@@ -35,9 +36,9 @@ import surpriseIcon from '../components/action-menu/icon--surprise.svg';
 import searchIcon from '../components/action-menu/icon--search.svg';
 import AIIcon from '../components/action-menu/icon--AI.svg';
 
-import { enableGenerate } from '../lib/brand';
+import {enableGenerate} from '../lib/brand';
 
-import { getCostumeLibrary, getBackdropLibrary } from '../lib/libraries/tw-async-libraries';
+import {getCostumeLibrary, getBackdropLibrary} from '../lib/libraries/tw-async-libraries';
 
 let messages = defineMessages({
     addLibraryBackdropMsg: {
@@ -74,13 +75,13 @@ let messages = defineMessages({
         defaultMessage: 'Upload Costume',
         description: 'Button to add a costume by uploading a file in the editor tab',
         id: 'gui.costumeTab.addFileCostume'
-    },
+    }
 });
 
-messages = { ...messages, ...sharedMessages };
+messages = {...messages, ...sharedMessages};
 
 class CostumeTab extends React.Component {
-    constructor(props) {
+    constructor (props) {
         super(props);
         bindAll(this, [
             'handleSelectCostume',
@@ -103,12 +104,12 @@ class CostumeTab extends React.Component {
         } = props;
         const target = editingTarget && sprites[editingTarget] ? sprites[editingTarget] : stage;
         if (target && target.currentCostume) {
-            this.state = { selectedCostumeIndex: target.currentCostume };
+            this.state = {selectedCostumeIndex: target.currentCostume};
         } else {
-            this.state = { selectedCostumeIndex: 0 };
+            this.state = {selectedCostumeIndex: 0};
         }
     }
-    componentWillReceiveProps(nextProps) {
+    componentWillReceiveProps (nextProps) {
         const {
             editingTarget,
             sprites,
@@ -129,35 +130,35 @@ class CostumeTab extends React.Component {
             // https://github.com/LLK/scratch-vm/issues/967
             // Right now, you can land on the wrong costume if a costume changing script is running.
             if (oldTarget.costumeCount !== target.costumeCount) {
-                this.setState({ selectedCostumeIndex: target.currentCostume });
+                this.setState({selectedCostumeIndex: target.currentCostume});
             }
         } else {
             // If switching editing targets, update the costume index
-            this.setState({ selectedCostumeIndex: target.currentCostume });
+            this.setState({selectedCostumeIndex: target.currentCostume});
         }
     }
-    handleSelectCostume(costumeIndex) {
+    handleSelectCostume (costumeIndex) {
         this.props.vm.editingTarget.setCostume(costumeIndex);
-        this.setState({ selectedCostumeIndex: costumeIndex });
+        this.setState({selectedCostumeIndex: costumeIndex});
     }
-    handleDeleteCostume(costumeIndex) {
+    handleDeleteCostume (costumeIndex) {
         const restoreCostumeFun = this.props.vm.deleteCostume(costumeIndex);
         this.props.dispatchUpdateRestore({
             restoreFun: restoreCostumeFun,
             deletedItem: 'Costume'
         });
     }
-    handleDuplicateCostume(costumeIndex) {
+    handleDuplicateCostume (costumeIndex) {
         this.props.vm.duplicateCostume(costumeIndex);
     }
-    handleExportCostume(costumeIndex) {
+    handleExportCostume (costumeIndex) {
         const item = this.props.vm.editingTarget.sprite.costumes[costumeIndex];
         const blob = new Blob([
             this.props.vm.getExportedCostume(item)
-        ], { type: item.asset.assetType.contentType });
+        ], {type: item.asset.assetType.contentType});
         downloadBlob(`${item.name}.${item.asset.dataFormat}`, blob);
     }
-    handleNewCostume(costume, fromCostumeLibrary, targetId) {
+    handleNewCostume (costume, fromCostumeLibrary, targetId) {
         const costumes = Array.isArray(costume) ? costume : [costume];
 
         return Promise.all(costumes.map(c => {
@@ -170,13 +171,13 @@ class CostumeTab extends React.Component {
             return this.props.vm.addCostume(c.md5, c, targetId);
         }));
     }
-    handleNewBlankCostume() {
+    handleNewBlankCostume () {
         const name = this.props.vm.editingTarget.isStage ?
-            this.props.intl.formatMessage(messages.backdrop, { index: 1 }) :
-            this.props.intl.formatMessage(messages.costume, { index: 1 });
+            this.props.intl.formatMessage(messages.backdrop, {index: 1}) :
+            this.props.intl.formatMessage(messages.costume, {index: 1});
         this.handleNewCostume(emptyCostume(name));
     }
-    async handleSurpriseCostume() {
+    async handleSurpriseCostume () {
         const costumeLibraryContent = await getCostumeLibrary();
         const item = costumeLibraryContent[Math.floor(Math.random() * costumeLibraryContent.length)];
         const vmCostume = {
@@ -189,7 +190,7 @@ class CostumeTab extends React.Component {
         };
         this.handleNewCostume(vmCostume, true /* fromCostumeLibrary */);
     }
-    async handleSurpriseBackdrop() {
+    async handleSurpriseBackdrop () {
         const backdropLibraryContent = await getBackdropLibrary();
         const item = backdropLibraryContent[Math.floor(Math.random() * backdropLibraryContent.length)];
         const vmCostume = {
@@ -202,7 +203,7 @@ class CostumeTab extends React.Component {
         };
         this.handleNewCostume(vmCostume);
     }
-    handleCostumeUpload(e) {
+    handleCostumeUpload (e) {
         const vm = this.props.vm;
         const targetId = this.props.vm.editingTarget.id;
         this.props.onShowImporting();
@@ -219,16 +220,16 @@ class CostumeTab extends React.Component {
             }, this.props.onCloseImporting);
         }, this.props.onCloseImporting);
     }
-    handleFileUploadClick() {
+    handleFileUploadClick () {
         this.fileInput.click();
     }
-    handleDrop(dropInfo) {
+    handleDrop (dropInfo) {
         if (dropInfo.dragType === DragConstants.COSTUME) {
             const sprite = this.props.vm.editingTarget.sprite;
             const activeCostume = sprite.costumes[this.state.selectedCostumeIndex];
             this.props.vm.reorderCostume(this.props.vm.editingTarget.id,
                 dropInfo.index, dropInfo.newIndex);
-            this.setState({ selectedCostumeIndex: sprite.costumes.indexOf(activeCostume) });
+            this.setState({selectedCostumeIndex: sprite.costumes.indexOf(activeCostume)});
         } else if (dropInfo.dragType === DragConstants.BACKPACK_COSTUME) {
             this.props.vm.addCostume(dropInfo.payload.body, {
                 name: dropInfo.payload.name
@@ -241,10 +242,10 @@ class CostumeTab extends React.Component {
             });
         }
     }
-    setFileInput(input) {
+    setFileInput (input) {
         this.fileInput = input;
     }
-    formatCostumeDetails(size, optResolution) {
+    formatCostumeDetails (size, optResolution) {
         // If no resolution is given, assume that the costume is an SVG
         const resolution = optResolution ? optResolution : 1;
         // Convert size to stage units by dividing by resolution
@@ -252,7 +253,7 @@ class CostumeTab extends React.Component {
         // https://github.com/LLK/scratch-flash/blob/9fbac92ef3d09ceca0c0782f8a08deaa79e4df69/src/ui/media/MediaInfo.as#L224-L237
         return `${Math.ceil(size[0] / resolution)} x ${Math.ceil(size[1] / resolution)}`;
     }
-    render() {
+    render () {
         const {
             dispatchUpdateRestore, // eslint-disable-line no-unused-vars
             intl,
@@ -313,15 +314,15 @@ class CostumeTab extends React.Component {
                         img: searchIcon,
                         onClick: addLibraryFunc
                     },
-                    ...(enableGenerate
-                        ? [{
+                    ...(enableGenerate ?
+                        [{
                             title: intl.formatMessage(messages.addAICostumeMsg),
                             img: AIIcon,
                             onClick: () => {
-                                console.log("AI Clicked"); //CHANGE FOR AI
+                                console.log('AI Clicked'); // CHANGE FOR AI
                             }
-                        }]
-                        : []
+                        }] :
+                        []
                     )
                 ]}
                 dragType={DragConstants.COSTUME}
@@ -335,12 +336,15 @@ class CostumeTab extends React.Component {
                 onExportClick={this.handleExportCostume}
                 onItemClick={this.handleSelectCostume}
             >
-                {target.costumes ?
-                    <PaintEditorWrapper
-                        selectedCostumeIndex={this.state.selectedCostumeIndex}
-                    /> :
-                    null
-                }
+                {target.costumes ? (
+                    (window.collaborationLocked && window.assetLocked(this.state.selectedCostumeIndex, 1)) ? (
+                        <LockedCostumeNotice />
+                    ) : (
+                        <PaintEditorWrapper
+                            selectedCostumeIndex={this.state.selectedCostumeIndex}
+                        />
+                    )
+                ) : null}
             </AssetPanel>
         );
     }
