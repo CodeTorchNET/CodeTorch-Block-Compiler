@@ -4,7 +4,8 @@ import React from 'react';
 import VM from 'scratch-vm';
 import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import log from '../lib/log';
-const {API_HOST} = require('../lib/brand');
+// eslint-disable-next-line import/no-commonjs
+const {EXTENSION_HOST} = require('../lib/brand');
 
 import extensionLibraryContent, {
     galleryError,
@@ -43,7 +44,7 @@ const translateGalleryItem = (extension, locale) => ({
 let cachedGallery = null;
 
 const fetchLibrary = async () => {
-    const res = await fetch(API_HOST+'/extensions/extensions.json');
+    const res = await fetch(`${EXTENSION_HOST}/extensions.json`);
     if (!res.ok) {
         throw new Error(`HTTP status ${res.status}`);
     }
@@ -54,8 +55,8 @@ const fetchLibrary = async () => {
         description: extension.description,
         descriptionTranslations: extension.descriptionTranslations || {},
         extensionId: extension.id,
-        extensionURL: API_HOST+ `/extensions/extensions/${extension.slug}.js`,
-        iconURL: API_HOST +`/extensions/${extension.image || 'images/unknown.svg'}`,
+        extensionURL: `${EXTENSION_HOST}/extensions/${extension.slug}.js`,
+        iconURL: `${EXTENSION_HOST}/${extension.image || 'images/unknown.svg'}`,
         tags: ['tw'],
         credits: [
             ...(extension.original || []),
@@ -77,7 +78,8 @@ const fetchLibrary = async () => {
         }),
         docsURI: extension.docs ? `https://extensions.turbowarp.org/${extension.slug}` : null,
         samples: extension.samples ? extension.samples.map(sample => ({
-            href: `https://turbowarp.org/editor?project_url=https://extensions.turbowarp.org/samples/${encodeURIComponent(sample)}.sb3`, //force to go to turbowarp as parent doesn't nessarily support ?project_url
+            // force to go to turbowarp as parent doesn't nessarily support ?project_url
+            href: `https://turbowarp.org/editor?project_url=https://extensions.turbowarp.org/samples/${encodeURIComponent(sample)}.sb3`,
             text: sample
         })) : null,
         incompatibleWithScratch: !extension.scratchCompatible,

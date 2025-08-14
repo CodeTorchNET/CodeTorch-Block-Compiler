@@ -29,6 +29,7 @@ const isTrustedExtension = url => (
     // Always trust our official extension repostiory.
     url.startsWith('https://extensions.turbowarp.org/') ||
     url.startsWith('https://blockcompiler.codetorch.net/') ||
+    url.startsWith('https://blockextensions.codetorch.net/') ||
     url.startsWith('https://codetorch.net/') ||
     url.startsWith(API_HOST) ||
     // For development.
