@@ -11,13 +11,14 @@ import ToggleButtons from '../toggle-buttons/toggle-buttons.jsx';
 import Controls from '../../containers/controls.jsx';
 import {getStageDimensions} from '../../lib/screen-utils';
 import {STAGE_DISPLAY_SIZES, STAGE_SIZE_MODES} from '../../lib/layout-constants';
+import TWRenderRecoloredImage from '../../lib/tw-recolor/render.jsx';
 
 import fullScreenIcon from './icon--fullscreen.svg';
 import unFullScreenIcon from './icon--unfullscreen.svg';
 import largeStageIcon from '!../../lib/tw-recolor/build!./icon--large-stage.svg';
 import smallStageIcon from '!../../lib/tw-recolor/build!./icon--small-stage.svg';
 import fullStageIcon from '!../../lib/tw-recolor/build!./icon--full-stage.svg';
-import settingsIcon from './icon--settings.svg';
+import settingsIcon from '!../../lib/tw-recolor/build!./icon--settings.svg';
 
 import styles from './stage-header.css';
 
@@ -93,7 +94,7 @@ const StageHeaderComponent = function (props) {
                     className={styles.stageButton}
                     onClick={onOpenSettings}
                 >
-                    <img
+                    <TWRenderRecoloredImage
                         alt={props.intl.formatMessage(messages.openSettingsMessage)}
                         className={styles.stageButtonIcon}
                         draggable={false}
@@ -209,13 +210,13 @@ const StageHeaderComponent = function (props) {
                         {stageControls}
                         {isPlayerOnly && !isEmbedded && !isFullScreen ? <div
                             className={styles.settingsButton}
-                            style={{marginRight: ".2rem"}}
-                            >
+                            style={{marginRight: '.2rem'}}
+                        >
                             <Button
                                 className={styles.stageButton}
                                 onClick={onOpenSettings}
                             >
-                                <img
+                                <TWRenderRecoloredImage
                                     alt={props.intl.formatMessage(messages.openSettingsMessage)}
                                     className={styles.stageButtonIcon}
                                     draggable={false}
