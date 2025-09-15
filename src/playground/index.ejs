@@ -100,31 +100,45 @@
         var theme = '';
         var accent = '#d0402e';
 
-        try {
-          var themeSetting = localStorage.getItem('tw:theme');
-        } catch (e) {
-          // ignore
-        }
-        if (themeSetting === 'light') {
-          theme = 'light';
-        } else if (themeSetting === 'dark') {
+        // Check URL parameters first (highest priority)
+        var urlParams = new URLSearchParams(window.location.search);
+        var modeParam = urlParams.get('mode');
+        
+        if (modeParam === 'dark') {
           theme = 'dark';
-        } else if (themeSetting) {
+        } else if (modeParam === 'light') {
+          theme = 'light';
+        }
+
+        // If no URL parameter, check localStorage
+        if (!theme) {
           try {
-            var parsed = JSON.parse(themeSetting);
-            if (parsed.accent === 'purple') {
-              accent = '#855cd6';
-            } else if (parsed.accent === 'blue') {
-              accent = '#4c97ff';
-            }
-            if (parsed.gui === 'dark' || parsed.gui === 'light') {
-              theme = parsed.gui;
-            }
+            var themeSetting = localStorage.getItem('tw:theme');
           } catch (e) {
             // ignore
           }
+          if (themeSetting === 'light') {
+            theme = 'light';
+          } else if (themeSetting === 'dark') {
+            theme = 'dark';
+          } else if (themeSetting) {
+            try {
+              var parsed = JSON.parse(themeSetting);
+              if (parsed.accent === 'purple') {
+                accent = '#855cd6';
+              } else if (parsed.accent === 'blue') {
+                accent = '#4c97ff';
+              }
+              if (parsed.gui === 'dark' || parsed.gui === 'light') {
+                theme = parsed.gui;
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
         }
 
+        // If still no theme, check system preferences
         if (!theme) {
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }

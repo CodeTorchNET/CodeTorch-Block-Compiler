@@ -30,6 +30,17 @@ const getProjectId = () => {
 const projectId = getProjectId();
 const urlParams = new URLSearchParams(location.search);
 
+// Determine theme based on URL parameters
+const getThemeFromUrl = () => {
+    const modeParam = urlParams.get('mode');
+    if (modeParam === 'dark') {
+        return Theme.dark;
+    } else if (modeParam === 'light') {
+        return Theme.light;
+    }
+    return Theme.light; // Default to light theme
+};
+
 let vm;
 
 const onVmInit = _vm => {
@@ -55,7 +66,7 @@ render(<WrappedGUI
     onVmInit={onVmInit}
     onProjectLoaded={onProjectLoaded}
     routingStyle="none"
-    theme={Theme.light}
+    theme={getThemeFromUrl()}
 />);
 
 if (urlParams.has('addons')) {
