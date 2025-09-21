@@ -291,7 +291,32 @@ function attachYjsProvider() {
                         if (constants.debugging) console.log('Collab: Initial sync data already exists, applying it now.');
                         const syncData = constants.mutableRefs.yProjectDataSync.get('sync');
                         if (syncData && syncData.data) {
+                            let isCorrupt = false;
+                            for (const targetData of syncData.data) {
+                                const blocksObject = JSON.parse(targetData.blockData);
+                                if (helper.hasCircularDependency(blocksObject)) {
+                                    isCorrupt = true;
+                                    break;
+                                }
+                            }
 
+                            if (isCorrupt) {
+                                console.error("Collab FATAL: Received corrupt master copy with circular dependency. Aborting project load.");
+                                collabUI.hideSyncingPopup(); // Hide the "syncing" message
+
+                                const popup = document.createElement('div');
+                                popup.className = 'collab-popup';
+                                popup.innerHTML = `
+                                    <div class="collab-popup-content">
+                                        <h2>Collaboration Error</h2>
+                                        <p>The project data from the session is corrupt and cannot be loaded. This session is in an unrecoverable state.</p>
+                                        <p>Please report this to @CodeTorch.</p>
+                                    </div>
+                                `;
+                                document.body.appendChild(popup);
+
+                                return; // Abort applying the sync data.
+                            }
                             // IMPORTANT: Clear all existing blocks from all targets in the VM first.
                             // This prevents duplication and ensures a clean slate before applying remote blocks.
                             constants.mutableRefs.vm.runtime.targets.forEach(t => {
@@ -597,6 +622,96 @@ function attachYjsProvider() {
             }
             // --- 'savedProject' Trigger (for project save operations) ---
             else if (detail.triggerId === 'savedProject') {
+                let isCorrupt = false;
+                // Loop through every target (Sprite, Stage) in the project.
+                for (const target of constants.mutableRefs.vm.runtime.targets) {
+                    const blocksToValidate = target.blocks._blocks;
+                    if (helper.hasCircularDependency(blocksToValidate)) {
+                        console.error(`Collab FATAL: Circular dependency detected in target "${target.getName()}". Aborting sync.`);
+                        isCorrupt = true;
+                        break; // Stop checking as soon as one corrupt target is found.
+                    }
+                }
+
+                if (isCorrupt) {
+                    // Create the main popup container.
+                    const popup = document.createElement('div');
+                    popup.className = 'collab-popup';
+                    popup.innerHTML = `
+                        <div class="collab-popup-content">
+                            <h2>Project Sync Error</h2>
+                            <p>An invalid block connection (a loop) was detected in your project. This can sometimes happen after complex block movements.</p>
+                            <p>To fix this, the page needs to be reloaded. Your work should be saved up to this point.</p>
+                            <p>Please send the debug log to @CodeTorch.</p>
+                            <button id="collab-reload-button">Reload Project</button>
+                        </div>
+                    `;
+                    
+                    // Get a reference to the content area of the popup to append buttons.
+                    const popupContent = popup.querySelector('.collab-popup-content');
+
+                    // --- Button 1: Download Project (Unchanged) ---
+                    const downloadProjectButton = document.createElement('button');
+                    downloadProjectButton.innerText = 'Download Project';
+                    downloadProjectButton.addEventListener('click', () => {
+                        document.querySelectorAll('[class*="menu-bar_menu-bar-item_"]')[1].click();
+                        setTimeout(() => {
+                            document.querySelectorAll('li[class*="menu_menu-item_"]')[3].click();
+                        }, 500);
+                    });
+                    popupContent.appendChild(downloadProjectButton);
+
+                    // --- Button 2 (NEW): Download Debug Log ---
+                    const downloadLogButton = document.createElement('button');
+                    downloadLogButton.innerText = 'Download Debug Log';
+                    downloadLogButton.addEventListener('click', () => {
+                        try {
+                            // Get the current state of the Yjs event arrays. .toArray() converts them to standard JS arrays.
+                            const yEventsData = constants.mutableRefs.yEvents.toArray();
+                            const yProjectEventsData = constants.mutableRefs.yProjectEvents.toArray();
+
+                            // Format the data into a readable string with headers.
+                            const logContent = `Collaboration Addon Debug Log\n` +
+                                             `Timestamp: ${new Date().toISOString()}\n\n` +
+                                             `--- YEvents (Block Actions) ---\n\n` +
+                                             `${JSON.stringify(yEventsData, null, 2)}\n\n` +
+                                             `--- YProjectEvents (Asset & Project Actions) ---\n\n` +
+                                             `${JSON.stringify(yProjectEventsData, null, 2)}`;
+
+                            // Create a Blob from the string content.
+                            const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
+                            
+                            // Create a temporary link element to trigger the download.
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = 'collaboration_debug_log.txt';
+                            
+                            document.body.appendChild(a);
+                            a.click();
+                            
+                            // Clean up by revoking the URL and removing the link.
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                        } catch (e) {
+                            console.error("Collab: Failed to generate or download debug log.", e);
+                            alert("Sorry, the debug log could not be created.");
+                        }
+                    });
+                    popupContent.appendChild(downloadLogButton);
+                    
+                    // Display the popup.
+                    document.body.appendChild(popup);
+                    
+                    // Add the listener for the "Reload" button (which was created via innerHTML).
+                    document.getElementById('collab-reload-button').addEventListener('click', () => {
+                        window.location.reload();
+                    });
+
+                    return; // Abort the save/sync process.
+                }
+
                 // Get the current project data for a full sync snapshot.
                 const projectDataSync = {
                     type: 'projectDataSync',

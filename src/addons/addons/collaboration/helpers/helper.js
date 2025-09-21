@@ -384,3 +384,43 @@ export function CommentMove(blocklyEvent, remoteTargetName) {
         console.error(`Collab RX: Error moving comment with ID "${blocklyEvent.commentId}" on target "${remoteTargetName}":`, e, blocklyEvent);
     }
 }
+
+export function hasCircularDependency(blocksObject) {
+    const blockIds = Object.keys(blocksObject);
+    for (const startId of blockIds) {
+        const visitedInPath = new Set(); // Tracks nodes for the CURRENT traversal path
+
+        function traverse(blockId) {
+            if (!blockId) return false; // End of a chain
+            if (visitedInPath.has(blockId)) {
+                console.error(`Collab Validation: Circular dependency detected! Path includes block ${blockId} twice.`);
+                return true; // Cycle detected!
+            }
+            if (!blocksObject[blockId]) {
+                 // This block is referenced but doesn't exist in the object, which is a data integrity issue but not a cycle.
+                return false;
+            }
+
+            visitedInPath.add(blockId);
+
+            const block = blocksObject[blockId];
+            // Recurse through 'next' and all 'inputs'
+            if (traverse(block.next)) return true;
+            if (block.inputs) {
+                for (const inputName in block.inputs) {
+                    // An input can be a shadow block (ID in `block.inputs[...].shadow`) or a real block (ID in `block.inputs[...].block`)
+                    if (traverse(block.inputs[inputName].block)) return true;
+                }
+            }
+
+            visitedInPath.delete(blockId); // Backtrack: remove from current path
+            return false;
+        }
+
+        if (traverse(startId)) {
+            // Found a cycle starting from this block, no need to check others.
+            return true;
+        }
+    }
+    return false; // No cycles found
+}
