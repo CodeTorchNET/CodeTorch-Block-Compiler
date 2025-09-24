@@ -954,148 +954,114 @@ export function setUndoRedoOverride() {
 }
 
 /**
+ * Flushes the event buffer for a given group ID, sending all buffered events
+ * as a single atomic transaction.
+ * @param {string} groupId The ID of the event group to flush.
+ */
+function flushEventBuffer(groupId) {
+    const buffer = constants.mutableRefs.eventTransactionBuffer;
+    if (buffer.has(groupId)) {
+        const eventBatch = buffer.get(groupId);
+        if (eventBatch.length > 0) {
+            constants.mutableRefs.ydoc.transact(() => {
+                constants.mutableRefs.yEvents.push([eventBatch]);
+                if (constants.debugging) console.log(`Collab Send: Flushed ${eventBatch.length} events for group ${groupId}.`);
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        }
+        buffer.delete(groupId);
+    }
+}
+
+/**
  * Central handler for all Blockly/VM events that need to be broadcast for collaboration.
- * This function filters out non-relevant events and prepares the payload
- * before pushing it to the Yjs shared event array (`constants.mutableRefs.yEvents`).
+ * This function filters out non-relevant events, prepares the payload, and then
+ * either sends it immediately (for isolated events) or buffers it to be sent
+ * in a transaction with other events from the same user action.
  * @param {object} event - The Blockly event object.
  */
 export function handleBlocklyEventForCollaboration(event) {
-    // console.log("Blockly Event:", event.type, event); // Debug log for all events.
-
-    // Special handling for 'dragOutside' events: set a flag.
-    if (event.type === 'dragOutside') {
-        constants.mutableRefs.dragOutsideStarted = true;
-        return; // Do not process 'dragOutside' as a regular event.
-    }
-
-    // Skip if Blockly events are globally disabled (e.g., during remote sync).
     if (!constants.mutableRefs.BlocklyInstance || !constants.mutableRefs.BlocklyInstance.Events.isEnabled()) return;
 
+    if (event.type === 'dragOutside') {
+        constants.mutableRefs.dragOutsideStarted = true;
+        return;
+    }
+
     const workspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
-    // // Optional: Ensure event is for the main workspace. Currently commented out.
-    // if (!workspace || event.workspaceId !== workspace.id) return;
 
-    // Filter out UI-only events that do not represent actual model changes.
-    // `event.recordUndo` is a good proxy for events that modify the project state.
-    // Explicitly allow events related to drag-outside (delete/move) or backpack/undo/redo overrides.
-    const isDragOutsideMoveOrDelete = constants.mutableRefs.dragOutsideStarted &&
-        ["move", "delete"].includes(event.type);
-
-    const isBackpackOverride = backpackInsertOverride &&
-        ["move", "create"].includes(event.type);
-
+    const isDragOutsideMoveOrDelete = constants.mutableRefs.dragOutsideStarted && ["move", "delete"].includes(event.type);
+    const isBackpackOverride = backpackInsertOverride && ["move", "create"].includes(event.type);
     const isUndoRedoOverride = (undoRedoOverride && ["create", "move", "delete", "var_create"].includes(event.type)) ||
-        (event.type === 'var_rename' && event.varId && event.oldName && event.newName); // var_rename might not have recordUndo but needs sync.
+        (event.type === 'var_rename' && event.varId && event.oldName && event.newName);
 
-    // If an event is not undoable AND not covered by the overrides, skip it.
     if (!event.recordUndo && !(isDragOutsideMoveOrDelete || isBackpackOverride || isUndoRedoOverride)) {
-        // console.log("Collab Send: Skipping non-undoable event:", event.type, event.element || '', event); // Debug log.
         return;
     } else if (!event.recordUndo && constants.mutableRefs.dragOutsideStarted) {
-        // Reset dragOutsideStarted flag if it was set and this event was part of a drag-outside sequence.
         constants.mutableRefs.dragOutsideStarted = false;
     }
 
-    // Filter out events for blocks within the flyout (toolbox) or mutator, as these are temporary UI elements.
     if (event.type === constants.mutableRefs.BlocklyInstance.Events.CREATE) {
         const block = workspace.getBlockById(event.blockId);
         if (block?.isInFlyout || block?.isInMutator) return;
     }
 
-    // --- Determine Editing Target Context ---
-    const targetName = helper.getCurrentEditingTargetName(); // Get the name of the currently edited target.
-    let targetId = null;
-    const editingTarget = constants.mutableRefs.vm.runtime.getEditingTarget();
-    if (editingTarget) {
-        targetId = editingTarget.id;
-    }
-
+    const targetName = helper.getCurrentEditingTargetName();
     let eventJson = null;
 
-    // --- Prepare Payload for Variable Events ---
     if (event.type === constants.mutableRefs.BlocklyInstance.Events.VAR_CREATE) {
-        if (typeof event.varId !== 'string' || typeof event.varName !== 'string') {
-            console.warn("Collab Send [VarCreate]: Invalid variable ID or name:", event);
-            return;
-        }
-        // Determine the target name for local variables, or null for global.
+        if (typeof event.varId !== 'string' || typeof event.varName !== 'string') return;
         const varTargetName = event.isLocal ? (constants.mutableRefs.vm.runtime.getEditingTarget()?.getName() || targetName) : null;
-        if (event.isLocal && !varTargetName) {
-            console.warn("Collab Send [VarCreate]: Local variable event but could not get target name. Skipping.", event);
-            return;
-        }
-        eventJson = {
-            type: "var_create",
-            isCloud: event.isCloud,
-            isLocal: event.isLocal,
-            id: event.varId, // Send original ID as a hint for receiver.
-            name: event.varName,
-            varType: event.varType,
-            targetName: varTargetName // Name of the target sprite if local, else null.
-        };
+        if (event.isLocal && !varTargetName) return;
+        eventJson = { type: "var_create", isCloud: event.isCloud, isLocal: event.isLocal, id: event.varId, name: event.varName, varType: event.varType, targetName: varTargetName };
     } else if (event.type === constants.mutableRefs.BlocklyInstance.Events.VAR_RENAME) {
-        if (typeof event.varId !== 'string' || typeof event.oldName !== 'string' || typeof event.newName !== 'string') {
-            console.warn("Collab Send [VarRename]: Invalid data for rename:", event);
-            return;
-        }
-        eventJson = {
-            type: "var_rename",
-            originalVarId: event.varId,
-            oldName: event.oldName,
-            newName: event.newName,
-            ambiguityFix: { // Provide additional context to help receiver identify the variable uniquely.
-                varType: event.variable.type,
-                isCloud: event.variable.isCloud,
-                isLocal: event.variable.isLocal,
-            }
-        };
+        if (typeof event.varId !== 'string' || typeof event.oldName !== 'string' || typeof event.newName !== 'string') return;
+        eventJson = { type: "var_rename", originalVarId: event.varId, oldName: event.oldName, newName: event.newName, ambiguityFix: { varType: event.variable.type, isCloud: event.variable.isCloud, isLocal: event.variable.isLocal } };
     } else if (event.type === constants.mutableRefs.BlocklyInstance.Events.VAR_DELETE) {
-        if (typeof event.varId !== 'string' || typeof event.varName !== 'string') {
-            console.warn("Collab Send [VarDelete]: Invalid data for delete:", event);
-            return;
-        }
-        eventJson = {
-            type: "var_delete",
-            originalVarId: event.varId,
-            varName: event.varName,
-            ambiguityFix: { // Provide additional context to help receiver identify the variable uniquely.
-                varType: event.varType,
-                isCloud: event.isCloud,
-                isLocal: event.isLocal,
-            }
-        };
+        if (typeof event.varId !== 'string' || typeof event.varName !== 'string') return;
+        eventJson = { type: "var_delete", originalVarId: event.varId, varName: event.varName, ambiguityFix: { varType: event.varType, isCloud: event.isCloud, isLocal: event.isLocal } };
     }
 
-    // If it's not a variable event, convert the Blockly event to JSON.
     if (eventJson == null) {
         try {
             eventJson = event.toJson();
-            // Additional check for variable events that might pass through this general `toJson` path
-            // (e.g., if a new variable event type is introduced).
-            if (event.type.startsWith('var_') && event.type !== constants.mutableRefs.BlocklyInstance.Events.VAR_RENAME && (!event.varId || typeof event.varName === 'undefined')) {
-                console.warn("Collab Send: Variable event missing ID or Name, skipping:", event);
-                return;
-            }
+            if (event.type.startsWith('var_') && event.type !== constants.mutableRefs.BlocklyInstance.Events.VAR_RENAME && (!event.varId || typeof event.varName === 'undefined')) return;
         } catch (e) {
             console.error("Collab Send: Error serializing event:", e, event);
             return;
         }
     }
 
-    // --- Broadcast the Event via Yjs ---
-    if (constants.mutableRefs.yEvents && constants.mutableRefs.ydoc) {
-        if (constants.debugging) console.log(`Collab Send: Event=${event.type} Target=${targetName} Block=${event.blockId || 'N/A'} VarId=${event.varId || 'N/A'}`);
-        // Wrap the event JSON and target context, then push to the shared Yjs array.
-        // `constants.LOCAL_EVENT_SYNC_ORIGIN` is used to mark this as a local event.
+    if (!constants.mutableRefs.yEvents || !constants.mutableRefs.ydoc) {
+        console.warn("Collab Send: yEvents or ydoc not ready. Event not sent.");
+        return;
+    }
+
+    const eventPackage = {
+        targetName: targetName,
+        event: eventJson,
+        timestamp: Date.now()
+    };
+
+    const groupId = Blockly.Events.getGroup();
+
+    if (!groupId) {
+        // This is an isolated event (not part of a drag, etc.). Send it immediately in its own transaction.
         constants.mutableRefs.ydoc.transact(() => {
-            constants.mutableRefs.yEvents.push([{
-                targetName: targetName, // Context for receiver.
-                event: eventJson,
-                timestamp: Date.now() // Add timestamp for chronological processing.
-            }]);
+            constants.mutableRefs.yEvents.push([[eventPackage]]); // Wrap in an array to mark it as a batch of one.
+            if (constants.debugging) console.log(`Collab Send: Event=${event.type} sent immediately.`);
         }, constants.LOCAL_EVENT_SYNC_ORIGIN);
     } else {
-        console.warn("Collab Send: yEvents or ydoc not ready. Event not sent.");
+        // This event is part of a group. Buffer it.
+        const buffer = constants.mutableRefs.eventTransactionBuffer;
+        clearTimeout(constants.mutableRefs.eventFlushTimer);
+
+        if (!buffer.has(groupId)) {
+            buffer.set(groupId, []);
+        }
+        buffer.get(groupId).push(eventPackage);
+
+        // Set a timer to flush the buffer. If another event in the same group arrives, the timer will be reset.
+        constants.mutableRefs.eventFlushTimer = setTimeout(() => flushEventBuffer(groupId), 100); // 100ms debounce delay
     }
 }
 

@@ -38,19 +38,26 @@ export function setupYEventsObserver() {
         // For custom events like 'shareBlocksToTarget', the VM is the primary dependency.
         if (!workspace && event.changes.added.some(item => item.content?.getContent()?.[0]?.event?.type)) {
             console.warn('Collab RX: Workspace not found, cannot apply remote standard Blockly events.');
-            // Custom events that don't directly modify the workspace (like 'CUSTOM_REMOTE_SHARE_BLOCKS_CALL_TYPE')
-            // can still proceed even if the workspace isn't fully ready.
         }
 
         const allReceivedEventItemsInBatch = [];
         // Extract all individual event items from the Yjs transaction's added changes.
+        // The content can now be a single item (an array which is our batch) or multiple items.
         event.changes.added.forEach(item => {
+            // item.content.getContent() returns an array of items that were pushed in a transaction.
             if (item.content && typeof item.content.getContent === 'function') {
-                item.content.getContent().forEach(eventItem => {
-                    allReceivedEventItemsInBatch.push(eventItem);
+                const pushedItems = item.content.getContent();
+                pushedItems.forEach(pushedItem => {
+                    // A "pushedItem" is now expected to be an array of event objects (a batch).
+                    if (Array.isArray(pushedItem)) {
+                        // It's a batch, so spread its contents into our processing list.
+                        allReceivedEventItemsInBatch.push(...pushedItem);
+                    } else {
+                        // For robustness, handle cases where a single, non-batched event might be sent.
+                        allReceivedEventItemsInBatch.push(pushedItem);
+                    }
                 });
             } else {
-                // Log a warning if an item in the Yjs change array has an unexpected structure.
                 console.warn('Collab RX (yEvents observer): Received unexpected item structure in yEvents change:', item);
             }
         });
@@ -62,10 +69,6 @@ export function setupYEventsObserver() {
         let itemsToProcess = allReceivedEventItemsInBatch;
 
         // --- Optimization logic for initial synchronization ---
-        // This block attempts to optimize the initial load by only processing events
-        // from the last 'savedProject' event onwards within the first batch of events.
-        // This is crucial to avoid applying granular, potentially outdated, block changes
-        // if a full project state was synced more recently.
         if (!constants.mutableRefs.hasProcessedInitialBlockEvents) {
             let lastSaveProjectIndexInBatch = -1;
             // Iterate backwards through the current batch to find the last 'savedProject' event.
@@ -83,17 +86,14 @@ export function setupYEventsObserver() {
                     console.log(`Collab RX (yEvents observer): Initial event batch. Found 'savedProject'. Processing ${itemsToProcess.length} of ${allReceivedEventItemsInBatch.length} items from this batch, starting from the save event.`);
                 }
             } else {
-                // If no 'savedProject' marker is in this batch, process all events in the batch.
                 if (constants.debugging) {
                     console.log(`Collab RX (yEvents observer): Initial event batch. No 'savedProject' found in this specific batch. Processing all ${allReceivedEventItemsInBatch.length} items from this batch.`);
                 }
             }
-            // Mark that this initial processing logic has been applied for this observer.
             constants.mutableRefs.hasProcessedInitialBlockEvents = true;
         }
         // --- End of optimization logic ---
 
-        // Log the number of events being processed, indicating if filtering occurred.
         if (constants.debugging && itemsToProcess !== allReceivedEventItemsInBatch) {
             console.log(`Collab RX (yEvents observer): Filtered to process ${itemsToProcess.length} events.`);
         } else if (constants.debugging && constants.mutableRefs.hasProcessedInitialBlockEvents) {

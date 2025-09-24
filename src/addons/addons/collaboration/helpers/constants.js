@@ -10,7 +10,7 @@ export const debugging = true;
 /**
  * The base URL for the WebSocket server used for Yjs collaboration.
  */
-export const WEBSOCKETBASEURL = 'ws://localhost:4444/';
+export const WEBSOCKETBASEURL = 'wss://collaborator.codetorch.net/';
 
 /**
  * Inactivity thresholds in milliseconds.
@@ -352,6 +352,10 @@ export const mutableRefs = {
     hasProcessedInitialProjectEvents: false, // Flag to track if initial project events (assets) have been processed.
     hasProcessedInitialBlockEvents: false,   // Flag to track if initial Blockly events have been processed.
     alreadyRanSetup: false,                  // Flag to prevent re-running the main collaboration setup logic.
+
+    // --- Event Transaction Buffering ---
+    eventTransactionBuffer: new Map(), // A map to buffer Blockly events by their group ID.
+    eventFlushTimer: null,             // A timer for debouncing the flushing of the event buffer.
 };
 
 /**
