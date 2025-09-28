@@ -93,13 +93,13 @@ const StageHeaderComponent = function (props) {
                 <Button
                     className={styles.stageButton}
                     onClick={onOpenSettings}
+                    title={props.intl.formatMessage(messages.openSettingsMessage)}
                 >
                     <TWRenderRecoloredImage
-                        alt={props.intl.formatMessage(messages.openSettingsMessage)}
+                        aria-hidden="true"
                         className={styles.stageButtonIcon}
                         draggable={false}
                         src={settingsIcon}
-                        title={props.intl.formatMessage(messages.openSettingsMessage)}
                     />
                 </Button>
             </div>
@@ -215,13 +215,13 @@ const StageHeaderComponent = function (props) {
                             <Button
                                 className={styles.stageButton}
                                 onClick={onOpenSettings}
+                                title={props.intl.formatMessage(messages.openSettingsMessage)}
                             >
                                 <TWRenderRecoloredImage
-                                    alt={props.intl.formatMessage(messages.openSettingsMessage)}
+                                    aria-hidden="true"
                                     className={styles.stageButtonIcon}
                                     draggable={false}
                                     src={settingsIcon}
-                                    title={props.intl.formatMessage(messages.openSettingsMessage)}
                                 />
                             </Button>
                         </div> : null}
