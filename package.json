@@ -97,6 +97,7 @@
     "scratch-paint": "github:CodeTorchNET/scratch-paint#develop",
     "scratch-render": "github:CodeTorchNET/scratch-render#develop",
     "scratch-vm": "github:CodeTorchNET/scratch-vm#develop",
+    "scratch-storage": "github:CodeTorchNET/scratch-storage#develop",
     "showdown": "^2.1.0",
     "simplex-noise": "^4.0.3",
     "style-loader": "^0.23.0",
