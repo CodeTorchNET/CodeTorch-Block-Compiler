@@ -530,8 +530,7 @@ export function processSpecificEvent(item) {
 
     // --- Handle Standard Blockly Events ---
     // This section processes regular Blockly events (e.g., block creation, moves, changes, deletions)
-    // that were broadcast by other clients. This also covers the 'echo' of locally fired events
-    // by `vm.shareBlocksToTarget` (which are then re-broadcast by the local client for others).
+    // that were broadcast by other clients.
     if (item.event && item.event.type) {
         const remoteTargetName = item.targetName; // The name of the target (sprite/stage) where the event occurred remotely.
         const eventJson = item.event; // The raw JSON representation of the Blockly event.
@@ -540,54 +539,8 @@ export function processSpecificEvent(item) {
             console.warn(`Collab RX: Workspace not found, cannot apply standard remote event type "${eventJson.type}". Skipping.`);
             return;
         }
-
-        let blocklyEvent;
-        try {
-            // Special handling for `BLOCK_MOVE` events that represent a block being "unplugged"
-            // (moved to become a top-level block). Blockly's `fromJson` might not correctly capture
-            // `oldParentId` in this scenario, so it's manually constructed to preserve the "unplug" action.
-            if (eventJson.type === constants.mutableRefs.BlocklyInstance.Events.BLOCK_MOVE &&
-                eventJson.newCoordinate && // Indicates a move to a specific coordinate
-                (typeof eventJson.newParentId === 'undefined' || eventJson.newParentId === null) && // Indicates it's becoming a top-level block
-                eventJson.blockId) {
-                const blockToMove = workspace.getBlockById(eventJson.blockId);
-                if (blockToMove) {
-                    // Create a new `BlockMove` event from the existing block to capture its current parentage as 'old' state.
-                    blocklyEvent = new constants.mutableRefs.BlocklyInstance.Events.BlockMove(blockToMove);
-                    // Explicitly set `newParentId` and `newInputName` to undefined/null to signify becoming a top block.
-                    blocklyEvent.newParentId = undefined;
-                    blocklyEvent.newInputName = undefined;
-                    // Parse and set the new coordinates.
-                    if (eventJson.newCoordinate) {
-                        const coords = eventJson.newCoordinate.split(',');
-                        blocklyEvent.newCoordinate = new constants.mutableRefs.BlocklyInstance.utils.Coordinate(parseFloat(coords[0]), parseFloat(coords[1]));
-                    }
-                    // Copy group ID if present.
-                    if (eventJson.group) {
-                        blocklyEvent.group = eventJson.group;
-                    }
-                    // Apply any other properties from the JSON that were not covered by the constructor.
-                    blocklyEvent.fromJson(eventJson);
-                } else {
-                    // Fallback to standard `fromJson` if the block is not found (should be rare).
-                    console.warn(`Collab RX: Block ${eventJson.blockId} for programmatic detach not found. Falling back to direct fromJson.`);
-                    blocklyEvent = constants.mutableRefs.BlocklyInstance.Events.fromJson(eventJson, workspace);
-                }
-            } else {
-                // For all other event types, or `BLOCK_MOVE`s that are not "unplugs", use standard `fromJson`.
-                blocklyEvent = constants.mutableRefs.BlocklyInstance.Events.fromJson(eventJson, workspace);
-            }
-
-            if (!blocklyEvent) {
-                throw new Error('Blockly.Events.fromJson returned undefined or null');
-            }
-        } catch (e) {
-            console.error(`Collab RX: Error deserializing standard event JSON type "${eventJson.type}":`, e, eventJson);
-            return; // Skip this event if deserialization fails.
-        }
-
+        
         // --- Determine the correct Scratch VM Target for the event ---
-        // The `remoteTargetName` specifies which sprite or the Stage this event applies to.
         let target = null;
         const stage = constants.mutableRefs.vm.runtime.getTargetForStage();
         if (remoteTargetName && stage?.getName() === remoteTargetName) {
@@ -596,54 +549,121 @@ export function processSpecificEvent(item) {
             target = constants.mutableRefs.vm.runtime.getSpriteTargetByName(remoteTargetName);
         }
 
-        // Fallback or error handling if the target cannot be resolved.
         if (!target) {
-            if (remoteTargetName) {
-                // If a specific target name was provided but not found locally, it's a potential issue.
-                console.warn(`Collab RX: Target "${remoteTargetName}" for standard event type "${blocklyEvent.type}" (Block ID: ${blocklyEvent.blockId || 'N/A'}) not found. VM update may be skipped or fail.`);
-            } else {
-                // If no remote target name was specified, it might be a truly global event.
-                // In such cases, attempt to use the currently editing target as a fallback.
-                target = constants.mutableRefs.vm.runtime.getEditingTarget();
-                if (constants.debugging && target) console.log(`Collab RX: Standard event type "${blocklyEvent.type}" had no remoteTargetName. Using current editing target "${target.getName()}" for VM update attempt.`);
-            }
-
-            if (!target) {
-                console.error(`Collab RX: Skipping standard event type "${blocklyEvent.type}" (Block ID: ${blocklyEvent.blockId || 'N/A'}) due to inability to determine/resolve target (Remote: "${remoteTargetName}").`);
-                return; // Critical failure to resolve target, skip event.
-            }
+            console.error(`Collab RX: Skipping event type "${eventJson.type}" due to inability to resolve target (Remote: "${remoteTargetName}").`);
+            return;
         }
 
-        const currentEditingTargetName = helper.getCurrentEditingTargetName(); // Get the name of the target currently being edited locally.
+        const currentEditingTargetName = helper.getCurrentEditingTargetName();
+        const isViewingCorrectTarget = remoteTargetName && currentEditingTargetName === remoteTargetName;
+
+        // --- START: CUSTOM BLOCK_MOVE HANDLER (FIX for circular dependency) ---
+        // This custom handler addresses a race condition where rapidly replaying `move` events
+        // via `event.run()` can lead to an inconsistent state and create loops.
+        // We handle it by manually performing the unplug and connect/move operations in a guaranteed order.
+        if (eventType === constants.mutableRefs.BlocklyInstance.Events.BLOCK_MOVE) {
+            const blockToMove = workspace.getBlockById(eventData.blockId);
+
+            if (!blockToMove) {
+                console.warn(`Collab RX [move]: Block ${eventData.blockId} not found. Skipping move.`);
+                return;
+            }
+            if(constants.debugging) console.log(`Collab RX [move]: Applying custom move for block ${blockToMove.id}.`);
+
+            // 1. Unplug the block first to ensure the old state is cleanly severed. This is the critical step.
+            if (blockToMove.getParent()) {
+                if(constants.debugging) console.log(`Collab RX [move]: Unplugging block ${blockToMove.id} from parent.`);
+                blockToMove.unplug(false);
+            }
+
+            // 2. Perform the new move or connection.
+            // Case A: Connecting to a new parent.
+            if (eventData.newParentId) {
+                const newParentBlock = workspace.getBlockById(eventData.newParentId);
+                if (!newParentBlock) {
+                    console.warn(`Collab RX [move]: New parent block ${eventData.newParentId} not found. Skipping connect.`);
+                    return;
+                }
+                const childConnection = blockToMove.outputConnection || blockToMove.previousConnection;
+                let parentConnection;
+                if (eventData.newInputName) {
+                    const input = newParentBlock.getInput(eventData.newInputName);
+                    parentConnection = input ? input.connection : null;
+                } else {
+                    parentConnection = newParentBlock.nextConnection;
+                }
+
+                if (parentConnection && childConnection && parentConnection.checkType_(childConnection)) {
+                    if(constants.debugging) console.log(`Collab RX [move]: Connecting block ${blockToMove.id} to parent ${newParentBlock.id}.`);
+                    parentConnection.connect(childConnection);
+                } else {
+                    console.warn(`Collab RX [move]: Could not find a valid connection to attach block ${blockToMove.id}.`);
+                }
+            } 
+            // Case B: Moving to a top-level coordinate.
+            else if (eventData.newCoordinate) {
+                const coords = eventData.newCoordinate.split(',');
+                let newX = parseFloat(coords[0]);
+                const newY = parseFloat(coords[1]);
+
+                if(isViewingCorrectTarget) {
+                    if (workspace.RTL) {
+                        newX = workspace.getWidth() - newX;
+                    }
+                    const oldXY = blockToMove.getRelativeToSurfaceXY();
+                    if(constants.debugging) console.log(`Collab RX [move]: Moving block ${blockToMove.id} to coordinates.`);
+                    blockToMove.moveBy(newX - oldXY.x, newY - oldXY.y);
+                }
+            }
+
+            // 3. Manually update the VM's block model. `blocklyListen` is the safest way.
+            const blocklyEvent = constants.mutableRefs.BlocklyInstance.Events.fromJson(eventJson, workspace);
+            if (target.blocks && typeof target.blocks.blocklyListen === 'function') {
+                if(constants.debugging) console.log(`Collab RX [move]: Updating VM state for Target="${target.getName()}" via blocklyListen.`);
+                target.blocks.blocklyListen(blocklyEvent);
+            }
+            
+            return; // Exit here to prevent the default handler from running.
+        }
+        // --- END: CUSTOM BLOCK_MOVE HANDLER ---
+        
+        let blocklyEvent = constants.mutableRefs.BlocklyInstance.Events.fromJson(eventJson, workspace);
 
         // --- Handle Comment Events ---
-        // Comment events are handled separately via helper functions because they might need to update
-        // a workspace that is not currently visible (i.e., not the currently editing target's workspace).
         if (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.COMMENT_CREATE &&
-            remoteTargetName && currentEditingTargetName !== remoteTargetName) {
+            remoteTargetName && !isViewingCorrectTarget) {
             helper.CommentCreate(blocklyEvent, remoteTargetName);
-            return; // Stop further processing for this event.
+            return;
         }
 
         if (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.COMMENT_DELETE &&
-            remoteTargetName && currentEditingTargetName !== remoteTargetName) {
+            remoteTargetName && !isViewingCorrectTarget) {
             helper.CommentDelete(blocklyEvent, remoteTargetName);
-            return; // Stop further processing for this event.
+            return;
         }
 
         if (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.COMMENT_CHANGE &&
-            remoteTargetName && currentEditingTargetName !== remoteTargetName) {
+            remoteTargetName && !isViewingCorrectTarget) {
             helper.CommentChange(blocklyEvent, remoteTargetName);
-            return; // Stop further processing for this event.
+            return;
         }
 
         if (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.COMMENT_MOVE &&
-            remoteTargetName && currentEditingTargetName !== remoteTargetName) {
+            remoteTargetName && !isViewingCorrectTarget) {
             helper.CommentMove(blocklyEvent, remoteTargetName);
-            return; // Stop further processing for this event.
+            return;
         }
 
-        // --- Apply Standard Event to Blockly Workspace and VM ---
+        // --- Apply Standard Event to Blockly Workspace and VM (Default Handler) ---
+        try {
+            if (!blocklyEvent) {
+                throw new Error('Blockly.Events.fromJson returned undefined or null');
+            }
+        } catch (e) {
+            console.error(`Collab RX: Error deserializing standard event JSON type "${eventJson.type}":`, e, eventJson);
+            return;
+        }
+        
         try {
             if (constants.debugging) {
                 console.log(`Collab RX: Processing standard event=${blocklyEvent.type} (Block ID: ${blocklyEvent.blockId || 'N/A'})`);
@@ -652,22 +672,14 @@ export function processSpecificEvent(item) {
             }
 
             // 1. Apply the event VISUALLY to the Blockly workspace.
-            // This is only done if the local client is currently viewing the target (sprite or Stage)
-            // where the event originated, or if it's a global event.
-            const isViewingCorrectTarget = remoteTargetName && currentEditingTargetName === remoteTargetName;
-            const isPotentiallyGlobalEvent = !remoteTargetName; // Covers events not specific to a sprite.
+            const isPotentiallyGlobalEvent = !remoteTargetName;
 
-            // Only run visual updates if the local workspace is relevant.
-            // `VAR_CREATE` events are always applied visually as they affect the toolbox regardless of current target view.
             if (isViewingCorrectTarget || isPotentiallyGlobalEvent || constants.mutableRefs.BlocklyInstance.Events.VAR_CREATE === blocklyEvent.type) {
                 let canRunVisually = true;
-                // Optimization: For BLOCK_CREATE events, if the block already exists visually, skip visual application.
-                // This can happen if `shareBlocksToTarget` already created the blocks locally, and this is the echo.
                 if (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.BLOCK_CREATE && blocklyEvent.blockId && currentWorkspace.getBlockById(blocklyEvent.blockId)) {
                     if (constants.debugging) console.log(`Collab RX: Skipping visual .run() for standard CREATE on block ${blocklyEvent.blockId} - block already exists in current workspace view.`);
                     canRunVisually = false;
                 }
-                // For other events (MOVE, CHANGE, DELETE), ensure the block exists before trying to apply changes visually.
                 else if (blocklyEvent.blockId && (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.MOVE || blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.CHANGE || blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.DELETE)) {
                     if (!currentWorkspace.getBlockById(blocklyEvent.blockId)) {
                         if (constants.debugging) console.log(`Collab RX: Skipping visual .run() for ${blocklyEvent.type} on block ${blocklyEvent.blockId} - block not found in current workspace view.`);
@@ -677,9 +689,7 @@ export function processSpecificEvent(item) {
 
                 if (canRunVisually) {
                     if (constants.debugging) console.log(`Collab RX: Applying standard event ${blocklyEvent.type} VISUALLY.`, item);
-                    blocklyEvent.run(true); // Apply the event forward to the Blockly workspace.
-                    // Refresh the toolbox if a procedure definition was created/modified or a block was deleted,
-                    // as these can affect which blocks are available.
+                    blocklyEvent.run(true);
                     if (item?.event?.xml?.includes("procedures_definition") || item?.event?.newValue?.includes("argumentids") || blocklyEvent.type === "delete") {
                         console.log(`Collab RX: Refreshing toolbox`);
                         constants.mutableRefs.BlocklyInstance.getMainWorkspace().refreshToolboxSelection_();
@@ -688,11 +698,8 @@ export function processSpecificEvent(item) {
             } else if (constants.debugging) console.log(`Collab RX: Skipping visual application of standard event ${blocklyEvent.type} because remote target "${remoteTargetName}" is not the current view "${currentEditingTargetName}".`);
 
             // 2. Apply the event to the Scratch VM state.
-            // This ensures the underlying data model is consistent, regardless of what's visually shown.
             if (target.blocks && typeof target.blocks.blocklyListen === 'function') {
                 let canRunVmUpdate = true;
-                // Optimization: For BLOCK_CREATE events, if the block already exists in the VM target's blocks, skip VM update.
-                // This handles cases where `shareBlocksToTarget` already populated the VM.
                 if (blocklyEvent.type === constants.mutableRefs.BlocklyInstance.Events.BLOCK_CREATE && blocklyEvent.blockId && target.blocks.getBlock(blocklyEvent.blockId)) {
                     if (constants.debugging) console.log(`Collab RX: Skipping VM .blocklyListen() for standard CREATE on block ${blocklyEvent.blockId} - block already exists in VM target "${target.getName()}".`);
                     canRunVmUpdate = false;
@@ -700,7 +707,7 @@ export function processSpecificEvent(item) {
 
                 if (canRunVmUpdate) {
                     if (constants.debugging) console.log(`Collab RX: Updating VM state for Target="${target.getName()}" via blocklyListen for event type ${blocklyEvent.type}.`);
-                    target.blocks.blocklyListen(blocklyEvent); // Apply the event to the VM's block manager.
+                    target.blocks.blocklyListen(blocklyEvent);
                 }
             } else {
                 console.error(`Collab RX: Failed to update VM state for standard event type ${blocklyEvent?.type}. Target "${target?.getName()}" or its 'blocks.blocklyListen' method not found.`);
