@@ -408,8 +408,14 @@ export function hasCircularDependency(blocksObject) {
             if (traverse(block.next)) return true;
             if (block.inputs) {
                 for (const inputName in block.inputs) {
-                    // An input can be a shadow block (ID in `block.inputs[...].shadow`) or a real block (ID in `block.inputs[...].block`)
-                    if (traverse(block.inputs[inputName].block)) return true;
+                    const input = block.inputs[inputName];
+                    // The input is an array, e.g., [1, 'shadow-id'], [2, 'block-id'], [3, 'block-id', 'shadow-id']
+                    // The actual connected block is the second element (index 1).
+                    if (input && Array.isArray(input) && input.length > 1 && input[1]) {
+                        if (traverse(input[1])) {
+                            return true;
+                        }
+                    }
                 }
             }
 
