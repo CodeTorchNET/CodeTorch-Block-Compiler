@@ -291,17 +291,18 @@ function attachYjsProvider() {
                         if (constants.debugging) console.log('Collab: Initial sync data already exists, applying it now.');
                         const syncData = constants.mutableRefs.yProjectDataSync.get('sync');
                         if (syncData && syncData.data) {
-                            let isCorrupt = false;
+                            let corruptionDetails = null;
                             for (const targetData of syncData.data) {
                                 const blocksObject = JSON.parse(targetData.blockData);
-                                if (helper.hasCircularDependency(blocksObject)) {
-                                    isCorrupt = true;
+                                const cycleCheckResult = helper.findCircularDependency(blocksObject, targetData.targetName);
+                                if (cycleCheckResult.hasCycle) {
+                                    corruptionDetails = cycleCheckResult;
                                     break;
                                 }
                             }
 
-                            if (isCorrupt) {
-                                console.error("Collab FATAL: Received corrupt master copy with circular dependency. Aborting project load.");
+                            if (corruptionDetails) {
+                                console.error("Collab FATAL: Received corrupt master copy with circular dependency. Aborting project load.", corruptionDetails);
                                 collabUI.hideSyncingPopup(); // Hide the "syncing" message
 
                                 const popup = document.createElement('div');
@@ -622,18 +623,19 @@ function attachYjsProvider() {
             }
             // --- 'savedProject' Trigger (for project save operations) ---
             else if (detail.triggerId === 'savedProject') {
-                let isCorrupt = false;
+                let corruptionDetails = null;
                 // Loop through every target (Sprite, Stage) in the project.
                 for (const target of constants.mutableRefs.vm.runtime.targets) {
                     const blocksToValidate = target.blocks._blocks;
-                    if (helper.hasCircularDependency(blocksToValidate)) {
+                    const cycleCheckResult = helper.findCircularDependency(blocksToValidate, target.getName());
+                    if (cycleCheckResult.hasCycle) {
                         console.error(`Collab FATAL: Circular dependency detected in target "${target.getName()}". Aborting sync.`);
-                        isCorrupt = true;
-                        break; // Stop checking as soon as one corrupt target is found.
+                        corruptionDetails = cycleCheckResult;
+                        break;
                     }
                 }
 
-                if (isCorrupt) {
+                if (corruptionDetails) {
                     // Create the main popup container.
                     const popup = document.createElement('div');
                     popup.className = 'collab-popup';
@@ -665,38 +667,130 @@ function attachYjsProvider() {
                     const downloadLogButton = document.createElement('button');
                     downloadLogButton.innerText = 'Download Debug Log';
                     downloadLogButton.addEventListener('click', () => {
+                        let sessionInfo, yjsState, localCollabState, vmProjectJSON, yEventsData, yProjectEventsData, corruptionLog;
+
+                        // Helper to convert Maps to plain objects for JSON.stringify
+                        const mapToObject = (map) => {
+                            const obj = {};
+                            if (!map || !(map instanceof Map)) return {};
+                            map.forEach((value, key) => {
+                                obj[String(key)] = value;
+                            });
+                            return obj;
+                        };
+
+                        // --- Section 0: Corruption Details ---
                         try {
-                            // Get the current state of the Yjs event arrays. .toArray() converts them to standard JS arrays.
-                            const yEventsData = constants.mutableRefs.yEvents.toArray();
-                            const yProjectEventsData = constants.mutableRefs.yProjectEvents.toArray();
+                            if (corruptionDetails) {
+                                const blockTypes = {};
+                                const targetName = corruptionDetails.targetName;
+                                const target = targetName === 'Stage' ?
+                                    constants.mutableRefs.vm.runtime.getTargetForStage() :
+                                    constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
 
-                            // Format the data into a readable string with headers.
-                            const logContent = `Collaboration Addon Debug Log\n` +
-                                             `Timestamp: ${new Date().toISOString()}\n\n` +
-                                             `--- YEvents (Block Actions) ---\n\n` +
-                                             `${JSON.stringify(yEventsData, null, 2)}\n\n` +
-                                             `--- YProjectEvents (Asset & Project Actions) ---\n\n` +
-                                             `${JSON.stringify(yProjectEventsData, null, 2)}`;
+                                if (target && corruptionDetails.path) {
+                                    corruptionDetails.path.forEach(blockId => {
+                                        const block = target.blocks.getBlock(blockId);
+                                        blockTypes[blockId] = block ? block.opcode : 'Not Found';
+                                    });
+                                }
+                                corruptionLog = JSON.stringify({ ...corruptionDetails, blockTypes }, null, 2);
+                            } else {
+                                corruptionLog = '"No corruption details available."';
+                            }
+                        } catch (e) {
+                            corruptionLog = `"Error generating Corruption Details: ${e.message}"`;
+                        }
 
-                            // Create a Blob from the string content.
+                        // --- Section 1: Session Info ---
+                        try {
+                            sessionInfo = JSON.stringify({
+                                timestamp: new Date().toISOString(),
+                                url: window.location.href,
+                                userAgent: navigator.userAgent,
+                            }, null, 2);
+                        } catch (e) {
+                            sessionInfo = `"Error generating Session Info: ${e.message}"`;
+                        }
+
+                        // --- Section 2: Yjs & Provider State ---
+                        try {
+                            yjsState = JSON.stringify({
+                                localClientID: constants.mutableRefs.ydoc?.clientID || 'N/A',
+                                provider: {
+                                    connected: constants.mutableRefs.provider?.wsconnected || false,
+                                    synced: constants.mutableRefs.provider?.synced || false,
+                                    url: constants.mutableRefs.provider?.url || 'N/A',
+                                },
+                                awareness: mapToObject(constants.mutableRefs.yjsAwarenessInstance?.getStates()),
+                            }, null, 2);
+                        } catch (e) {
+                            yjsState = `"Error generating Yjs & Provider State: ${e.message}"`;
+                        }
+
+                        // --- Section 3: Local Collaboration State ---
+                        try {
+                            localCollabState = JSON.stringify({
+                                localUserInfo: constants.localUserInfo,
+                                syncFlags: {
+                                    hasProcessedInitialProjectEvents: constants.mutableRefs.hasProcessedInitialProjectEvents,
+                                    hasProcessedInitialBlockEvents: constants.mutableRefs.hasProcessedInitialBlockEvents,
+                                    alreadyRanSetup: constants.mutableRefs.alreadyRanSetup,
+                                },
+                                eventTransactionBuffer: mapToObject(constants.mutableRefs.eventTransactionBuffer),
+                            }, null, 2);
+                        } catch (e) {
+                            localCollabState = `"Error generating Local Collaboration State: ${e.message}"`;
+                        }
+
+                        // --- Section 4: Project & VM State ---
+                        try {
+                            vmProjectJSON = constants.mutableRefs.vm ? constants.mutableRefs.vm.toJSON() : '{"error": "VM instance not found."}';
+                        } catch (e) {
+                            vmProjectJSON = `{"error": "Failed to serialize project from VM", "message": "${e.message}"}`;
+                        }
+
+                        // --- Section 5: YEvents History ---
+                        try {
+                            yEventsData = JSON.stringify(constants.mutableRefs.yEvents?.toArray() || [], null, 2);
+                        } catch (e) {
+                            yEventsData = `"Error generating YEvents History: ${e.message}"`;
+                        }
+
+                        // --- Section 6: YProjectEvents History ---
+                        try {
+                            yProjectEventsData = JSON.stringify(constants.mutableRefs.yProjectEvents?.toArray() || [], null, 2);
+                        } catch (e) {
+                            yProjectEventsData = `"Error generating YProjectEvents History: ${e.message}"`;
+                        }
+
+                        // Assemble the log string
+                        const logContent = `Collaboration Addon Debug Log\n\n` +
+                            `==================== CORRUPTION DETAILS ====================\n${corruptionLog}\n\n` +
+                            `==================== Session Info ====================\n${sessionInfo}\n\n` +
+                            `==================== Yjs & Provider State ====================\n${yjsState}\n\n` +
+                            `==================== Local Collaboration State ====================\n${localCollabState}\n\n` +
+                            `==================== Full Project State (from vm.toJSON()) ====================\n${vmProjectJSON}\n\n` +
+                            `==================== YEvents History (Block Actions) ====================\n${yEventsData}\n\n` +
+                            `==================== YProjectEvents History (Asset & Project Actions) ====================\n${yProjectEventsData}\n\n` +
+                            `==================== END OF LOG ====================`;
+                        
+                        // Create and trigger download
+                        try {
                             const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
-                            
-                            // Create a temporary link element to trigger the download.
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.style.display = 'none';
                             a.href = url;
-                            a.download = 'collaboration_debug_log.txt';
-                            
+                            const timestampForFile = new Date().toISOString().replace(/[:.]/g, '-');
+                            a.download = `collaboration_debug_log_${timestampForFile}.txt`;
                             document.body.appendChild(a);
                             a.click();
-                            
-                            // Clean up by revoking the URL and removing the link.
                             window.URL.revokeObjectURL(url);
                             document.body.removeChild(a);
-                        } catch (e) {
-                            console.error("Collab: Failed to generate or download debug log.", e);
-                            alert("Sorry, the debug log could not be created.");
+                        } catch (downloadError) {
+                            console.error("Collab: Failed to trigger debug log download.", downloadError);
+                            alert("Sorry, the debug log could not be downloaded.");
                         }
                     });
                     popupContent.appendChild(downloadLogButton);

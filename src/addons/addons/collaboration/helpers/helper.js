@@ -385,48 +385,73 @@ export function CommentMove(blocklyEvent, remoteTargetName) {
     }
 }
 
-export function hasCircularDependency(blocksObject) {
+export function findCircularDependency(blocksObject, targetName) {
     const blockIds = Object.keys(blocksObject);
+    const visitedGlobally = new Set(); // To avoid re-checking branches we know are safe.
+
     for (const startId of blockIds) {
-        const visitedInPath = new Set(); // Tracks nodes for the CURRENT traversal path
+        if (visitedGlobally.has(startId)) continue; // Already checked this node and its descendants.
+
+        const visitedInPath = new Set(); // Tracks nodes for the CURRENT traversal path.
+        const currentPath = []; // Tracks the actual block IDs in the path.
 
         function traverse(blockId) {
-            if (!blockId) return false; // End of a chain
+            if (!blockId) return null; // End of a chain, no cycle.
+
+            // Cycle detected!
             if (visitedInPath.has(blockId)) {
-                console.error(`Collab Validation: Circular dependency detected! Path includes block ${blockId} twice.`);
-                return true; // Cycle detected!
+                // Find the start of the cycle in the current path and return the cycle loop.
+                const cycleStartIndex = currentPath.indexOf(blockId);
+                const cyclePath = [...currentPath.slice(cycleStartIndex), blockId];
+                console.error(`Collab Validation: Circular dependency detected in target "${targetName}"! Path: ${cyclePath.join(' -> ')}`);
+                return {
+                    hasCycle: true,
+                    path: cyclePath,
+                    targetName: targetName
+                };
             }
             if (!blocksObject[blockId]) {
-                 // This block is referenced but doesn't exist in the object, which is a data integrity issue but not a cycle.
-                return false;
+                // This block is referenced but doesn't exist. Data integrity issue, but not a cycle.
+                return null;
             }
 
             visitedInPath.add(blockId);
+            currentPath.push(blockId);
 
             const block = blocksObject[blockId];
-            // Recurse through 'next' and all 'inputs'
-            if (traverse(block.next)) return true;
+
+            // Recurse through 'next'
+            let cycleResult = traverse(block.next);
+            if (cycleResult) return cycleResult;
+
+            // Recurse through all 'inputs'
             if (block.inputs) {
                 for (const inputName in block.inputs) {
                     const input = block.inputs[inputName];
                     // The input is an array, e.g., [1, 'shadow-id'], [2, 'block-id'], [3, 'block-id', 'shadow-id']
                     // The actual connected block is the second element (index 1).
                     if (input && Array.isArray(input) && input.length > 1 && input[1]) {
-                        if (traverse(input[1])) {
-                            return true;
+                        cycleResult = traverse(input[1]);
+                        if (cycleResult) {
+                            return cycleResult;
                         }
                     }
                 }
             }
 
-            visitedInPath.delete(blockId); // Backtrack: remove from current path
-            return false;
+            visitedInPath.delete(blockId); // Backtrack: remove from current path.
+            currentPath.pop();
+            visitedGlobally.add(blockId); // Mark this node as fully explored and safe.
+            return null; // No cycle found from this path.
         }
 
-        if (traverse(startId)) {
-            // Found a cycle starting from this block, no need to check others.
-            return true;
+        const result = traverse(startId);
+        if (result && result.hasCycle) {
+            // Found a cycle, no need to check other blocks.
+            return result;
         }
     }
-    return false; // No cycles found
+    return {
+        hasCycle: false
+    }; // No cycles found in any block.
 }
