@@ -432,15 +432,47 @@ export async function syncCurrentCostumeData(isFinalSync = false) {
 }
 
 /**
- * Generates a SHA-256 hash of a given ArrayBuffer.
+ * Generates a SHA-256 hash of a given ArrayBuffer or ArrayBufferView.
  * This is used to detect changes in binary asset data (costumes, sounds).
- * @param {ArrayBuffer} messageBuffer - The binary data to hash.
+ * @param {ArrayBuffer|ArrayBufferView|Uint8Array} messageBuffer - The binary data to hash.
  * @returns {Promise<string|null>} A promise that resolves to the SHA-256 hash as a hex string, or null on error.
  */
 async function digestMessage(messageBuffer) {
-    if (!messageBuffer || messageBuffer.byteLength === 0) return 'empty'; // Handle empty data case.
+    if (!messageBuffer) return 'empty'; // Handle null/undefined case.
+    
+    // Convert to ArrayBuffer if it's an ArrayBufferView (like Uint8Array)
+    let arrayBufferToHash;
+    if (messageBuffer instanceof ArrayBuffer) {
+        arrayBufferToHash = messageBuffer;
+    } else if (messageBuffer.buffer && messageBuffer.buffer instanceof ArrayBuffer) {
+        // Handle ArrayBufferView types (Uint8Array, etc.)
+        // If it's a view of the entire buffer, use the buffer directly
+        // Otherwise, create a new view with just the relevant portion
+        if (messageBuffer.byteOffset === 0 && messageBuffer.byteLength === messageBuffer.buffer.byteLength) {
+            arrayBufferToHash = messageBuffer.buffer;
+        } else {
+            // Create a new ArrayBuffer with just the view's data
+            arrayBufferToHash = messageBuffer.buffer.slice(messageBuffer.byteOffset, messageBuffer.byteOffset + messageBuffer.byteLength);
+        }
+    } else if (typeof messageBuffer === 'string') {
+        // Handle string data (base64 encoded or data URL)
+        console.error('Collab: digestMessage received string data instead of binary. This should not happen.');
+        return null;
+    } else {
+        // Unknown type - try to check if it has byteLength
+        if (typeof messageBuffer.byteLength === 'number') {
+            console.error('Collab: digestMessage received unexpected type with byteLength:', typeof messageBuffer, messageBuffer);
+            return null;
+        } else {
+            console.error('Collab: digestMessage received invalid data type:', typeof messageBuffer, messageBuffer);
+            return null;
+        }
+    }
+    
+    if (arrayBufferToHash.byteLength === 0) return 'empty'; // Handle empty data case.
+    
     try {
-        const hashBuffer = await crypto.subtle.digest('SHA-256', messageBuffer); // Use Web Cryptography API.
+        const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBufferToHash); // Use Web Cryptography API.
         const hashArray = Array.from(new Uint8Array(hashBuffer)); // Convert ArrayBuffer to Array of bytes.
         // Convert bytes to hex string.
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -598,7 +630,16 @@ export async function updateSoundProgrammatically(target, soundIndex, soundAsset
         if (constants.debugging) console.log(`Collab RX [soundEdited]: AudioBuffer decoded. Calling vm.updateSoundBuffer for sound ${soundIndex} on target "${target.getName()}".`);
 
         // Call the VM method to update the sound's asset, data format, sample rate, and other metadata.
-        constants.mutableRefs.vm.updateSoundBuffer(soundIndex, audioBuffer, dataFormat, target);
+        // IMPORTANT: Pass the Uint8Array data as the third parameter to preserve the raw asset data
+        // for project save/load. The signature matches sound-editor.jsx usage.
+        // This ensures the sound asset data is properly saved and can be reloaded correctly.
+        constants.mutableRefs.vm.updateSoundBuffer(soundIndex, audioBuffer, uint8ArrayData);
+        
+        // Update the sound's dataFormat if it differs (this ensures metadata is correct)
+        if (soundToUpdate.asset && soundToUpdate.asset.dataFormat !== dataFormat) {
+            soundToUpdate.asset.dataFormat = dataFormat;
+            soundToUpdate.dataFormat = dataFormat;
+        }
 
         // If the updated sound belongs to the currently editing target, trigger UI refreshes.
         if (target.id === constants.mutableRefs.vm.runtime.getEditingTarget()?.id) {
@@ -611,7 +652,7 @@ export async function updateSoundProgrammatically(target, soundIndex, soundAsset
         if (soundEditor && constants.mutableRefs.vm.editingTarget && constants.mutableRefs.vm.editingTarget.id === target.id) {
             const redux = window.ReduxStore; // Assuming Redux store is globally accessible.
             // Check if the sound editor is open and the currently edited sound matches the one being updated.
-            if (redux && redux.getState().scratchGui.soundEditor.soundIndex === soundIndex) {
+            if (redux && redux.getState().scratchGui.soundEditor && redux.getState().scratchGui.soundEditor.soundIndex === soundIndex) {
                 if (constants.debugging) console.log(`Collab RX [soundEdited]: Attempting to refresh sound editor UI for target ${target.getName()}, sound ${soundIndex}`);
                 // Currently, a direct Redux dispatch to force re-render might be needed,
                 // or rely on a more granular VM event if Scratch GUI supports it.

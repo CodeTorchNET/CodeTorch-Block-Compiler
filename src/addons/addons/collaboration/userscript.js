@@ -122,8 +122,35 @@ window.assetLocked = function (assetIndexToCheck, type) {
     }
 
     // Set the local editing state in constants.localUserInfo and update awareness.
-    if (type === 1) assetSync.setLocalEditingCostume(targetNameOfAsset, assetIndexToCheck);
-    else assetSync.setLocalEditingSound(targetNameOfAsset, assetIndexToCheck);
+    // For sounds, verify that sounds are loaded before attempting to set editing state.
+    // If sounds aren't loaded yet, return false (unlocked) to avoid blocking the UI.
+    if (type === 1) {
+        assetSync.setLocalEditingCostume(targetNameOfAsset, assetIndexToCheck);
+    } else {
+        // For sounds, check if sounds are available first
+        const target = targetNameOfAsset === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetNameOfAsset);
+        if (target) {
+            const sounds = target.getSounds();
+            if (sounds && sounds.length > assetIndexToCheck && sounds[assetIndexToCheck] && sounds[assetIndexToCheck].asset && sounds[assetIndexToCheck].asset.data) {
+                assetSync.setLocalEditingSound(targetNameOfAsset, assetIndexToCheck);
+            } else {
+                // Sounds not loaded yet - defer setting editing state, but don't block UI
+                if (constants.debugging) {
+                    console.log(`Collab AssetLock: Sounds not fully loaded yet for "${targetNameOfAsset}". Will retry when sound is available.`);
+                }
+                // Try again after a short delay to allow sounds to load
+                setTimeout(() => {
+                    const retryTarget = targetNameOfAsset === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetNameOfAsset);
+                    if (retryTarget) {
+                        const retrySounds = retryTarget.getSounds();
+                        if (retrySounds && retrySounds.length > assetIndexToCheck && retrySounds[assetIndexToCheck] && retrySounds[assetIndexToCheck].asset && retrySounds[assetIndexToCheck].asset.data) {
+                            assetSync.setLocalEditingSound(targetNameOfAsset, assetIndexToCheck);
+                        }
+                    }
+                }, 100);
+            }
+        }
+    }
 
     return false; // Return false to indicate the UI should be enabled.
 };
