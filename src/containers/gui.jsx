@@ -74,6 +74,16 @@ class GUI extends React.Component {
             // this only notifies container when a project changes from not yet loaded to loaded
             // At this time the project view in www doesn't need to know when a project is unloaded
             this.props.onProjectLoaded();
+
+            const vm = this.props.vm;
+            // const intl = this.props.intl;
+            console.log(vm.getLoadedExtensionsInfo());
+            const loadedExtensionIds = vm.getLoadedExtensionsInfo();
+
+            window.parent.postMessage({
+                type: 'codetorch-extensions-loaded',
+                payload: loadedExtensionIds
+            }, '*');
         }
     }
     render () {
