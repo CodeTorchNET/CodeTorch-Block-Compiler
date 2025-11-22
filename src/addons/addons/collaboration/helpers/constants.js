@@ -1,16 +1,31 @@
 // helpers/constants.js
 
 import * as helper from './helper.js';
+import CollaborationConsole from './CollaborationConsole.js'; 
 
 /**
  * Global debugging flag. Set to `true` to enable verbose console logging and other debugging features.
  */
 export const debugging = true;
 
+export const apiHostURL =
+  ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+    ? "http://localhost:8000"
+    : "https://api.codetorch.net";
+
+/**
+ * Development Mode. 
+ * Set to `true` to allow the addon to run even if window.CollaborationRoom/OTT are undefined.
+ */
+export const devMode =
+  ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+    ? true
+    : false;
+
 /**
  * The base URL for the WebSocket server used for Yjs collaboration.
  */
-export const WEBSOCKETBASEURL = 'wss://collaborator.codetorch.net/';
+export const WEBSOCKETBASEURL = 'ws://localhost:4444';
 
 /**
  * Inactivity thresholds in milliseconds.
@@ -18,7 +33,7 @@ export const WEBSOCKETBASEURL = 'wss://collaborator.codetorch.net/';
  * - `INACTIVITY_THRESHOLD_Y_MS`: When reached, a more aggressive cleanup/disconnect process is initiated.
  */
 export const INACTIVITY_THRESHOLD_X_MS = 30 * 1000; // 30 seconds
-export const INACTIVITY_THRESHOLD_Y_MS = 60 * 1000; // 60 seconds
+export const INACTIVITY_THRESHOLD_Y_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * A unique symbol used as the `origin` for Yjs transactions initiated by the local client.
@@ -94,7 +109,7 @@ export const triggerEventConfig = {
         preparePayload: data => {
             const spriteJson = data.spriteData;
             if (!spriteJson) {
-                console.error('Collab Send [spriteAdded]: Invalid or missing spriteJson from trigger.', data);
+                CollaborationConsole.error('Collab Send [spriteAdded]: Invalid or missing spriteJson from trigger.', data);
                 return null;
             }
             // If sprite data is a string (e.g., JSON representation), send as JS.
@@ -162,7 +177,7 @@ export const triggerEventConfig = {
             let { md5ext, backdropObject } = data;
 
             if (typeof md5ext === 'undefined' || typeof backdropObject === 'undefined') {
-                console.error(`Collab Send [backdropAdded]: Missing required data (md5ext or backdropObject).`, data);
+                CollaborationConsole.error(`Collab Send [backdropAdded]: Missing required data (md5ext or backdropObject).`, data);
                 return null;
             }
 
@@ -171,7 +186,7 @@ export const triggerEventConfig = {
             // If the backdrop asset data is present, convert it to Base64 for transmission.
             if (typeof modifiedBackdropObject?.asset?.data !== 'undefined') {
                 modifiedBackdropObject.asset.data = helper.convertUint8ArrayToBase64(modifiedBackdropObject.asset.data);
-                if (debugging) console.log(`Collab Send [backdropAdded]: Converted backdrop asset data to base64.`);
+                if (debugging) CollaborationConsole.log(`Collab Send [backdropAdded]: Converted backdrop asset data to base64.`);
             }
             return {
                 md5ext: md5ext,
@@ -188,21 +203,22 @@ export const triggerEventConfig = {
 
             // Log a warning if targetId is explicitly missing, but proceed with other checks.
             if (!targetId) {
-                console.warn(`Collab Send [costumeAdded]: Target ID "${targetId}" not found in VM. Skipping costume addition.`);
+                CollaborationConsole.warn(`Collab Send [costumeAdded]: Target ID "${targetId}" not found in VM. Skipping costume addition.`);
                 return null;
             }
 
             // Ensure all essential fields are present.
             if (typeof targetId === 'undefined' || typeof md5ext === 'undefined' || typeof costumeObject === 'undefined') {
-                console.error(`Collab Send [costumeAdded]: Missing required data.`, data);
+                CollaborationConsole.error(`Collab Send [costumeAdded]: Missing required data.`, data);
                 return null;
             }
 
-            let modifiedCostumeObject = costumeObject;
+            let modifiedCostumeObject = structuredClone(costumeObject);
+            
             // If the costume asset data is present, convert it to Base64.
             if (typeof modifiedCostumeObject?.asset?.data !== 'undefined') {
                 modifiedCostumeObject.asset.data = helper.convertUint8ArrayToBase64(modifiedCostumeObject.asset.data);
-                if (debugging) console.log(`Collab Send [costumeAdded]: Converted costume asset data to base64.`);
+                if (debugging) CollaborationConsole.log(`Collab Send [costumeAdded]: Converted costume asset data to base64.`);
             }
             return {
                 targetId: targetId,
@@ -237,20 +253,21 @@ export const triggerEventConfig = {
 
             // Log a warning if targetId is explicitly missing.
             if (!targetId) {
-                console.warn(`Collab Send [soundAdded]: Target ID "${targetId}" not found in VM. Skipping sound addition.`);
+                CollaborationConsole.warn(`Collab Send [soundAdded]: Target ID "${targetId}" not found in VM. Skipping sound addition.`);
                 return null;
             }
             // Ensure all essential fields are present.
             if (typeof targetId === 'undefined' || typeof soundObject === 'undefined') {
-                console.error(`Collab Send [soundAdded]: Missing required data.`, data);
+                CollaborationConsole.error(`Collab Send [soundAdded]: Missing required data.`, data);
                 return null;
             }
 
-            let modifiedSoundObject = soundObject;
+            let modifiedSoundObject = structuredClone(soundObject);
+            
             // If the sound asset data is present, convert it to Base64.
             if (typeof modifiedSoundObject?.asset?.data !== 'undefined') {
                 modifiedSoundObject.asset.data = helper.convertUint8ArrayToBase64(modifiedSoundObject.asset.data);
-                if (debugging) console.log(`Collab Send [soundAdded]: Converted sound asset data to base64.`);
+                if (debugging) CollaborationConsole.log(`Collab Send [soundAdded]: Converted sound asset data to base64.`);
             }
             return {
                 targetId: targetId,

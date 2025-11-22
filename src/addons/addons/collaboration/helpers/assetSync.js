@@ -2,6 +2,7 @@
 
 import * as constants from './constants.js';
 import * as helper from './helper.js'; 
+import CollaborationConsole from './CollaborationConsole.js'; 
 
 // --- Helper functions for managing local sound editing state ---
 
@@ -14,14 +15,14 @@ import * as helper from './helper.js';
 export async function setLocalEditingSound(targetName, soundIndex) {
     // Ensure VM and Yjs Awareness are ready.
     if (!constants.mutableRefs.vm || !constants.mutableRefs.yjsAwarenessInstance) {
-        console.warn('Collab: Cannot set local editing sound, VM or awareness not ready.');
+        CollaborationConsole.warn('Collab: Cannot set local editing sound, VM or awareness not ready.');
         return;
     }
 
     // Resolve the target object from its name.
     const target = targetName === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
     if (!target) {
-        console.warn(`Collab: setLocalEditingSound - Target "${targetName}" not found. Clearing editing state.`);
+        CollaborationConsole.warn(`Collab: setLocalEditingSound - Target "${targetName}" not found. Clearing editing state.`);
         await clearLocalEditingSound(); // Clear state if target is invalid.
         return;
     }
@@ -29,14 +30,14 @@ export async function setLocalEditingSound(targetName, soundIndex) {
     const sounds = target.getSounds();
     // Validate the sound index.
     if (soundIndex < 0 || soundIndex >= sounds.length) {
-        console.warn(`Collab: setLocalEditingSound - Invalid sound index ${soundIndex} for target "${targetName}". Max index: ${sounds.length - 1}. Clearing editing state.`);
+        CollaborationConsole.warn(`Collab: setLocalEditingSound - Invalid sound index ${soundIndex} for target "${targetName}". Max index: ${sounds.length - 1}. Clearing editing state.`);
         await clearLocalEditingSound(); // Clear state if index is invalid.
         return;
     }
     const sound = sounds[soundIndex];
     // Validate sound asset data exists.
     if (!sound || !sound.asset || !sound.asset.data) {
-        console.warn(`Collab: setLocalEditingSound - Sound asset data not found for "${targetName}"[${soundIndex}]. Cannot initialize editing state. Clearing editing state.`);
+        CollaborationConsole.warn(`Collab: setLocalEditingSound - Sound asset data not found for "${targetName}"[${soundIndex}]. Cannot initialize editing state. Clearing editing state.`);
         await clearLocalEditingSound();
         return;
     }
@@ -63,7 +64,7 @@ export async function setLocalEditingSound(targetName, soundIndex) {
         constants.localUserInfo.editingSoundInfo = newEditingInfo; // Update local state.
         // Broadcast the new editing context via Yjs Awareness.
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingSoundInfo', { targetName, soundIndex });
-        if (constants.debugging) console.log(`Collab: Set local editing sound: Target "${targetName}", Index ${soundIndex}. Initializing hash.`);
+        if (constants.debugging) CollaborationConsole.log(`Collab: Set local editing sound: Target "${targetName}", Index ${soundIndex}. Initializing hash.`);
     } else {
         // If it's the same sound, just ensure the local state is updated (e.g., if only `lastSentDataHash` needs refresh).
         constants.localUserInfo.editingSoundInfo = newEditingInfo;
@@ -94,7 +95,7 @@ export async function clearLocalEditingSound() {
         // Log what was cleared.
         const clearedTargetName = infoToClear.targetName;
         const clearedSoundIndex = infoToClear.soundIndex;
-        if (constants.debugging) console.log(`Collab: Cleared local editing sound state. Target: "${clearedTargetName}", Index: ${clearedSoundIndex}`);
+        if (constants.debugging) CollaborationConsole.log(`Collab: Cleared local editing sound state. Target: "${clearedTargetName}", Index: ${clearedSoundIndex}`);
 
         constants.localUserInfo.editingSoundInfo = null; // Clear local editing state.
         // Broadcast that the user is no longer editing a sound via Yjs Awareness.
@@ -112,17 +113,17 @@ function getSoundEditedEventData(targetName, soundIndex) {
     if (!constants.mutableRefs.vm) return null;
     const target = targetName === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
     if (!target) {
-        console.warn(`Collab Sync: Target "${targetName}" not found while preparing soundEdited event.`);
+        CollaborationConsole.warn(`Collab Sync: Target "${targetName}" not found while preparing soundEdited event.`);
         return null;
     }
     const sounds = target.getSounds();
     if (soundIndex < 0 || soundIndex >= sounds.length) {
-        console.warn(`Collab Sync: Invalid sound index ${soundIndex} for target "${targetName}". Max index: ${sounds.length - 1}`);
+        CollaborationConsole.warn(`Collab Sync: Invalid sound index ${soundIndex} for target "${targetName}". Max index: ${sounds.length - 1}`);
         return null;
     }
     const sound = sounds[soundIndex];
     if (!sound || !sound.asset || !sound.asset.data) {
-        console.warn(`Collab Sync: Sound or sound asset data not found for target "${targetName}", index ${soundIndex}.`);
+        CollaborationConsole.warn(`Collab Sync: Sound or sound asset data not found for target "${targetName}", index ${soundIndex}.`);
         return null;
     }
 
@@ -150,7 +151,7 @@ export async function syncCurrentSoundData(isFinalSync = false) {
 
     const editingInfoForThisSync = constants.localUserInfo.editingSoundInfo;
     if (!editingInfoForThisSync) {
-        if (constants.debugging) console.log('Collab Sync: No local sound editing info available to sync.');
+        if (constants.debugging) CollaborationConsole.log('Collab Sync: No local sound editing info available to sync.');
         return;
     }
 
@@ -160,17 +161,17 @@ export async function syncCurrentSoundData(isFinalSync = false) {
 
     const target = targetName === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
     if (!target) {
-        if (constants.debugging) console.warn(`Collab Sync: Target "${targetName}" not found for sound data sync.`);
+        if (constants.debugging) CollaborationConsole.warn(`Collab Sync: Target "${targetName}" not found for sound data sync.`);
         return;
     }
     const targetSounds = target.getSounds();
     if (soundIndex < 0 || soundIndex >= targetSounds.length) {
-        if (constants.debugging) console.warn(`Collab Sync: Invalid sound index ${soundIndex} for target "${targetName}". Max index: ${targetSounds.length - 1}`);
+        if (constants.debugging) CollaborationConsole.warn(`Collab Sync: Invalid sound index ${soundIndex} for target "${targetName}". Max index: ${targetSounds.length - 1}`);
         return;
     }
     const soundToSync = targetSounds[soundIndex];
     if (!soundToSync || !soundToSync.asset || !soundToSync.asset.data) {
-        if (constants.debugging) console.warn(`Collab Sync: Sound asset data not found for target "${targetName}", index ${soundIndex}.`);
+        if (constants.debugging) CollaborationConsole.warn(`Collab Sync: Sound asset data not found for target "${targetName}", index ${soundIndex}.`);
         return;
     }
 
@@ -178,7 +179,7 @@ export async function syncCurrentSoundData(isFinalSync = false) {
     const currentDataHash = await digestMessage(soundToSync.asset.data);
 
     if (currentDataHash === null) {
-        console.error('Collab Sync: Failed to hash current sound data. Skipping sync.');
+        CollaborationConsole.error('Collab Sync: Failed to hash current sound data. Skipping sync.');
         return;
     }
 
@@ -186,7 +187,7 @@ export async function syncCurrentSoundData(isFinalSync = false) {
     if (currentDataHash !== lastSentDataHashFromCapture || isFinalSync) {
         if (currentDataHash === lastSentDataHashFromCapture && !isFinalSync) {
             // If hashes are the same and it's not a final sync, no need to push.
-            if (constants.debugging) console.log(`Collab Sync: Sound data for "${targetName}"[${soundIndex}] hash (${currentDataHash}) unchanged (compared to captured ${lastSentDataHashFromCapture}). No push needed.`);
+            if (constants.debugging) CollaborationConsole.log(`Collab Sync: Sound data for "${targetName}"[${soundIndex}] hash (${currentDataHash}) unchanged (compared to captured ${lastSentDataHashFromCapture}). No push needed.`);
             return;
         }
 
@@ -206,11 +207,11 @@ export async function syncCurrentSoundData(isFinalSync = false) {
                     constants.localUserInfo.editingSoundInfo.soundIndex === soundIndex) {
 
                     constants.localUserInfo.editingSoundInfo.lastSentDataHash = currentDataHash;
-                    if (constants.debugging) console.log(`Collab Sync [soundEdited${isFinalSync ? ' Final' : ''}]: Pushed event. New hash: ${currentDataHash} for "${targetName}[${soundIndex}]"`);
-                } else if (constants.debugging) console.log(`Collab Sync [soundEdited${isFinalSync ? ' Final' : ''}]: Pushed event for "${targetName}[${soundIndex}]" (Hash: ${currentDataHash}), but local editing state changed/nulled. Not updating its lastSentDataHash.`);
+                    if (constants.debugging) CollaborationConsole.log(`Collab Sync [soundEdited${isFinalSync ? ' Final' : ''}]: Pushed event. New hash: ${currentDataHash} for "${targetName}[${soundIndex}]"`);
+                } else if (constants.debugging) CollaborationConsole.log(`Collab Sync [soundEdited${isFinalSync ? ' Final' : ''}]: Pushed event for "${targetName}[${soundIndex}]" (Hash: ${currentDataHash}), but local editing state changed/nulled. Not updating its lastSentDataHash.`);
             }, constants.LOCAL_EVENT_SYNC_ORIGIN); // Mark as local origin to prevent self-echoing.
         }
-    } else if (constants.debugging) console.log(`Collab Sync: Sound data hash for "${targetName}"[${soundIndex}] (${currentDataHash}) is same as captured last sent (${lastSentDataHashFromCapture}). Skipping push.`);
+    } else if (constants.debugging) CollaborationConsole.log(`Collab Sync: Sound data hash for "${targetName}"[${soundIndex}] (${currentDataHash}) is same as captured last sent (${lastSentDataHashFromCapture}). Skipping push.`);
 }
 
 // --- Helper functions for managing local costume editing state ---
@@ -224,28 +225,28 @@ export async function syncCurrentSoundData(isFinalSync = false) {
 export async function setLocalEditingCostume(targetName, costumeIndex) {
     // Ensure VM and Yjs Awareness are ready.
     if (!constants.mutableRefs.vm || !constants.mutableRefs.yjsAwarenessInstance) {
-        console.warn('Collab: Cannot set local editing costume, VM or awareness not ready.');
+        CollaborationConsole.warn('Collab: Cannot set local editing costume, VM or awareness not ready.');
         return;
     }
 
     // Resolve the target object from its name.
     const target = targetName === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
     if (!target) {
-        console.warn(`Collab: setLocalEditingCostume - Target "${targetName}" not found. Clearing editing state.`);
+        CollaborationConsole.warn(`Collab: setLocalEditingCostume - Target "${targetName}" not found. Clearing editing state.`);
         await clearLocalEditingCostume();
         return;
     }
     const costumes = target.getCostumes();
     // Validate the costume index.
     if (costumeIndex < 0 || costumeIndex >= costumes.length) {
-        console.warn(`Collab: setLocalEditingCostume - Invalid costume index ${costumeIndex} for target "${targetName}". Max index: ${costumes.length - 1}. Clearing editing state.`);
+        CollaborationConsole.warn(`Collab: setLocalEditingCostume - Invalid costume index ${costumeIndex} for target "${targetName}". Max index: ${costumes.length - 1}. Clearing editing state.`);
         await clearLocalEditingCostume();
         return;
     }
     const costume = costumes[costumeIndex];
     // Validate costume asset data exists.
     if (!costume || !costume.asset || !costume.asset.data) {
-        console.warn(`Collab: setLocalEditingCostume - Costume asset data not found for "${targetName}"[${costumeIndex}]. Cannot initialize editing state. Clearing editing state.`);
+        CollaborationConsole.warn(`Collab: setLocalEditingCostume - Costume asset data not found for "${targetName}"[${costumeIndex}]. Cannot initialize editing state. Clearing editing state.`);
         await clearLocalEditingCostume();
         return;
     }
@@ -273,7 +274,7 @@ export async function setLocalEditingCostume(targetName, costumeIndex) {
         constants.localUserInfo.editingCostumeInfo = newEditingInfo; // Update local state.
         // Broadcast the new editing context via Yjs Awareness.
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingCostumeInfo', { targetName, costumeIndex });
-        if (constants.debugging) console.log(`Collab: Set local editing costume: Target "${targetName}", Index ${costumeIndex}. Initializing hash.`);
+        if (constants.debugging) CollaborationConsole.log(`Collab: Set local editing costume: Target "${targetName}", Index ${costumeIndex}. Initializing hash.`);
     } else {
         // If it's the same costume, ensure the local state is updated.
         constants.localUserInfo.editingCostumeInfo = newEditingInfo;
@@ -305,7 +306,7 @@ export async function clearLocalEditingCostume() {
         // Log what was cleared.
         const clearedTargetName = infoToClear.targetName;
         const clearedCostumeIndex = infoToClear.costumeIndex;
-        if (constants.debugging) console.log(`Collab: Cleared local editing costume state. Target: "${clearedTargetName}", Index: ${clearedCostumeIndex}`);
+        if (constants.debugging) CollaborationConsole.log(`Collab: Cleared local editing costume state. Target: "${clearedTargetName}", Index: ${clearedCostumeIndex}`);
 
         constants.localUserInfo.editingCostumeInfo = null; // Clear local editing state.
         // Broadcast that the user is no longer editing a costume via Yjs Awareness.
@@ -323,17 +324,17 @@ function getCostumeEditedEventData(targetName, costumeIndex) {
     if (!constants.mutableRefs.vm) return null;
     const target = targetName === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
     if (!target) {
-        console.warn(`Collab Sync: Target "${targetName}" not found while preparing costumeEdited event.`);
+        CollaborationConsole.warn(`Collab Sync: Target "${targetName}" not found while preparing costumeEdited event.`);
         return null;
     }
     const costumes = target.getCostumes();
     if (costumeIndex < 0 || costumeIndex >= costumes.length) {
-        console.warn(`Collab Sync: Invalid costume index ${costumeIndex} for target "${targetName}". Max index: ${costumes.length - 1}`);
+        CollaborationConsole.warn(`Collab Sync: Invalid costume index ${costumeIndex} for target "${targetName}". Max index: ${costumes.length - 1}`);
         return null;
     }
     const costume = costumes[costumeIndex];
     if (!costume || !costume.asset) {
-        console.warn(`Collab Sync: Costume or costume asset not found for target "${targetName}", index ${costumeIndex}.`);
+        CollaborationConsole.warn(`Collab Sync: Costume or costume asset not found for target "${targetName}", index ${costumeIndex}.`);
         return null;
     }
 
@@ -365,7 +366,7 @@ export async function syncCurrentCostumeData(isFinalSync = false) {
 
     const editingInfoForThisSync = constants.localUserInfo.editingCostumeInfo;
     if (!editingInfoForThisSync) {
-        if (constants.debugging) console.log('Collab Sync: No local costume editing info available to sync.');
+        if (constants.debugging) CollaborationConsole.log('Collab Sync: No local costume editing info available to sync.');
         return;
     }
 
@@ -375,17 +376,17 @@ export async function syncCurrentCostumeData(isFinalSync = false) {
 
     const target = targetName === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
     if (!target) {
-        if (constants.debugging) console.warn(`Collab Sync: Target "${targetName}" not found for costume data sync.`);
+        if (constants.debugging) CollaborationConsole.warn(`Collab Sync: Target "${targetName}" not found for costume data sync.`);
         return;
     }
     const targetCostumes = target.getCostumes();
     if (costumeIndex < 0 || costumeIndex >= targetCostumes.length) {
-        if (constants.debugging) console.warn(`Collab Sync: Invalid costume index ${costumeIndex} for target "${targetName}". Max index: ${targetCostumes.length - 1}`);
+        if (constants.debugging) CollaborationConsole.warn(`Collab Sync: Invalid costume index ${costumeIndex} for target "${targetName}". Max index: ${targetCostumes.length - 1}`);
         return;
     }
     const costumeToSync = targetCostumes[costumeIndex];
     if (!costumeToSync || !costumeToSync.asset || !costumeToSync.asset.data) {
-        if (constants.debugging) console.warn(`Collab Sync: Costume asset data not found for target "${targetName}", index ${costumeIndex}.`);
+        if (constants.debugging) CollaborationConsole.warn(`Collab Sync: Costume asset data not found for target "${targetName}", index ${costumeIndex}.`);
         return;
     }
 
@@ -393,7 +394,7 @@ export async function syncCurrentCostumeData(isFinalSync = false) {
     const currentDataHash = await digestMessage(costumeToSync.asset.data);
 
     if (currentDataHash === null) {
-        console.error('Collab Sync: Failed to hash current costume data. Skipping sync.');
+        CollaborationConsole.error('Collab Sync: Failed to hash current costume data. Skipping sync.');
         return;
     }
 
@@ -401,7 +402,7 @@ export async function syncCurrentCostumeData(isFinalSync = false) {
     if (currentDataHash !== lastSentDataHashFromCapture || isFinalSync) {
         if (currentDataHash === lastSentDataHashFromCapture && !isFinalSync) {
             // If hashes are the same and it's not a final sync, no need to push.
-            if (constants.debugging) console.log(`Collab Sync: Costume data for "${targetName}"[${costumeIndex}] hash (${currentDataHash}) unchanged (compared to captured ${lastSentDataHashFromCapture}). No push needed.`);
+            if (constants.debugging) CollaborationConsole.log(`Collab Sync: Costume data for "${targetName}"[${costumeIndex}] hash (${currentDataHash}) unchanged (compared to captured ${lastSentDataHashFromCapture}). No push needed.`);
             return;
         }
 
@@ -420,15 +421,15 @@ export async function syncCurrentCostumeData(isFinalSync = false) {
                     constants.localUserInfo.editingCostumeInfo.costumeIndex === costumeIndex) {
 
                     constants.localUserInfo.editingCostumeInfo.lastSentDataHash = currentDataHash;
-                    if (constants.debugging) console.log(`Collab Sync [costumeEdited${isFinalSync ? ' Final' : ''}]: Pushed event. New hash: ${currentDataHash} for "${targetName}[${costumeIndex}]"`);
+                    if (constants.debugging) CollaborationConsole.log(`Collab Sync [costumeEdited${isFinalSync ? ' Final' : ''}]: Pushed event. New hash: ${currentDataHash} for "${targetName}[${costumeIndex}]"`);
                 } else {
                     // If `constants.localUserInfo.editingCostumeInfo` has changed (e.g., to null or another costume),
                     // we've pushed the data for the original costume, but we DO NOT update its hash in `constants.localUserInfo`.
-                    if (constants.debugging) console.log(`Collab Sync [costumeEdited${isFinalSync ? ' Final' : ''}]: Pushed event for "${targetName}[${costumeIndex}]" (Hash: ${currentDataHash}), but local editing state changed/nulled. Not updating its lastSentDataHash.`);
+                    if (constants.debugging) CollaborationConsole.log(`Collab Sync [costumeEdited${isFinalSync ? ' Final' : ''}]: Pushed event for "${targetName}[${costumeIndex}]" (Hash: ${currentDataHash}), but local editing state changed/nulled. Not updating its lastSentDataHash.`);
                 }
             }, constants.LOCAL_EVENT_SYNC_ORIGIN); // Mark as local origin to prevent self-echoing.
         }
-    } else if (constants.debugging) console.log(`Collab Sync: Costume data hash for "${targetName}"[${costumeIndex}] (${currentDataHash}) is same as captured last sent (${lastSentDataHashFromCapture}). Skipping push.`);
+    } else if (constants.debugging) CollaborationConsole.log(`Collab Sync: Costume data hash for "${targetName}"[${costumeIndex}] (${currentDataHash}) is same as captured last sent (${lastSentDataHashFromCapture}). Skipping push.`);
 }
 
 /**
@@ -456,15 +457,15 @@ async function digestMessage(messageBuffer) {
         }
     } else if (typeof messageBuffer === 'string') {
         // Handle string data (base64 encoded or data URL)
-        console.error('Collab: digestMessage received string data instead of binary. This should not happen.');
+        CollaborationConsole.error('Collab: digestMessage received string data instead of binary. This should not happen.');
         return null;
     } else {
         // Unknown type - try to check if it has byteLength
         if (typeof messageBuffer.byteLength === 'number') {
-            console.error('Collab: digestMessage received unexpected type with byteLength:', typeof messageBuffer, messageBuffer);
+            CollaborationConsole.error('Collab: digestMessage received unexpected type with byteLength:', typeof messageBuffer, messageBuffer);
             return null;
         } else {
-            console.error('Collab: digestMessage received invalid data type:', typeof messageBuffer, messageBuffer);
+            CollaborationConsole.error('Collab: digestMessage received invalid data type:', typeof messageBuffer, messageBuffer);
             return null;
         }
     }
@@ -477,7 +478,7 @@ async function digestMessage(messageBuffer) {
         // Convert bytes to hex string.
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     } catch (error) {
-        console.error('Collab: Error digesting message for hashing', error);
+        CollaborationConsole.error('Collab: Error digesting message for hashing', error);
         return null; // Indicate failure.
     }
 }
@@ -508,7 +509,7 @@ function debounce(func, wait) {
  * The debounced handler for costume editor changes. It will trigger `syncCurrentCostumeData`.
  */
 const handleCostumeEditorChange = async () => {
-    if (constants.debugging) console.log('Collab: Debounced costume editor change detected, attempting sync.');
+    if (constants.debugging) CollaborationConsole.log('Collab: Debounced costume editor change detected, attempting sync.');
     if (constants.localUserInfo.editingCostumeInfo) {
         await syncCurrentCostumeData();
     }
@@ -533,8 +534,8 @@ export function attachDebouncedCostumeEditorChangeListener() {
         constants.mutableRefs.currentPaintEditorCanvas = paintEditorCanvas;
         // Attach the debounced listener to the `pointerup` event on the canvas.
         constants.mutableRefs.currentPaintEditorCanvas.addEventListener('pointerup', constants.mutableRefs.debouncedSyncCostume);
-        if (constants.debugging) console.log('Collab: Attached debounced listener to paint editor canvas.');
-    } else if (constants.debugging) console.warn('Collab: Could not find paint editor canvas to attach listener.');
+        if (constants.debugging) CollaborationConsole.log('Collab: Attached debounced listener to paint editor canvas.');
+    } else if (constants.debugging) CollaborationConsole.warn('Collab: Could not find paint editor canvas to attach listener.');
 }
 
 /**
@@ -544,7 +545,7 @@ export function attachDebouncedCostumeEditorChangeListener() {
 export function detachDebouncedCostumeEditorChangeListener() {
     if (constants.mutableRefs.currentPaintEditorCanvas && constants.mutableRefs.debouncedSyncCostume) {
         constants.mutableRefs.currentPaintEditorCanvas.removeEventListener('pointerup', constants.mutableRefs.debouncedSyncCostume);
-        if (constants.debugging) console.log('Collab: Detached debounced listener from paint editor canvas.');
+        if (constants.debugging) CollaborationConsole.log('Collab: Detached debounced listener from paint editor canvas.');
     }
     constants.mutableRefs.currentPaintEditorCanvas = null; // Clear the reference to the canvas.
 }
@@ -553,7 +554,7 @@ export function detachDebouncedCostumeEditorChangeListener() {
  * The debounced handler for sound editor changes. It will trigger `syncCurrentSoundData`.
  */
 const handleSoundEditorChange = async () => {
-    if (constants.debugging) console.log('Collab: Debounced sound editor change detected, attempting sync.');
+    if (constants.debugging) CollaborationConsole.log('Collab: Debounced sound editor change detected, attempting sync.');
     if (constants.localUserInfo.editingSoundInfo) {
         await syncCurrentSoundData();
     }
@@ -578,8 +579,8 @@ export function attachDebouncedSoundEditorChangeListener() {
         constants.mutableRefs.currentSoundEditorArea = soundEditorArea;
         // Attach the debounced listener to the `click` event in the capture phase.
         constants.mutableRefs.currentSoundEditorArea.addEventListener('click', constants.mutableRefs.debouncedSyncSoundData, true);
-        if (constants.debugging) console.log('Collab: Attached debounced listener to sound editor area.');
-    } else if (constants.debugging) console.warn('Collab: Could not find sound editor area to attach listener.');
+        if (constants.debugging) CollaborationConsole.log('Collab: Attached debounced listener to sound editor area.');
+    } else if (constants.debugging) CollaborationConsole.warn('Collab: Could not find sound editor area to attach listener.');
 }
 
 /**
@@ -589,7 +590,7 @@ export function attachDebouncedSoundEditorChangeListener() {
 export function detachDebouncedSoundEditorChangeListener() {
     if (constants.mutableRefs.currentSoundEditorArea && constants.mutableRefs.debouncedSyncSoundData) {
         constants.mutableRefs.currentSoundEditorArea.removeEventListener('click', constants.mutableRefs.debouncedSyncSoundData, true);
-        if (constants.debugging) console.log('Collab: Detached debounced listener from sound editor area.');
+        if (constants.debugging) CollaborationConsole.log('Collab: Detached debounced listener from sound editor area.');
     }
     constants.mutableRefs.currentSoundEditorArea = null; // Clear the reference.
 }
@@ -604,20 +605,20 @@ export function detachDebouncedSoundEditorChangeListener() {
  */
 export async function updateSoundProgrammatically(target, soundIndex, soundAssetDataB64, dataFormat) {
     if (!target || !target.sprite || !target.sprite.sounds || !target.sprite.sounds[soundIndex]) {
-        console.error(`Collab RX [soundEdited]: Target "${target?.getName()}" or sound at index ${soundIndex} not found.`);
+        CollaborationConsole.error(`Collab RX [soundEdited]: Target "${target?.getName()}" or sound at index ${soundIndex} not found.`);
         return;
     }
 
     const soundToUpdate = target.sprite.sounds[soundIndex];
 
     if (typeof soundAssetDataB64 !== 'string') {
-        console.error(`Collab RX [soundEdited]: Expected Base64 string for sound data for target "${target.getName()}", sound ${soundIndex}, got:`, typeof soundAssetDataB64);
+        CollaborationConsole.error(`Collab RX [soundEdited]: Expected Base64 string for sound data for target "${target.getName()}", sound ${soundIndex}, got:`, typeof soundAssetDataB64);
         return;
     }
 
     const uint8ArrayData = helper.convertBase64ToUint8Array(soundAssetDataB64);
     if (!uint8ArrayData) {
-        console.error(`Collab RX [soundEdited]: Failed to convert Base64 to Uint8Array for sound data. Target: "${target.getName()}", sound: ${soundIndex}`);
+        CollaborationConsole.error(`Collab RX [soundEdited]: Failed to convert Base64 to Uint8Array for sound data. Target: "${target.getName()}", sound: ${soundIndex}`);
         return;
     }
 
@@ -627,13 +628,13 @@ export async function updateSoundProgrammatically(target, soundIndex, soundAsset
         // to ensure compatibility with `decodeAudioData` which consumes the buffer.
         const audioBuffer = await constants.mutableRefs.vm.runtime.audioEngine.audioContext.decodeAudioData(uint8ArrayData.buffer.slice(0));
 
-        if (constants.debugging) console.log(`Collab RX [soundEdited]: AudioBuffer decoded. Calling vm.updateSoundBuffer for sound ${soundIndex} on target "${target.getName()}".`);
+        if (constants.debugging) CollaborationConsole.log(`Collab RX [soundEdited]: AudioBuffer decoded. Calling vm.updateSoundBuffer for sound ${soundIndex} on target "${target.getName()}".`);
 
         // Call the VM method to update the sound's asset, data format, sample rate, and other metadata.
         // IMPORTANT: Pass the Uint8Array data as the third parameter to preserve the raw asset data
         // for project save/load. The signature matches sound-editor.jsx usage.
         // This ensures the sound asset data is properly saved and can be reloaded correctly.
-        constants.mutableRefs.vm.updateSoundBuffer(soundIndex, audioBuffer, uint8ArrayData);
+        constants.mutableRefs.vm.updateSoundBuffer(soundIndex, audioBuffer, uint8ArrayData, target);
         
         // Update the sound's dataFormat if it differs (this ensures metadata is correct)
         if (soundToUpdate.asset && soundToUpdate.asset.dataFormat !== dataFormat) {
@@ -653,14 +654,14 @@ export async function updateSoundProgrammatically(target, soundIndex, soundAsset
             const redux = window.ReduxStore; // Assuming Redux store is globally accessible.
             // Check if the sound editor is open and the currently edited sound matches the one being updated.
             if (redux && redux.getState().scratchGui.soundEditor && redux.getState().scratchGui.soundEditor.soundIndex === soundIndex) {
-                if (constants.debugging) console.log(`Collab RX [soundEdited]: Attempting to refresh sound editor UI for target ${target.getName()}, sound ${soundIndex}`);
+                if (constants.debugging) CollaborationConsole.log(`Collab RX [soundEdited]: Attempting to refresh sound editor UI for target ${target.getName()}, sound ${soundIndex}`);
                 // Currently, a direct Redux dispatch to force re-render might be needed,
                 // or rely on a more granular VM event if Scratch GUI supports it.
             }
         }
     } catch (e) {
-        console.error(`Collab RX [soundEdited]: Error decoding audio data or updating sound buffer for target "${target.getName()}", sound ${soundIndex}:`, e);
-        console.error('Data format was:', dataFormat, 'Base64 snippet:', soundAssetDataB64.substring(0, 100));
+        CollaborationConsole.error(`Collab RX [soundEdited]: Error decoding audio data or updating sound buffer for target "${target.getName()}", sound ${soundIndex}:`, e);
+        CollaborationConsole.error('Data format was:', dataFormat, 'Base64 snippet:', soundAssetDataB64.substring(0, 100));
     }
 }
 
@@ -678,77 +679,82 @@ export async function updateSoundProgrammatically(target, soundIndex, soundAsset
  */
 export async function updateCostumeImageProgrammatically(target, costumeIndex, assetDataB64, isBitmap, dataFormat, rotationCenterX, rotationCenterY, bitmapResolution) {
     if (!target || !target.sprite || !target.sprite.costumes_ || !target.sprite.costumes_[costumeIndex]) {
-        console.error(`Collab [costumeEdited]: Target "${target?.getName()}" or costume at index ${costumeIndex} not found.`, target);
+        CollaborationConsole.error(`Collab [costumeEdited]: Target "${target?.getName()}" or costume at index ${costumeIndex} not found.`, target);
         return;
     }
 
     if (isBitmap) {
         // --- Bitmap Handling ---
         if (typeof assetDataB64 !== 'string') {
-            console.error(`Collab [costumeEdited]: Expected Base64 string for bitmap data for target "${target.getName()}", costume ${costumeIndex}, got:`, typeof assetDataB64);
+            CollaborationConsole.error(`Collab [costumeEdited]: Expected Base64 string for bitmap data for target "${target.getName()}", costume ${costumeIndex}, got:`, typeof assetDataB64);
             if (assetDataB64 === null || assetDataB64 === '') {
-                console.warn(`Collab [costumeEdited]: Bitmap data is empty for target "${target.getName()}", costume ${costumeIndex}. Attempting to update with empty image representation.`);
+                CollaborationConsole.warn(`Collab [costumeEdited]: Bitmap data is empty for target "${target.getName()}", costume ${costumeIndex}. Attempting to update with empty image representation.`);
             } else {
                 return;
             }
         }
         if (!dataFormat || dataFormat === 'svg') {
-            console.error(`Collab [costumeEdited]: Invalid dataFormat "${dataFormat}" for bitmap on target "${target.getName()}", costume ${costumeIndex}.`);
+            CollaborationConsole.error(`Collab [costumeEdited]: Invalid dataFormat "${dataFormat}" for bitmap on target "${target.getName()}", costume ${costumeIndex}.`);
             return;
         }
 
-        const imageElement = new Image();
-        imageElement.onload = () => {
-            let imageDataToPass;
-            const imgWidth = imageElement.naturalWidth;
-            const imgHeight = imageElement.naturalHeight;
+        await new Promise((resolve, reject) => {
+            const imageElement = new Image();
+            imageElement.onload = () => {
+                let imageDataToPass;
+                const imgWidth = imageElement.naturalWidth;
+                const imgHeight = imageElement.naturalHeight;
 
-            // Handle cases where the loaded image might have zero dimensions or if `assetDataB64` was empty.
-            if (imgWidth === 0 || imgHeight === 0 || assetDataB64 === null || assetDataB64 === '') {
-                if (constants.debugging) console.warn(`Collab [costumeEdited]: Loaded image has zero dimensions (${imgWidth}x${imgHeight}) or asset data was empty for target "${target.getName()}", costume ${costumeIndex}. Creating 1x1 transparent ImageData as placeholder.`);
-                // Create a minimal 1x1 transparent ImageData as a placeholder.
-                const temp1x1Canvas = document.createElement('canvas');
-                temp1x1Canvas.width = 1;
-                temp1x1Canvas.height = 1;
-                imageDataToPass = temp1x1Canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, 1, 1);
-            } else {
-                // Draw the image onto a temporary canvas to get `ImageData`.
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = imgWidth;
-                tempCanvas.height = imgHeight;
-                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-                tempCtx.drawImage(imageElement, 0, 0, imgWidth, imgHeight);
-                try {
-                    imageDataToPass = tempCtx.getImageData(0, 0, imgWidth, imgHeight);
-                } catch (e) {
-                    console.error(`Collab [costumeEdited]: Error getting ImageData for target "${target.getName()}", costume ${costumeIndex} (${imgWidth}x${imgHeight}):`, e);
-                    return;
+                // Handle cases where the loaded image might have zero dimensions or if `assetDataB64` was empty.
+                if (imgWidth === 0 || imgHeight === 0 || assetDataB64 === null || assetDataB64 === '') {
+                    if (constants.debugging) CollaborationConsole.warn(`Collab [costumeEdited]: Loaded image has zero dimensions (${imgWidth}x${imgHeight}) or asset data was empty for target "${target.getName()}", costume ${costumeIndex}. Creating 1x1 transparent ImageData as placeholder.`);
+                    // Create a minimal 1x1 transparent ImageData as a placeholder.
+                    const temp1x1Canvas = document.createElement('canvas');
+                    temp1x1Canvas.width = 1;
+                    temp1x1Canvas.height = 1;
+                    imageDataToPass = temp1x1Canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, 1, 1);
+                } else {
+                    // Draw the image onto a temporary canvas to get `ImageData`.
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = imgWidth;
+                    tempCanvas.height = imgHeight;
+                    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                    tempCtx.drawImage(imageElement, 0, 0, imgWidth, imgHeight);
+                    try {
+                        imageDataToPass = tempCtx.getImageData(0, 0, imgWidth, imgHeight);
+                    } catch (e) {
+                        CollaborationConsole.error(`Collab [costumeEdited]: Error getting ImageData for target "${target.getName()}", costume ${costumeIndex} (${imgWidth}x${imgHeight}):`, e);
+                        reject(e);
+                        return;
+                    }
                 }
+
+                if (constants.debugging) CollaborationConsole.log(`Collab [costumeEdited]: ImageData prepared (${imageDataToPass.width}x${imageDataToPass.height}). Calling vm.updateBitmap with ImageData for costume ${costumeIndex} on target "${target.getName()}".`);
+
+                // Call the VM method to update the bitmap costume.
+                constants.mutableRefs.vm.updateBitmap(costumeIndex, imageDataToPass, rotationCenterX, rotationCenterY, bitmapResolution, target);
+
+                // If the updated costume belongs to the currently editing target, trigger UI refreshes.
+                if (target.id === constants.mutableRefs.vm.runtime.getEditingTarget()?.id) {
+                    constants.mutableRefs.vm.emitTargetsUpdate(); // Update sprite selector and other related UI.
+                    constants.mutableRefs.vm.runtime.requestRedraw(); // Request a redraw of the stage.
+                }
+                resolve();
+            };
+            imageElement.onerror = err => {
+                CollaborationConsole.error(`Collab [costumeEdited]: Error loading image from Base64 for target "${target.getName()}", costume ${costumeIndex}, format ${dataFormat}:`, err);
+                reject(err);
+            };
+
+            // Set the image source; for empty data, use a minimal transparent PNG.
+            if (assetDataB64 === null || assetDataB64 === '') {
+                imageElement.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+                if (constants.debugging) CollaborationConsole.log(`Collab [costumeEdited]: Using 1x1 transparent PNG for empty/null bitmap asset data for target "${target.getName()}", costume ${costumeIndex}.`);
+            } else {
+                imageElement.src = `data:image/${dataFormat};base64,${assetDataB64}`;
+                if (constants.debugging) CollaborationConsole.log(`Collab [costumeEdited]: Set image src to data URL (format: ${dataFormat}) for target "${target.getName()}", costume ${costumeIndex}. Waiting for onload.`);
             }
-
-            if (constants.debugging) console.log(`Collab [costumeEdited]: ImageData prepared (${imageDataToPass.width}x${imageDataToPass.height}). Calling vm.updateBitmap with ImageData for costume ${costumeIndex} on target "${target.getName()}".`);
-
-            // Call the VM method to update the bitmap costume.
-            constants.mutableRefs.vm.updateBitmap(costumeIndex, imageDataToPass, rotationCenterX, rotationCenterY, bitmapResolution, target);
-
-            // If the updated costume belongs to the currently editing target, trigger UI refreshes.
-            if (target.id === constants.mutableRefs.vm.runtime.getEditingTarget()?.id) {
-                constants.mutableRefs.vm.emitTargetsUpdate(); // Update sprite selector and other related UI.
-                constants.mutableRefs.vm.runtime.requestRedraw(); // Request a redraw of the stage.
-            }
-        };
-        imageElement.onerror = err => {
-            console.error(`Collab [costumeEdited]: Error loading image from Base64 for target "${target.getName()}", costume ${costumeIndex}, format ${dataFormat}:`, err);
-        };
-
-        // Set the image source; for empty data, use a minimal transparent PNG.
-        if (assetDataB64 === null || assetDataB64 === '') {
-            imageElement.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-            if (constants.debugging) console.log(`Collab [costumeEdited]: Using 1x1 transparent PNG for empty/null bitmap asset data for target "${target.getName()}", costume ${costumeIndex}.`);
-        } else {
-            imageElement.src = `data:image/${dataFormat};base64,${assetDataB64}`;
-            if (constants.debugging) console.log(`Collab [costumeEdited]: Set image src to data URL (format: ${dataFormat}) for target "${target.getName()}", costume ${costumeIndex}. Waiting for onload.`);
-        }
+        });
 
     } else {
         // --- SVG Handling ---
@@ -756,7 +762,7 @@ export async function updateCostumeImageProgrammatically(target, costumeIndex, a
         if (assetDataB64 === null || assetDataB64 === '') {
             // Provide a minimal empty SVG string for empty data.
             svgString = '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1" height="1"></svg>';
-            if (constants.debugging) console.log(`Collab [costumeEdited]: Using minimal empty SVG for empty SVG asset data for target "${target.getName()}", costume ${costumeIndex}.`);
+            if (constants.debugging) CollaborationConsole.log(`Collab [costumeEdited]: Using minimal empty SVG for empty SVG asset data for target "${target.getName()}", costume ${costumeIndex}.`);
         } else if (typeof assetDataB64 === 'string') {
             try {
                 // Decode Base64 string to Uint8Array, then to text (SVG XML).
@@ -765,17 +771,17 @@ export async function updateCostumeImageProgrammatically(target, costumeIndex, a
                 const textDecoder = new TextDecoder();
                 svgString = textDecoder.decode(uint8Array);
             } catch (e) {
-                console.error(`Collab [costumeEdited]: Error decoding Base64 SVG data for target "${target.getName()}", costume ${costumeIndex}:`, e);
+                CollaborationConsole.error(`Collab [costumeEdited]: Error decoding Base64 SVG data for target "${target.getName()}", costume ${costumeIndex}:`, e);
                 return;
             }
         } else {
-            console.error(`Collab [costumeEdited]: Expected Base64 string for SVG data for target "${target.getName()}", costume ${costumeIndex}, got:`, typeof assetDataB64);
+            CollaborationConsole.error(`Collab [costumeEdited]: Expected Base64 string for SVG data for target "${target.getName()}", costume ${costumeIndex}, got:`, typeof assetDataB64);
             return;
         }
 
         // Call the VM method to update the SVG costume.
         constants.mutableRefs.vm.updateSvg(costumeIndex, svgString, rotationCenterX, rotationCenterY, target);
-        if (constants.debugging) console.log(`Collab [costumeEdited]: SVG costume ${costumeIndex} updated via vm.updateSvg on target "${target.getName()}".`);
+        if (constants.debugging) CollaborationConsole.log(`Collab [costumeEdited]: SVG costume ${costumeIndex} updated via vm.updateSvg on target "${target.getName()}".`);
 
         // If the updated costume belongs to the currently editing target, trigger UI refreshes.
         if (target.id === constants.mutableRefs.vm.runtime.getEditingTarget()?.id) {

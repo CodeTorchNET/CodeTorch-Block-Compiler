@@ -2,6 +2,7 @@
 
 import * as constants from './constants.js';
 import * as helper from './helper.js';
+import CollaborationConsole from './CollaborationConsole.js'; 
 
 // --- UI Related Constants ---
 /**
@@ -289,7 +290,7 @@ export function createLocalChatElements(layer) {
 
     // Store references to these elements.
     localChatElements = { group, rect, text };
-    console.log("Local SVG chat bubble elements created and appended to collaboration layer.");
+    CollaborationConsole.log("Local SVG chat bubble elements created and appended to collaboration layer.");
     return localChatElements;
 }
 
@@ -442,7 +443,7 @@ export function createOrUpdateRemoteCursor(clientID, state, layer, debugging = f
                     nameText.setAttribute('transform', `translate(${NAME_X_OFFSET}, ${NAME_Y_OFFSET})`);
                     nameBg.setAttribute('transform', `translate(${NAME_X_OFFSET}, ${NAME_Y_OFFSET})`);
                 } else {
-                    console.warn("Couldn't get valid BBox for name text on create, estimating size.", nameBox);
+                    CollaborationConsole.warn("Couldn't get valid BBox for name text on create, estimating size.", nameBox);
                     const estWidth = (user.name || `User ${clientID.toString().substring(0, 4)}`).length * NAME_FONT_SIZE * 0.6;
                     const estHeight = NAME_FONT_SIZE;
                     nameBg.setAttribute('width', (estWidth + NAME_BG_PADDING_X * 2).toString());
@@ -452,7 +453,7 @@ export function createOrUpdateRemoteCursor(clientID, state, layer, debugging = f
                     nameText.setAttribute('transform', `translate(${NAME_X_OFFSET}, ${NAME_Y_OFFSET})`);
                     nameBg.setAttribute('transform', `translate(${NAME_X_OFFSET}, ${NAME_Y_OFFSET})`);
                 }
-            } catch (e) { console.warn("Error getting BBox for name text:", e); }
+            } catch (e) { CollaborationConsole.warn("Error getting BBox for name text:", e); }
 
             // Store all references in the `cursorElements` map.
             cursorData = {
@@ -466,7 +467,7 @@ export function createOrUpdateRemoteCursor(clientID, state, layer, debugging = f
                 chatText: chatText
             };
             cursorElements.set(clientID, cursorData);
-            if (debugging) console.log(`Created SVG cursor for ${user.name} in collaboration layer.`);
+            if (debugging) CollaborationConsole.log(`Created SVG cursor for ${user.name} in collaboration layer.`);
 
         } else {
             // --- Update existing cursor element ---
@@ -497,9 +498,9 @@ export function createOrUpdateRemoteCursor(clientID, state, layer, debugging = f
                         cursorData.nameBg.setAttribute('x', (-(nameBox.width / 2 + NAME_BG_PADDING_X)).toString());
                         cursorData.nameBg.setAttribute('y', (-(nameBox.height / 2 + NAME_BG_PADDING_Y)).toString());
                     } else {
-                        console.warn("Couldn't get valid BBox for name text on update, estimating size.", nameBox);
+                        CollaborationConsole.warn("Couldn't get valid BBox for name text on update, estimating size.", nameBox);
                     }
-                } catch (e) { console.warn("Error getting BBox for name text update:", e); }
+                } catch (e) { CollaborationConsole.warn("Error getting BBox for name text update:", e); }
             }
         }
 
@@ -539,11 +540,11 @@ export function createOrUpdateRemoteCursor(clientID, state, layer, debugging = f
         }
         // If a chat message is present and valid cursor position is available, ensure the main group is visible.
         if (isChatVisible && cursorData.group.style.display === 'none' && remoteCursorPos && typeof remoteCursorPos.x === 'number' && typeof remoteCursorPos.y === 'number') {
-            if (debugging) console.log(`Making group visible for ${user.name} due to chat message and valid position.`);
+            if (debugging) CollaborationConsole.log(`Making group visible for ${user.name} due to chat message and valid position.`);
             cursorData.group.style.display = '';
         }
     } else if (remoteChatMessage && debugging) {
-        console.log(`Received chat message for ${user?.name || clientID}, but cursor element is missing.`);
+        CollaborationConsole.log(`Received chat message for ${user?.name || clientID}, but cursor element is missing.`);
     }
 }
 
@@ -558,7 +559,7 @@ export function removeRemoteCursor(clientID, debugging = false) {
     if (cursorData) {
         cursorData.group.remove(); // Remove the entire SVG group from the DOM.
         cursorElements.delete(clientID); // Remove from the map.
-        if (debugging) console.log(`Removed SVG cursor & chat for disconnected client ${clientID}`);
+        if (debugging) CollaborationConsole.log(`Removed SVG cursor & chat for disconnected client ${clientID}`);
     }
 }
 
@@ -594,7 +595,7 @@ export function clearLocalChatMessage() {
         // Broadcast the null message to awareness to hide it for others.
         constants.mutableRefs.yjsAwarenessInstance?.setLocalStateField('chatMessage', null);
         setLocalChatVisibility(false); // Hide the local chat bubble immediately.
-        if (constants.debugging) console.log("Collab Chat: Local message cleared.");
+        if (constants.debugging) CollaborationConsole.log("Collab Chat: Local message cleared.");
     }
     // Clear any pending timeout for the chat message.
     if (constants.mutableRefs.chatMessageTimeoutId) clearTimeout(constants.mutableRefs.chatMessageTimeoutId);
@@ -679,7 +680,7 @@ export const handleGlobalKeyDown = (event) => {
         // Update the local chat bubble's visual appearance.
         const localState = constants.mutableRefs.yjsAwarenessInstance.getLocalState();
         updateLocalChat(constants.mutableRefs.localChatMessage, constants.localUserInfo, localState?.cursor);
-        if (constants.debugging) console.log("Collab Chat Keydown:", constants.mutableRefs.localChatMessage);
+        if (constants.debugging) CollaborationConsole.log("Collab Chat Keydown:", constants.mutableRefs.localChatMessage);
     }
 };
 
@@ -689,7 +690,7 @@ export const handleGlobalKeyDown = (event) => {
  */
 export function ensureCollaborationLayerOnTop() {
     if (constants.mutableRefs.collaborationLayerGroup?.parentNode && constants.mutableRefs.collaborationLayerGroup.parentNode.lastChild !== constants.mutableRefs.collaborationLayerGroup) {
-        if (constants.debugging) console.log("Collab UI: Moving collaboration layer to top.");
+        if (constants.debugging) CollaborationConsole.log("Collab UI: Moving collaboration layer to top.");
         constants.mutableRefs.collaborationLayerGroup.parentNode.appendChild(constants.mutableRefs.collaborationLayerGroup);
     }
 }
@@ -700,16 +701,16 @@ export function ensureCollaborationLayerOnTop() {
  * ensuring that all collaboration UI elements are correctly attached and listeners are re-bound.
  */
 export function setupCollaborationLayer() {
-    if (!constants.mutableRefs.BlocklyInstance) { console.error("Collab UI: Blockly instance missing."); return; }
+    if (!constants.mutableRefs.BlocklyInstance) { CollaborationConsole.error("Collab UI: Blockly instance missing."); return; }
     const workspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
-    if (!workspace) { console.warn("Collab UI: Main workspace not found."); return; }
+    if (!workspace) { CollaborationConsole.warn("Collab UI: Main workspace not found."); return; }
 
     const newWorkspaceSvg = workspace.getParentSvg(); // The main <svg> element for Blockly.
     // The <g> element within the main SVG where blocks and other overlays are placed.
     const workspaceGroup = newWorkspaceSvg?.querySelector('.blocklyBlockCanvas');
 
     if (!newWorkspaceSvg || !workspaceGroup) {
-        console.warn("Collab UI: Workspace SVG or blocklyBlockCanvas not found. Performing full UI cleanup.");
+        CollaborationConsole.warn("Collab UI: Workspace SVG or blocklyBlockCanvas not found. Performing full UI cleanup.");
         // If essential Blockly elements are missing, clean up all existing UI elements and listeners.
         if (constants.mutableRefs.currentWorkspaceSvg && constants.mutableRefs.throttledMouseMoveHandler) constants.mutableRefs.currentWorkspaceSvg.removeEventListener('pointermove', constants.mutableRefs.throttledMouseMoveHandler);
         if (constants.mutableRefs.currentWorkspaceSvg && constants.mutableRefs.pointerLeaveHandler) constants.mutableRefs.currentWorkspaceSvg.removeEventListener('pointerleave', constants.mutableRefs.pointerLeaveHandler);
@@ -732,7 +733,7 @@ export function setupCollaborationLayer() {
     // Detect if the main Blockly SVG element has changed.
     // This happens during full GUI reloads or theme changes.
     if (constants.mutableRefs.currentWorkspaceSvg && constants.mutableRefs.currentWorkspaceSvg !== newWorkspaceSvg) {
-        console.log("Collab UI: Detected new Blockly SVG element. Performing full collaboration UI re-initialization.");
+        CollaborationConsole.log("Collab UI: Detected new Blockly SVG element. Performing full collaboration UI re-initialization.");
 
         // 1. Detach event listeners from the OLD SVG element.
         if (constants.mutableRefs.throttledMouseMoveHandler) constants.mutableRefs.currentWorkspaceSvg.removeEventListener('pointermove', constants.mutableRefs.throttledMouseMoveHandler);
@@ -772,27 +773,27 @@ export function setupCollaborationLayer() {
         constants.mutableRefs.collaborationLayerGroup.setAttribute('id', COLLABORATION_LAYER_ID);
         constants.mutableRefs.collaborationLayerGroup.style.pointerEvents = 'none'; // Ensure it doesn't block Blockly interaction.
         workspaceGroup.appendChild(constants.mutableRefs.collaborationLayerGroup);
-        console.log("Collab UI: Collaboration layer group created and appended to new workspace.");
+        CollaborationConsole.log("Collab UI: Collaboration layer group created and appended to new workspace.");
     } else {
         // If it already existed (e.g., re-parented), ensure it's in the correct parent and on top.
         if (constants.mutableRefs.collaborationLayerGroup.parentNode !== workspaceGroup) {
             workspaceGroup.appendChild(constants.mutableRefs.collaborationLayerGroup);
         }
         ensureCollaborationLayerOnTop(); // Ensure it's the last child for proper layering.
-        console.log("Collab UI: Collaboration layer group re-used or re-parented.");
+        CollaborationConsole.log("Collab UI: Collaboration layer group re-used or re-parented.");
     }
 
     // Create or re-create local chat elements if they don't exist (because `localChatElements` was reset if SVG changed).
     if (!localChatElements.group) {
         constants.mutableRefs.localChatElementsRef = createLocalChatElements(constants.mutableRefs.collaborationLayerGroup);
-        console.log("Collab UI: Local chat elements created.");
+        CollaborationConsole.log("Collab UI: Local chat elements created.");
     } else {
         // If local chat elements already exist, ensure they are correctly parented and update the mutable reference.
         if (localChatElements.group.parentNode !== constants.mutableRefs.collaborationLayerGroup) {
             constants.mutableRefs.collaborationLayerGroup.appendChild(localChatElements.group);
         }
         constants.mutableRefs.localChatElementsRef = localChatElements;
-        console.log("Collab UI: Re-referencing existing local chat elements.");
+        CollaborationConsole.log("Collab UI: Re-referencing existing local chat elements.");
     }
 
     // Update local chat visibility based on its current message.
@@ -839,7 +840,7 @@ export function setupCollaborationLayer() {
                     updateLocalChat(constants.mutableRefs.localChatMessage, constants.localUserInfo, workspacePoint);
                 }
             } catch (error) {
-                console.error("[Collab UI] Error in mouse move handler:", error);
+                CollaborationConsole.error("[Collab UI] Error in mouse move handler:", error);
                 // Clear cursor position if an error occurs.
                 constants.mutableRefs.yjsAwarenessInstance?.setLocalStateField('cursor', null);
             }
@@ -884,9 +885,9 @@ export function setupCollaborationLayer() {
             // Create and observe the new target.
             constants.mutableRefs.blocklyCanvasObserver = new MutationObserver(observerCallback);
             constants.mutableRefs.blocklyCanvasObserver.observe(workspaceGroup, { childList: true });
-            console.log("Collab UI: MutationObserver attached to new workspaceGroup.");
+            CollaborationConsole.log("Collab UI: MutationObserver attached to new workspaceGroup.");
         } else {
-            console.warn("Collab UI: Could not attach MutationObserver, workspaceGroup is null.");
+            CollaborationConsole.warn("Collab UI: Could not attach MutationObserver, workspaceGroup is null.");
         }
     }
 
@@ -909,10 +910,10 @@ export function setupCollaborationLayer() {
                 createOrUpdateRemoteCursor(clientID, state, constants.mutableRefs.collaborationLayerGroup, constants.debugging);
             }
         });
-        console.log("Collab UI: All remote cursors re-rendered based on current awareness states.");
+        CollaborationConsole.log("Collab UI: All remote cursors re-rendered based on current awareness states.");
     }
 
-    console.log("Collab UI: Layer setup/refresh complete.");
+    CollaborationConsole.log("Collab UI: Layer setup/refresh complete.");
 }
 
 /**
@@ -965,7 +966,7 @@ function flushEventBuffer(groupId) {
         if (eventBatch.length > 0) {
             constants.mutableRefs.ydoc.transact(() => {
                 constants.mutableRefs.yEvents.push([eventBatch]);
-                if (constants.debugging) console.log(`Collab Send: Flushed ${eventBatch.length} events for group ${groupId}.`);
+                if (constants.debugging) CollaborationConsole.log(`Collab Send: Flushed ${eventBatch.length} events for group ${groupId}.`);
             }, constants.LOCAL_EVENT_SYNC_ORIGIN);
         }
         buffer.delete(groupId);
@@ -1026,13 +1027,13 @@ export function handleBlocklyEventForCollaboration(event) {
             eventJson = event.toJson();
             if (event.type.startsWith('var_') && event.type !== constants.mutableRefs.BlocklyInstance.Events.VAR_RENAME && (!event.varId || typeof event.varName === 'undefined')) return;
         } catch (e) {
-            console.error("Collab Send: Error serializing event:", e, event);
+            CollaborationConsole.error("Collab Send: Error serializing event:", e, event);
             return;
         }
     }
 
     if (!constants.mutableRefs.yEvents || !constants.mutableRefs.ydoc) {
-        console.warn("Collab Send: yEvents or ydoc not ready. Event not sent.");
+        CollaborationConsole.warn("Collab Send: yEvents or ydoc not ready. Event not sent.");
         return;
     }
 
@@ -1048,7 +1049,7 @@ export function handleBlocklyEventForCollaboration(event) {
         // This is an isolated event (not part of a drag, etc.). Send it immediately in its own transaction.
         constants.mutableRefs.ydoc.transact(() => {
             constants.mutableRefs.yEvents.push([[eventPackage]]); // Wrap in an array to mark it as a batch of one.
-            if (constants.debugging) console.log(`Collab Send: Event=${event.type} sent immediately.`);
+            if (constants.debugging) CollaborationConsole.log(`Collab Send: Event=${event.type} sent immediately.`);
         }, constants.LOCAL_EVENT_SYNC_ORIGIN);
     } else {
         // This event is part of a group. Buffer it.
@@ -1091,7 +1092,7 @@ export function updateUserMenuBarIcons() {
         }
         // Validate user data.
         if (!user || !user.name || !user.color) {
-            console.warn(`Collab UI: Incomplete user data for clientID ${clientID}`, state);
+            CollaborationConsole.warn(`Collab UI: Incomplete user data for clientID ${clientID}`, state);
             return;
         }
         activeRemoteClientIDs.add(clientID); // Mark this client as active.
@@ -1111,7 +1112,7 @@ export function updateUserMenuBarIcons() {
 
             constants.mutableRefs.userIconContainer.appendChild(iconElement); // Append to the menu bar container.
             constants.remoteUserIcons.set(clientID, iconElement); // Store reference.
-            if (constants.debugging) console.log(`Collab UI: Added menu bar user icon for ${user.name} (${clientID}), Inactive: ${isInactive}`);
+            if (constants.debugging) CollaborationConsole.log(`Collab UI: Added menu bar user icon for ${user.name} (${clientID}), Inactive: ${isInactive}`);
         } else {
             // If icon exists, update its properties if they have changed.
             if (iconElement.style.backgroundColor !== displayColor) {
@@ -1136,7 +1137,7 @@ export function updateUserMenuBarIcons() {
         if (iconToRemove) {
             iconToRemove.remove(); // Remove from DOM.
             constants.remoteUserIcons.delete(clientID); // Remove from map.
-            if (constants.debugging) console.log(`Collab UI: Removed menu bar user icon for clientID ${clientID}`);
+            if (constants.debugging) CollaborationConsole.log(`Collab UI: Removed menu bar user icon for clientID ${clientID}`);
         }
     });
 }
@@ -1296,7 +1297,7 @@ export function updateSpriteUserIcons() {
             const targetData = constants.spriteIconContainers.get(targetName);
             targetData?.container.remove();
             constants.spriteIconContainers.delete(targetName);
-            if (constants.debugging) console.log(`Collab UI: Removed stale target icon container for "${targetName}"`);
+            if (constants.debugging) CollaborationConsole.log(`Collab UI: Removed stale target icon container for "${targetName}"`);
         }
     });
 }
@@ -1424,7 +1425,7 @@ export function updateTabUserIcons() {
             const tabData = constants.tabIconContainers.get(tabIndex);
             tabData?.container.remove();
             constants.tabIconContainers.delete(tabIndex);
-            if (constants.debugging) console.log(`Collab UI: Removed stale tab icon container for tab index ${tabIndex}`);
+            if (constants.debugging) CollaborationConsole.log(`Collab UI: Removed stale tab icon container for tab index ${tabIndex}`);
         }
     });
 }
@@ -1440,7 +1441,7 @@ export function showSyncingPopup() {
             payload: true
         });
     } else {
-        console.warn('Collab: Redux not available to show syncing popup. Falling back to window var.');
+        CollaborationConsole.warn('Collab: Redux not available to show syncing popup. Falling back to window var.');
         window.syncingCollab_fallback = true; // Fallback for environments without Redux.
     }
 }
@@ -1460,7 +1461,7 @@ export function hideSyncingPopup() {
             alertId: "CollaborationLockedNoticeSaveProject",
         });
     } else {
-        console.warn('Collab: Redux not available to hide syncing popup. Falling back to window var.');
+        CollaborationConsole.warn('Collab: Redux not available to hide syncing popup. Falling back to window var.');
         delete window.syncingCollab_fallback; // Clear fallback.
     }
 }

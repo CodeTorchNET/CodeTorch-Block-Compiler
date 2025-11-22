@@ -9,8 +9,7 @@ const {EXTENSION_HOST} = require('../lib/brand');
 
 import extensionLibraryContent, {
     galleryError,
-    galleryLoading,
-    galleryMore
+    galleryLoading
 } from '../lib/libraries/extensions/index.jsx';
 import extensionTags from '../lib/libraries/tw-extension-tags';
 
@@ -165,7 +164,6 @@ class ExtensionLibrary extends React.PureComponent {
             library = extensionLibraryContent.map(toLibraryItem);
             library.push('---');
             if (this.state.gallery) {
-                library.push(toLibraryItem(galleryMore));
                 const locale = this.props.intl.locale;
                 library.push(
                     ...this.state.gallery

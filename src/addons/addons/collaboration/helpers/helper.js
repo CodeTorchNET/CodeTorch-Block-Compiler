@@ -5,6 +5,7 @@ import * as yProjectEventsHandler from './yProjectEvents.js';
 import * as collabUI from './collaboration-ui.js';
 
 import * as constants from './constants.js';
+import CollaborationConsole from './CollaborationConsole.js'; 
 
 /**
  * Converts a Uint8Array (binary data) to a Base64 encoded string.
@@ -39,7 +40,7 @@ export function convertBase64ToUint8Array(base64String) {
         }
         return bytes;
     } catch (e) {
-        console.error('Collab: Error decoding Base64 string', e, base64String);
+        CollaborationConsole.error('Collab: Error decoding Base64 string', e, base64String);
         return null;
     }
 }
@@ -75,7 +76,7 @@ export function getCurrentEditingTargetName() {
     try {
         return constants.mutableRefs.vm?.runtime?.getEditingTarget?.()?.getName?.() || null;
     } catch (e) {
-        console.error('Collab: Error getting current editing target name:', e);
+        CollaborationConsole.error('Collab: Error getting current editing target name:', e);
         return null;
     }
 }
@@ -96,11 +97,11 @@ let itemsToProcess = [];
  */
 export function addItemToProcess(item, type) {
     if (!item || !type) {
-        console.warn('Collab: Invalid item or type to process');
+        CollaborationConsole.warn('Collab: Invalid item or type to process');
         return;
     }
     if (!(type === 'yEvents' || type === 'yProjectEvents')) {
-        console.warn('Collab: Invalid type for processing:', type);
+        CollaborationConsole.warn('Collab: Invalid type for processing:', type);
         return;
     }
 
@@ -127,7 +128,7 @@ export function addItemToProcess(item, type) {
         }
     } else {
         // If the new item does NOT have a valid timestamp, push it to the very end as a fallback.
-        console.warn('Collab: Item does not have a valid timestamp, pushing to end:', newItemWithMetadata);
+        CollaborationConsole.warn('Collab: Item does not have a valid timestamp, pushing to end:', newItemWithMetadata);
         itemsToProcess.push(newItemWithMetadata);
     }
 }
@@ -140,7 +141,7 @@ export function addItemToProcess(item, type) {
  * @returns {Promise<void>} A promise that resolves when all items have been processed or an error occurs.
  */
 export function processSyncItems() {
-    console.log(`Collab RX: Processing ${itemsToProcess.length} event items from the queue.`, itemsToProcess);
+    CollaborationConsole.log(`Collab RX: Processing ${itemsToProcess.length} event items from the queue.`, itemsToProcess);
     return new Promise(async resolve => {
         // Temporarily disable Blockly events to prevent local actions triggered by remote events
         // from generating new events that would then be re-broadcast.
@@ -152,7 +153,7 @@ export function processSyncItems() {
             for (var item of itemsToProcess) {
                 const { item: eventItem, type } = item;
                 if (!eventItem || !type) {
-                    console.warn('Collab: Invalid item or type in processSyncItems queue; skipping.');
+                    CollaborationConsole.warn('Collab: Invalid item or type in processSyncItems queue; skipping.');
                     continue; // Skip to the next item if malformed.
                 }
                 try {
@@ -167,7 +168,7 @@ export function processSyncItems() {
                 } else if (type === 'yProjectEvents') {
                     await yProjectEventsHandler.processSpecificEvent(eventItem); // Await async project event processing.
                 } else {
-                    console.warn('Collab: Unknown type in processSyncItems queue:', type);
+                    CollaborationConsole.warn('Collab: Unknown type in processSyncItems queue:', type);
                 }
             }
 
@@ -185,8 +186,9 @@ export function processSyncItems() {
             resolve(); // Resolve the promise indicating successful processing.
 
         } catch (error) {
+            // we intentionally do not call: constants.mutableRefs.BlocklyInstance.Events.enable(); as we don't want user to modify on a desync
             // --- Error Handling for Critical Sync Failure ---
-            console.error('Collab: Fatal error during initial sync:', error, 'Processing Event:', processingEvent);
+            CollaborationConsole.error('Collab: Fatal error during initial sync:', error, 'Processing Event:', processingEvent);
 
             // Create and display a user-facing error popup.
             const popup = document.createElement('div');
@@ -214,7 +216,7 @@ export function processSyncItems() {
                 navigator.clipboard.writeText(errorDetails).then(() => {
                     alert('Error details copied to clipboard. Please report this to @CodeTorch.');
                 }).catch((copyError) => {
-                    console.error('Clipboard write failed:', copyError);
+                    CollaborationConsole.error('Clipboard write failed:', copyError);
                     alert('Failed to copy error details. Please report this to @CodeTorch.');
                 });
             });
@@ -245,7 +247,7 @@ function getTargetForCommentEvent(remoteTargetName) {
 export function CommentCreate(blocklyEvent, remoteTargetName) {
     const target = getTargetForCommentEvent(remoteTargetName);
     if (!target) {
-        console.error(`Collab RX: Skipping 'comment_create' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
+        CollaborationConsole.error(`Collab RX: Skipping 'comment_create' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
         return;
     }
     try {
@@ -261,10 +263,10 @@ export function CommentCreate(blocklyEvent, remoteTargetName) {
             blocklyEvent.minimized
         );
         if (constants.debugging) {
-            console.log(`Collab RX: Created comment for 'comment_create' event on target "${remoteTargetName}":`, blocklyEvent);
+            CollaborationConsole.log(`Collab RX: Created comment for 'comment_create' event on target "${remoteTargetName}":`, blocklyEvent);
         }
     } catch (e) {
-        console.error(`Collab RX: Error creating comment for 'comment_create' event on target "${remoteTargetName}":`, e);
+        CollaborationConsole.error(`Collab RX: Error creating comment for 'comment_create' event on target "${remoteTargetName}":`, e);
     }
 }
 
@@ -278,7 +280,7 @@ export function CommentCreate(blocklyEvent, remoteTargetName) {
 export function CommentDelete(blocklyEvent, remoteTargetName) {
     const target = getTargetForCommentEvent(remoteTargetName);
     if (!target) {
-        console.error(`Collab RX: Skipping 'comment_delete' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
+        CollaborationConsole.error(`Collab RX: Skipping 'comment_delete' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
         return;
     }
 
@@ -291,7 +293,7 @@ export function CommentDelete(blocklyEvent, remoteTargetName) {
             // 1. Remove the comment object from the target's comments collection.
             delete target.comments[commentIdToDelete];
             if (constants.debugging) {
-                console.log(`Collab RX: Deleted comment with ID "${commentIdToDelete}" from target "${remoteTargetName}".`);
+                CollaborationConsole.log(`Collab RX: Deleted comment with ID "${commentIdToDelete}" from target "${remoteTargetName}".`);
             }
 
             // 2. If the comment was attached to a block, remove its reference from that block.
@@ -300,17 +302,17 @@ export function CommentDelete(blocklyEvent, remoteTargetName) {
                 if (blockWithComment && blockWithComment.comment === commentIdToDelete) {
                     blockWithComment.comment = null; // Clear the reference.
                     if (constants.debugging) {
-                        console.log(`Collab RX: Removed comment reference from block "${blockIdAssociated}" on target "${remoteTargetName}".`);
+                        CollaborationConsole.log(`Collab RX: Removed comment reference from block "${blockIdAssociated}" on target "${remoteTargetName}".`);
                     }
                 } else if (constants.debugging) {
-                    console.log(`Collab RX: Block "${blockIdAssociated}" not found or comment reference already cleared for delete event.`);
+                    CollaborationConsole.log(`Collab RX: Block "${blockIdAssociated}" not found or comment reference already cleared for delete event.`);
                 }
             }
         } catch (e) {
-            console.error(`Collab RX: Error deleting comment with ID "${commentIdToDelete}" on target "${remoteTargetName}":`, e);
+            CollaborationConsole.error(`Collab RX: Error deleting comment with ID "${commentIdToDelete}" on target "${remoteTargetName}":`, e);
         }
     } else if (constants.debugging) {
-        console.log(`Collab RX: Comment with ID "${commentIdToDelete}" not found on target "${remoteTargetName}" for deletion, might have been already deleted or not exist.`);
+        CollaborationConsole.log(`Collab RX: Comment with ID "${commentIdToDelete}" not found on target "${remoteTargetName}" for deletion, might have been already deleted or not exist.`);
     }
 }
 
@@ -324,12 +326,12 @@ export function CommentDelete(blocklyEvent, remoteTargetName) {
 export function CommentChange(blocklyEvent, remoteTargetName) {
     const target = getTargetForCommentEvent(remoteTargetName);
     if (!target) {
-        console.error(`Collab RX: Skipping 'comment_change' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
+        CollaborationConsole.error(`Collab RX: Skipping 'comment_change' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
         return;
     }
     // `newContents_` contains an object with properties that have changed (e.g., `{ text: "new text" }`).
     if (!blocklyEvent.newContents_) {
-        console.error(`Collab RX: 'comment_change' event for target "${remoteTargetName}" is missing newContents. Cannot apply changes.`, blocklyEvent);
+        CollaborationConsole.error(`Collab RX: 'comment_change' event for target "${remoteTargetName}" is missing newContents. Cannot apply changes.`, blocklyEvent);
         return;
     }
     try {
@@ -339,15 +341,15 @@ export function CommentChange(blocklyEvent, remoteTargetName) {
             if (target.comments && target.comments[blocklyEvent.commentId]) {
                 target.comments[blocklyEvent.commentId][key] = blocklyEvent.newContents_[key];
                 if (constants.debugging) {
-                    console.log(`Collab RX: Updated comment "${blocklyEvent.commentId}" property "${key}" to "${blocklyEvent.newContents_[key]}" on target "${remoteTargetName}".`);
+                    CollaborationConsole.log(`Collab RX: Updated comment "${blocklyEvent.commentId}" property "${key}" to "${blocklyEvent.newContents_[key]}" on target "${remoteTargetName}".`);
                 }
             } else {
-                console.warn(`Collab RX: Cannot apply 'comment_change' event for comment "${blocklyEvent.commentId}" on target "${remoteTargetName}" as it does not exist.`);
+                CollaborationConsole.warn(`Collab RX: Cannot apply 'comment_change' event for comment "${blocklyEvent.commentId}" on target "${remoteTargetName}" as it does not exist.`);
                 return; // Stop if the comment cannot be found.
             }
         }
     } catch (e) {
-        console.error(`Collab RX: Error applying 'comment_change' event for target "${remoteTargetName}":`, e);
+        CollaborationConsole.error(`Collab RX: Error applying 'comment_change' event for target "${remoteTargetName}":`, e);
     }
 }
 
@@ -361,27 +363,27 @@ export function CommentChange(blocklyEvent, remoteTargetName) {
 export function CommentMove(blocklyEvent, remoteTargetName) {
     const target = getTargetForCommentEvent(remoteTargetName);
     if (!target) {
-        console.error(`Collab RX: Skipping 'comment_move' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
+        CollaborationConsole.error(`Collab RX: Skipping 'comment_move' event for target "${remoteTargetName}" because it does not exist in the current VM.`);
         return;
     }
     const comment = target.comments[blocklyEvent.commentId];
     if (!comment) {
-        console.error(`Collab RX: 'comment_move' event for target "${remoteTargetName}" references a comment that does not exist:`, blocklyEvent.commentId);
+        CollaborationConsole.error(`Collab RX: 'comment_move' event for target "${remoteTargetName}" references a comment that does not exist:`, blocklyEvent.commentId);
         return;
     }
     const coordinates = blocklyEvent.newCoordinate_;
     if (!coordinates || typeof coordinates.x !== 'number' || typeof coordinates.y !== 'number') {
-        console.error(`Collab RX: 'comment_move' event for target "${remoteTargetName}" has invalid coordinates:`, coordinates);
+        CollaborationConsole.error(`Collab RX: 'comment_move' event for target "${remoteTargetName}" has invalid coordinates:`, coordinates);
         return;
     }
     try {
         comment.x = coordinates.x;
         comment.y = coordinates.y;
         if (constants.debugging) {
-            console.log(`Collab RX: Moved comment with ID "${blocklyEvent.commentId}" to new coordinates (${comment.x}, ${comment.y}) on target "${remoteTargetName}".`);
+            CollaborationConsole.log(`Collab RX: Moved comment with ID "${blocklyEvent.commentId}" to new coordinates (${comment.x}, ${comment.y}) on target "${remoteTargetName}".`);
         }
     } catch (e) {
-        console.error(`Collab RX: Error moving comment with ID "${blocklyEvent.commentId}" on target "${remoteTargetName}":`, e, blocklyEvent);
+        CollaborationConsole.error(`Collab RX: Error moving comment with ID "${blocklyEvent.commentId}" on target "${remoteTargetName}":`, e, blocklyEvent);
     }
 }
 
@@ -403,7 +405,7 @@ export function findCircularDependency(blocksObject, targetName) {
                 // Find the start of the cycle in the current path and return the cycle loop.
                 const cycleStartIndex = currentPath.indexOf(blockId);
                 const cyclePath = [...currentPath.slice(cycleStartIndex), blockId];
-                console.error(`Collab Validation: Circular dependency detected in target "${targetName}"! Path: ${cyclePath.join(' -> ')}`);
+                CollaborationConsole.error(`Collab Validation: Circular dependency detected in target "${targetName}"! Path: ${cyclePath.join(' -> ')}`);
                 return {
                     hasCycle: true,
                     path: cyclePath,

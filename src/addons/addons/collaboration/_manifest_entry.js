@@ -9,6 +9,21 @@ const manifest = {
       "url": "userscript.js"
     }
   ],
+  "settings": [
+    {
+      "id": "disableBlackbox",
+      "name": "Disable Flight Recorder",
+      "type": "boolean",
+      "default": false
+    }
+  ],
+  "info": [
+    {
+      "text": "WARNING: Disabling the Flight Recorder will make it impossible for developers to debug issues or desyncs you encounter.",
+      "type": "warning",
+      "id": "blackboxWarning"
+    }
+  ],
   "dynamicDisable": true,
   "tags": [
     "new"

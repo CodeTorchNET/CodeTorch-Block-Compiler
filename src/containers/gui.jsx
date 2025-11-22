@@ -57,11 +57,19 @@ const setProjectIdMetadata = projectId => {
 };
 
 class GUI extends React.Component {
+    constructor (props) {
+        super(props);
+        this.handleMessage = this.handleMessage.bind(this);
+    }
     componentDidMount () {
         setIsScratchDesktop(this.props.isScratchDesktop);
         this.props.onStorageInit(storage);
         this.props.onVmInit(this.props.vm);
         setProjectIdMetadata(this.props.projectId);
+
+        if (window.location.pathname === '/' || window.location.pathname.indexOf('index.html') !== -1) {
+            window.addEventListener('message', this.handleMessage);
+        }
     }
     componentDidUpdate (prevProps) {
         if (this.props.projectId !== prevProps.projectId) {
@@ -84,6 +92,31 @@ class GUI extends React.Component {
                 type: 'codetorch-extensions-loaded',
                 payload: loadedExtensionIds
             }, '*');
+        }
+    }
+    componentWillUnmount () {
+        window.removeEventListener('message', this.handleMessage);
+    }
+    handleMessage (event) {
+        if (event.data === 'REQUEST_SCREENSHOT') {
+            if (this.props.vm && this.props.vm.renderer) {
+                const renderer = this.props.vm.renderer;
+
+                // 1. Request the snapshot. This queues the callback and sets dirty = true.
+                renderer.requestSnapshot(dataURL => {
+                    if (event.source) {
+                        event.source.postMessage({
+                            action: 'SCREENSHOT_TAKEN',
+                            data: dataURL
+                        }, event.origin);
+                    }
+                });
+
+                // 2. Force a draw immediately.
+                // We do this because if the project is stopped, the loop won't call draw()
+                // automatically, so we trigger it manually to process the snapshot queue.
+                renderer.draw();
+            }
         }
     }
     render () {

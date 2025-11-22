@@ -2,6 +2,7 @@
 
 import * as constants from './constants.js';
 import * as assetSync from './assetSync.js';
+import CollaborationConsole from './CollaborationConsole.js'; 
 
 /**
  * A flag to ensure that user activity listeners are attached only once.
@@ -15,14 +16,14 @@ let attachedListeners = false;
  * This involves marking the user as inactive and releasing any held asset locks.
  */
 export async function handleInactivityX() {
-    if (constants.debugging) console.log('Collab: Inactivity X threshold reached.');
+    if (constants.debugging) CollaborationConsole.log('Collab: Inactivity X threshold reached.');
 
     // Only proceed if the user is not already marked as inactive by this timer.
     if (!constants.localUserInfo.isInactive) {
         constants.localUserInfo.isInactive = true; // Mark the local user as inactive.
         // Update the Yjs Awareness state to broadcast this user's inactivity to other collaborators.
         constants.mutableRefs.yjsAwarenessInstance?.setLocalStateField('isInactive', true);
-        if (constants.debugging) console.log('Collab: User marked as inactive.');
+        if (constants.debugging) CollaborationConsole.log('Collab: User marked as inactive.');
 
         // Release any asset editing locks held by the inactive user.
         // This allows other collaborators to edit costumes or sounds.
@@ -41,13 +42,13 @@ export async function handleInactivityX() {
                     type: 'scratch-gui/navigation/ACTIVATE_TAB',
                     activeTabIndex: 0
                 });
-                if (constants.debugging) console.log('Collab: Dispatched ACTIVATE_TAB (0) due to inactivity X.');
+                if (constants.debugging) CollaborationConsole.log('Collab: Dispatched ACTIVATE_TAB (0) due to inactivity X.');
                 // The `constants.localUserInfo.activeTabIndex` will be updated automatically
                 // by a Redux state change listener elsewhere in the system.
             } else {
                 // Fallback: if Redux dispatch is not available, manually update the local tab index.
                 constants.localUserInfo.activeTabIndex = 0;
-                console.warn('Collab: Redux dispatch not available for ACTIVATE_TAB on inactivity X. Manually set local tab index.');
+                CollaborationConsole.warn('Collab: Redux dispatch not available for ACTIVATE_TAB on inactivity X. Manually set local tab index.');
             }
         }
     }
@@ -62,7 +63,7 @@ export async function handleInactivityX() {
  * This typically triggers a cleanup function, if one is registered.
  */
 function handleInactivityY() {
-    if (constants.debugging) console.log('Collab: Inactivity Y threshold reached. Cleaning up.');
+    if (constants.debugging) CollaborationConsole.log('Collab: Inactivity Y threshold reached. Cleaning up.');
 
     // If a cleanup function has been registered, execute it.
     if (constants.mutableRefs.currentCleanupFunction) {
@@ -82,7 +83,7 @@ export function clearInactivityTimers() {
     if (constants.mutableRefs.inactivityTimerY) clearTimeout(constants.mutableRefs.inactivityTimerY);
     constants.mutableRefs.inactivityTimerX = null;
     constants.mutableRefs.inactivityTimerY = null;
-    // Uncomment for detailed debugging: if (constants.debugging) console.log("Collab: Inactivity timers cleared.");
+    // Uncomment for detailed debugging: if (constants.debugging) CollaborationConsole.log("Collab: Inactivity timers cleared.");
 }
 
 /**
@@ -100,18 +101,18 @@ export function resetInactivityTimers() {
         // Start Timer X (shorter threshold) and Timer Y (longer threshold).
         constants.mutableRefs.inactivityTimerX = setTimeout(handleInactivityX, constants.INACTIVITY_THRESHOLD_X_MS);
         constants.mutableRefs.inactivityTimerY = setTimeout(handleInactivityY, constants.INACTIVITY_THRESHOLD_Y_MS);
-        // Uncomment for detailed debugging: if (constants.debugging) console.log("Collab: Inactivity timers reset and started.");
+        // Uncomment for detailed debugging: if (constants.debugging) CollaborationConsole.log("Collab: Inactivity timers reset and started.");
 
         // If the user was previously marked inactive, mark them as active now.
         if (constants.localUserInfo.isInactive) {
             constants.localUserInfo.isInactive = false;
             // Update Yjs Awareness to broadcast the user's active status.
             constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('isInactive', false);
-            if (constants.debugging) console.log("Collab: User active, 'isInactive' set to false in awareness.");
+            if (constants.debugging) CollaborationConsole.log("Collab: User active, 'isInactive' set to false in awareness.");
             // UI updates for user icons based on activity will be triggered by this awareness change.
         }
     } else if (constants.debugging) {
-        console.log('Collab: Not resetting inactivity timers, Yjs provider not fully ready or available.');
+        CollaborationConsole.log('Collab: Not resetting inactivity timers, Yjs provider not fully ready or available.');
     }
 
     // Attach global event listeners to detect user activity and reset timers.

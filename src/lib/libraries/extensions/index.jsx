@@ -439,36 +439,13 @@ export const galleryLoading = {
     ),
     href: 'https://extensions.turbowarp.org/',
     extensionId: 'gallery',
-    iconURL: galleryIcon,  // Ensure galleryIcon is valid
+    iconURL: galleryIcon, // Ensure galleryIcon is valid
     description: (
         <FormattedMessage
             // eslint-disable-next-line max-len
             defaultMessage="Loading extension gallery..."
             description="Appears while loading extension list from the custom extension gallery"
             id="tw.extensionGallery.loading"
-        />
-    ),
-    tags: ['tw'],
-    featured: true
-};
-
-export const galleryMore = {
-    name: (
-        <FormattedMessage
-            defaultMessage="Turbowarp Extension Gallery"
-            description="Name of extensions.turbowarp.org in extension library"
-            id="tw.extensionGallery.name"
-        />
-    ),
-    href: 'https://extensions.turbowarp.org/',
-    extensionId: 'gallery',
-    iconURL: galleryIcon,
-    description: (
-        <FormattedMessage
-            // eslint-disable-next-line max-len
-            defaultMessage="Learn more about extensions at extensions.turbowarp.org."
-            description="Appears after the extension list from the gallery was loaded successfully"
-            id="tw.extensionGallery.more"
         />
     ),
     tags: ['tw'],
