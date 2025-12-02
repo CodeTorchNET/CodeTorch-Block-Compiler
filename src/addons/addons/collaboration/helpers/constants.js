@@ -8,24 +8,17 @@ import CollaborationConsole from './CollaborationConsole.js';
  */
 export const debugging = true;
 
-export const apiHostURL =
-  ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
-    ? "http://localhost:8000"
-    : "https://api.codetorch.net";
-
+export const apiHostURL = process.env.API_HOST;
 /**
  * Development Mode. 
  * Set to `true` to allow the addon to run even if window.CollaborationRoom/OTT are undefined.
  */
-export const devMode =
-  ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
-    ? true
-    : false;
+export const devMode = process.env.COLLABORATION_DEV_MODE === 'true';
 
 /**
  * The base URL for the WebSocket server used for Yjs collaboration.
  */
-export const WEBSOCKETBASEURL = 'ws://localhost:4444';
+export const WEBSOCKETBASEURL = process.env.COLLABORATION_HOST;
 
 /**
  * Inactivity thresholds in milliseconds.

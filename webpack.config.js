@@ -2,6 +2,8 @@ const defaultsDeep = require('lodash.defaultsdeep');
 const path = require('path');
 const webpack = require('webpack');
 
+require('dotenv').config();
+
 // Plugins
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
@@ -183,7 +185,18 @@ module.exports = [
                 'process.env.DEBUG': Boolean(process.env.DEBUG),
                 'process.env.ENABLE_SERVICE_WORKER': JSON.stringify(process.env.ENABLE_SERVICE_WORKER || ''),
                 'process.env.ROOT': JSON.stringify(root),
-                'process.env.ROUTING_STYLE': JSON.stringify(process.env.ROUTING_STYLE || 'filehash')
+                'process.env.ROUTING_STYLE': JSON.stringify(process.env.ROUTING_STYLE || 'filehash'),
+                
+                'process.env.APP_NAME': JSON.stringify(process.env.APP_NAME || 'CodeTorch'),
+                'process.env.APP_DOMAIN': JSON.stringify(process.env.APP_NAME || 'https://codetorch.net'),
+                'process.env.API_HOST': JSON.stringify(process.env.API_HOST || 'https://api.codetorch.net'),
+                'process.env.ASSET_HOST': JSON.stringify(process.env.ASSET_HOST || 'https://assets.scratch.mit.edu'),
+                'process.env.EXTENSION_HOST': JSON.stringify(process.env.EXTENSION_HOST || 'https://blockextensions.codetorch.net'),
+                'process.env.DEFAULT_CLOUD_HOST': JSON.stringify(process.env.DEFAULT_CLOUD_HOST || 'wss://cloud.codetorch.org'),
+                'process.env.TRUSTED_IFRAME_HOST': JSON.stringify(process.env.TRUSTED_IFRAME_HOST || 'https://codetorch.net'),
+                'process.env.FORCE_EMBED': JSON.stringify(process.env.FORCE_EMBED || 'true'),
+                'process.env.COLLABORATION_HOST': JSON.stringify(process.env.COLLABORATION_HOST || 'wss://collaborator.codetorch.net/'),
+                'process.env.COLLABORATION_DEV_MODE': JSON.stringify(process.env.COLLABORATION_DEV_MODE || 'false')
             }),
             new HtmlWebpackPlugin({
                 chunks: ['editor'],

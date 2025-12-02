@@ -37,7 +37,7 @@ import {APP_NAME} from '../lib/brand.js';
 
 import styles from './interface.css';
 
-const isInvalidEmbed = window.parent === window;
+const isInvalidEmbed = process.env.FORCE_EMBED === 'true' ? window.parent === window : false;
 
 const handleClickAddonSettings = () => {
     // addonId might be a string of the addon to focus on, undefined, or an event (treat like undefined)
