@@ -401,6 +401,7 @@ const GUIComponent = props => {
                                             onOpenCustomExtensionModal={onOpenCustomExtensionModal}
                                             theme={theme}
                                             vm={vm}
+                                            canSave={canSave}
                                         />
                                     </Box>
                                     <Box className={styles.extensionButtonContainer}>

@@ -2,6 +2,9 @@ import ScratchStorage from 'scratch-storage';
 
 import defaultProject from './default-project';
 
+// eslint-disable-next-line import/no-commonjs
+const {TRUSTED_IFRAME_HOST} = require('./brand.js');
+
 /**
  * Wrapper for ScratchStorage which adds default web sources.
  * @todo make this more configurable
@@ -50,8 +53,16 @@ class Storage extends ScratchStorage {
         // Build the new clean URL
         return `${url.protocol}//${baseDomain}`;
     }
+    setCustomAchievements (customAchievements) {
+        this.customAchievements = customAchievements;
+    }
+    async loadCustomAchievementData () {
+        const accessToken = await this.loadAccessToken();
+        const customAchievements = this.customAchievements ? this.customAchievements : {};
+        return {accessToken, customAchievements};
+    }
     async loadAccessToken () {
-        const trustedOrigin = this.getTrustedHost(window.location.href);
+        const trustedOrigin = TRUSTED_IFRAME_HOST;
 
         window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
 

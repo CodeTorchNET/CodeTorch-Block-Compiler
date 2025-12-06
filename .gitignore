@@ -27,3 +27,4 @@ npm-*
 # for act
 .secrets
 .env
+.env.*

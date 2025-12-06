@@ -1,5 +1,6 @@
 // helpers/DebugRecorder.js
 import * as constants from './constants.js';
+import storage from '../../../../lib/storage';
 
 export class DebugRecorder {
     constructor() {
@@ -10,6 +11,7 @@ export class DebugRecorder {
         this.projectId = null;
         this.ready = false;
         this.enabled = true;
+        this._accessToken = null;
         
         // Batching
         this.writeBuffer = [];
@@ -224,14 +226,12 @@ export class DebugRecorder {
                     }
                 }
 
-                const projectIdForUpload = match[1];
-
                 console.log(`[BlackBox] Found old session: ${name}. Initiating upload sequence...`);
                 
                 try {
                     const dumpBlob = await this._exportDatabaseToBlob(name);
                     if (dumpBlob) {
-                        const uploaded = await this._uploadDump(dumpBlob, `${name}.json`, projectIdForUpload);
+                        const uploaded = await this._uploadDump(dumpBlob, `${name}.json`);
                         if (uploaded) {
                             console.log(`[BlackBox] Upload successful. Deleting local DB: ${name}`);
                             window.indexedDB.deleteDatabase(name);
@@ -327,21 +327,23 @@ export class DebugRecorder {
      * Uploads the exported database blob to the server.
      * @param {Blob} blob The blob containing the database dump.
      * @param {string} filename The filename for the upload.
-     * @param {string} roomUuidForUpload The project/room UUID for the API endpoint.
      */
-    async _uploadDump(blob, filename, roomUuidForUpload) {
+    async _uploadDump(blob, filename) {
+        if (this._accessToken == null) {
+            this._accessToken = await storage.loadAccessToken();
+        }
         const formData = new FormData();
         formData.append('file', blob, filename);
         
-        const token = window.collaborationOTT || '';
-        const roomUuid = roomUuidForUpload || 'unknown_project';
-
-        const url = `${constants.apiHostURL}/v1/feedback/black-box?ott=${encodeURIComponent(token)}&room_uuid=${encodeURIComponent(roomUuid)}`;
+        const url = `${constants.apiHostURL}/v1/feedback/black-box`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    Authorization: `Bearer ${this._accessToken}`
+                }
             });
 
             return response.ok;

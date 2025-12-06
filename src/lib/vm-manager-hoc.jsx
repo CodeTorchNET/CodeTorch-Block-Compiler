@@ -14,6 +14,10 @@ import {
     projectError
 } from '../reducers/project-state';
 import log from './log';
+import storage from './storage';
+
+// eslint-disable-next-line import/no-commonjs
+const {API_HOST, TRUSTED_IFRAME_HOST} = require('../lib/brand');
 
 /**
  * List of fonts that could be used by security prompts.
@@ -69,25 +73,42 @@ const vmManagerHOC = function (WrappedComponent) {
             }
         }
         loadProject () {
+ 
             // tw: stop when loading new project
             this.props.vm.quit();
-            return this.props.vm.loadProject(this.props.projectData)
-                .then(() => {
-                    this.props.onLoadedProject(this.props.loadingState, this.props.canSave);
-                    // Wrap in a setTimeout because skin loading in
-                    // the renderer can be async.
-                    setTimeout(() => this.props.onSetProjectUnchanged());
+            return storage.loadCustomAchievementData()
+                .then(({accessToken, customAchievements}) => {
+                    // I hate how we are doing this but until I find a better way this will work:
+                    const additionalData = {
+                        projectId: this.props.projectId,
+                        authToken: accessToken,
+                        API_HOST: API_HOST,
+                        TRUSTED_IFRAME_HOST: TRUSTED_IFRAME_HOST,
+                        customAchievements: customAchievements,
+                        canRecieveAchievement: !this.props.hasEverEnteredEditor,
+                        canSave: this.props.canSave
+                    };
+                    this.props.vm.loadProject(this.props.projectData, additionalData)
+                        .then(() => {
+                            this.props.onLoadedProject(this.props.loadingState, this.props.canSave);
+                            // Wrap in a setTimeout because skin loading in
+                            // the renderer can be async.
+                            setTimeout(() => this.props.onSetProjectUnchanged());
 
-                    // If the vm is not running, call draw on the renderer manually
-                    // This draws the state of the loaded project with no blocks running
-                    // which closely matches the 2.0 behavior, except for monitors–
-                    // 2.0 runs monitors and shows updates (e.g. timer monitor)
-                    // before the VM starts running other hat blocks.
-                    if (!this.props.isStarted) {
-                        // Wrap in a setTimeout because skin loading in
-                        // the renderer can be async.
-                        setTimeout(() => this.props.vm.renderer.draw());
-                    }
+                            // If the vm is not running, call draw on the renderer manually
+                            // This draws the state of the loaded project with no blocks running
+                            // which closely matches the 2.0 behavior, except for monitors–
+                            // 2.0 runs monitors and shows updates (e.g. timer monitor)
+                            // before the VM starts running other hat blocks.
+                            if (!this.props.isStarted) {
+                                // Wrap in a setTimeout because skin loading in
+                                // the renderer can be async.
+                                setTimeout(() => this.props.vm.renderer.draw());
+                            }
+                        })
+                        .catch(e => {
+                            this.props.onError(e);
+                        });
                 })
                 .catch(e => {
                     this.props.onError(e);
@@ -136,7 +157,8 @@ const vmManagerHOC = function (WrappedComponent) {
         projectData: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
         projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         username: PropTypes.string,
-        vm: PropTypes.instanceOf(VM).isRequired
+        vm: PropTypes.instanceOf(VM).isRequired,
+        hasEverEnteredEditor: PropTypes.bool
     };
 
     const mapStateToProps = state => {
@@ -150,7 +172,8 @@ const vmManagerHOC = function (WrappedComponent) {
             projectId: state.scratchGui.projectState.projectId,
             loadingState: loadingState,
             isPlayerOnly: state.scratchGui.mode.isPlayerOnly,
-            isStarted: state.scratchGui.vmStatus.started
+            isStarted: state.scratchGui.vmStatus.started,
+            hasEverEnteredEditor: state.scratchGui.mode.hasEverEnteredEditor
         };
     };
 

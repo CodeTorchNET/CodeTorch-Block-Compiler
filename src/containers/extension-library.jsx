@@ -4,8 +4,10 @@ import React from 'react';
 import VM from 'scratch-vm';
 import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import log from '../lib/log';
+import {connect} from 'react-redux'; // Import connect
 // eslint-disable-next-line import/no-commonjs
-const {EXTENSION_HOST} = require('../lib/brand');
+const {EXTENSION_HOST, TRUSTED_IFRAME_HOST, API_HOST} = require('../lib/brand');
+import storage from '../lib/storage';
 
 import extensionLibraryContent, {
     galleryError,
@@ -123,7 +125,7 @@ class ExtensionLibrary extends React.PureComponent {
                 });
         }
     }
-    handleItemSelect (item) {
+    handleItemSelect = async item => {
         if (item.href) {
             return;
         }
@@ -140,13 +142,46 @@ class ExtensionLibrary extends React.PureComponent {
             this.props.onCategorySelected('myBlocks');
             return;
         }
+        
+        const additionalData = {};
+
+        // SPECIAL CHECK FOR CUSTOM ACHIEVEMENTS EXTENSION
+        if (extensionId === 'customAchievements') {
+            // Check if project ID exists and is not the default '0' (unsaved)
+            if (!this.props.projectId || this.props.projectId === '0') {
+                window.parent.postMessage({
+                    type: 'block-compiler-action',
+                    action: 'extension-error',
+                    error: 'login_required'
+                }, '*');
+                return;
+            }
+
+            // Check if user owns the project (canSave)
+            if (!this.props.canSave) {
+                window.parent.postMessage({
+                    type: 'block-compiler-action',
+                    action: 'extension-error',
+                    error: 'not_owner'
+                }, '*');
+                return;
+            }
+            const {accessToken, customAchievements} = await storage.loadCustomAchievementData();
+            additionalData.projectId = this.props.projectId;
+            additionalData.customAchievements = customAchievements;
+            additionalData.authToken = accessToken;
+            additionalData.API_HOST = API_HOST;
+            additionalData.TRUSTED_IFRAME_HOST = TRUSTED_IFRAME_HOST;
+            additionalData.canRecieveAchievement = false; // you are in editor without a doubt...
+            additionalData.canSave = this.props.canSave;
+        }
 
         const url = item.extensionURL ? item.extensionURL : extensionId;
         if (!item.disabled) {
             if (this.props.vm.extensionManager.isExtensionLoaded(extensionId)) {
                 this.props.onCategorySelected(extensionId);
             } else {
-                this.props.vm.extensionManager.loadExtensionURL(url)
+                this.props.vm.extensionManager.loadExtensionURL(url, true, additionalData)
                     .then(() => {
                         this.props.onCategorySelected(extensionId);
                     })
@@ -157,7 +192,8 @@ class ExtensionLibrary extends React.PureComponent {
                     });
             }
         }
-    }
+    };
+
     render () {
         let library = null;
         if (this.state.gallery || this.state.galleryError || this.state.galleryTimedOut) {
@@ -201,7 +237,15 @@ ExtensionLibrary.propTypes = {
     onOpenCustomExtensionModal: PropTypes.func,
     onRequestClose: PropTypes.func,
     visible: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM).isRequired // eslint-disable-line react/no-unused-prop-types
+    vm: PropTypes.instanceOf(VM).isRequired, // eslint-disable-line react/no-unused-prop-types
+    projectId: PropTypes.string,
+    canSave: PropTypes.bool
 };
 
-export default injectIntl(ExtensionLibrary);
+const mapStateToProps = state => ({
+    projectId: state.scratchGui.projectState.projectId
+});
+
+export default injectIntl(connect(
+    mapStateToProps
+)(ExtensionLibrary));

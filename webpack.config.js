@@ -2,7 +2,7 @@ const defaultsDeep = require('lodash.defaultsdeep');
 const path = require('path');
 const webpack = require('webpack');
 
-require('dotenv').config();
+require('dotenv').config({path: process.env.DOTENV_PATH || '.env'});
 
 // Plugins
 const CopyWebpackPlugin = require('copy-webpack-plugin');

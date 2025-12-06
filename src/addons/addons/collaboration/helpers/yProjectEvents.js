@@ -4,6 +4,8 @@ import * as assetSync from './assetSync.js';
 import * as helper from './helper.js';
 import CollaborationConsole from './CollaborationConsole.js';
 import { recorder } from './DebugRecorder.js'; 
+import storage from '../../../../lib/storage';
+import { API_HOST, TRUSTED_IFRAME_HOST } from '../../../../lib/brand.js';
 
 /**
  * Flag indicating whether project events can be processed immediately or if they should be queued.
@@ -407,8 +409,21 @@ export async function processSpecificEvent(item) {
         }
         if (constants.debugging) CollaborationConsole.log(`Collab RX (constants.mutableRefs.yProjectEvents) [${constants.CUSTOM_REMOTE_EXTENSION_LOADED_CALL_TYPE}]: Attempting to load extension from URL "${extensionURL}".`);
         try {
-            // Await the promise returned by `loadExtensionURL`. `false` prevents local re-emission.
-            await constants.mutableRefs.vm.extensionManager.loadExtensionURL(extensionURL, false);
+            const { accessToken, customAchievements } = await storage.loadCustomAchievementData();
+            let projectId = '0';
+            if (constants.mutableRefs.addon && constants.mutableRefs.addon.tab && constants.mutableRefs.addon.tab.redux) {
+                 projectId = constants.mutableRefs.addon.tab.redux.state.scratchGui.projectState.projectId;
+            }
+            const canSave = true; // you can't collab if you can't save // constants.mutableRefs.addon?.tab?.redux?.state?.scratchGui?.mode?.isPlayerOnly === false;
+            await constants.mutableRefs.vm.extensionManager.loadExtensionURL(extensionURL, false, {
+                        projectId: projectId,
+                        authToken: accessToken,
+                        API_HOST: API_HOST,
+                        TRUSTED_IFRAME_HOST: TRUSTED_IFRAME_HOST,
+                        customAchievements: customAchievements || [],
+                        canRecieveAchievement: false,
+                        canSave: canSave,
+                    });
             if (constants.debugging) CollaborationConsole.log(`Collab RX (constants.mutableRefs.yProjectEvents) [${constants.CUSTOM_REMOTE_EXTENSION_LOADED_CALL_TYPE}]: Extension loaded successfully.`);
         } catch (e) {
             CollaborationConsole.error(`Collab RX (constants.mutableRefs.yProjectEvents) [${constants.CUSTOM_REMOTE_EXTENSION_LOADED_CALL_TYPE}]: Error loading extension:`, e, item);

@@ -2,6 +2,7 @@ import bindAll from 'lodash.bindall';
 import React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
+import {compose} from 'redux';
 
 import {connect} from 'react-redux';
 import VM from 'scratch-vm';
@@ -9,6 +10,7 @@ import Box from '../components/box/box.jsx';
 import greenFlag from '../components/green-flag/icon--green-flag.svg';
 import {setStartedState} from '../reducers/vm-status.js';
 import {FormattedMessage} from 'react-intl';
+import ProjectAnalyticsHOC from '../lib/project-analytics-hoc.jsx'; // Import HOC
 
 import styles from '../components/stage/stage.css';
 
@@ -21,6 +23,8 @@ class GreenFlagOverlay extends React.Component {
     }
 
     handleClick () {
+        this.props.onGreenFlagClickAnalytics();
+
         this.props.vm.start();
         this.props.vm.greenFlag();
 
@@ -54,6 +58,7 @@ class GreenFlagOverlay extends React.Component {
                             </span>
                             <span>
                                 <FormattedMessage
+                                    // eslint-disable-next-line max-len
                                     defaultMessage="This project uses cloud variables. To play online or interact with others, you must log in."
                                     id="gui.greenFlagOverlay.cloudWarning"
                                 />
@@ -79,20 +84,22 @@ GreenFlagOverlay.propTypes = {
     wrapperClass: PropTypes.string,
     onStarted: PropTypes.func,
     hasCloudVariables: PropTypes.bool,
-    username: PropTypes.string
+    username: PropTypes.string,
+    onGreenFlagClickAnalytics: PropTypes.func.isRequired
 };
 
 const mapStateToProps = state => ({
     vm: state.scratchGui.vm,
     hasCloudVariables: state.scratchGui.tw.hasCloudVariables,
-    username: state.scratchGui.tw.username
+    username: state.scratchGui.tw.username,
+    projectRunning: state.scratchGui.vmStatus.running
 });
 
 const mapDispatchToProps = dispatch => ({
     onStarted: () => dispatch(setStartedState(true))
 });
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps
+export default compose(
+    connect(mapStateToProps, mapDispatchToProps),
+    ProjectAnalyticsHOC
 )(GreenFlagOverlay);

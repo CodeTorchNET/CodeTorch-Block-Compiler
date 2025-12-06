@@ -3,9 +3,10 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import VM from 'scratch-vm';
 import {connect} from 'react-redux';
+import {compose} from 'redux'; // Added compose
 
-import {showStandardAlert, showAlertWithTimeout} from '../reducers/alerts';
-
+import {showStandardAlert} from '../reducers/alerts';
+import ProjectAnalyticsHOC from '../lib/project-analytics-hoc.jsx'; // Import HOC
 
 import ControlsComponent from '../components/controls/controls.jsx';
 
@@ -20,12 +21,18 @@ class Controls extends React.Component {
             showedPopup: false
         };
     }
+
     handleGreenFlagClick (e) {
-        if(!this.props.disableCompiler && !this.state.showedPopup) {
+        // Controls-specific logic (Save Warning)
+        if (!this.props.disableCompiler && !this.state.showedPopup) {
             this.setState({showedPopup: true});
             this.props.onShowSaveErrorAlert();
         }
         e.preventDefault();
+
+        // Trigger Shared Analytics Logic
+        this.props.onGreenFlagClickAnalytics();
+
         // tw: implement alt+click and right click to toggle FPS
         if (e.shiftKey || e.altKey || e.type === 'contextmenu') {
             if (e.shiftKey) {
@@ -52,18 +59,21 @@ class Controls extends React.Component {
     render () {
         const {
             vm, // eslint-disable-line no-unused-vars
-            isStarted, // eslint-disable-line no-unused-vars
+            isStarted,
             projectRunning,
             turbo,
             disableCompiler,
             onShowSaveErrorAlert,
             ...props
         } = this.props;
+
         return (
             <ControlsComponent
                 {...props}
                 active={projectRunning && isStarted}
                 turbo={turbo}
+                disableCompiler={disableCompiler}
+                onShowSaveErrorAlert={onShowSaveErrorAlert}
                 onGreenFlagClick={this.handleGreenFlagClick}
                 onStopAllClick={this.handleStopAllClick}
             />
@@ -78,7 +88,10 @@ Controls.propTypes = {
     framerate: PropTypes.number.isRequired,
     interpolation: PropTypes.bool.isRequired,
     isSmall: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM)
+    vm: PropTypes.instanceOf(VM).isRequired,
+    disableCompiler: PropTypes.bool.isRequired,
+    onShowSaveErrorAlert: PropTypes.func.isRequired,
+    onGreenFlagClickAnalytics: PropTypes.func.isRequired
 };
 
 const mapStateToProps = state => ({
@@ -89,9 +102,12 @@ const mapStateToProps = state => ({
     turbo: state.scratchGui.vmStatus.turbo,
     disableCompiler: !state.scratchGui.tw.compilerOptions.enabled
 });
-// no-op function to prevent dispatch prop being passed to component
+
 const mapDispatchToProps = dispatch => ({
-    onShowSaveErrorAlert: () => dispatch(showStandardAlert('LiveReloadDisabledNotice')),
+    onShowSaveErrorAlert: () => dispatch(showStandardAlert('LiveReloadDisabledNotice'))
 });
 
-export default connect(mapStateToProps, mapDispatchToProps)(Controls);
+export default compose(
+    connect(mapStateToProps, mapDispatchToProps),
+    ProjectAnalyticsHOC
+)(Controls);

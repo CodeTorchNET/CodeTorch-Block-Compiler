@@ -85,7 +85,6 @@ class GUI extends React.Component {
 
             const vm = this.props.vm;
             // const intl = this.props.intl;
-            console.log(vm.getLoadedExtensionsInfo());
             const loadedExtensionIds = vm.getLoadedExtensionsInfo();
 
             window.parent.postMessage({

@@ -106,6 +106,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         // this.setState({canEditTitle: true}); // if you can save, you can edit title (it doesn't work the prop isn't passed down)
                         this.setState({canRemix: data.canRemix === 'true'});
                         storage.setCloudOTT(data?.cloudDataOTT);
+                        storage.setCustomAchievements(data?.customAchievements);
                         window.CollaborationRoom = data?.collaboratorRoom;
                         window.CollaborationUsername = data?.username;
                         window.collaborationOTT = data?.collaborationOTT;

@@ -7,6 +7,9 @@ import musicInsetIconURL from './music/music-small.svg';
 import penIconURL from './pen/pen.png';
 import penInsetIconURL from './pen/pen-small.svg';
 
+import customAchievementsURL from './customAchievements/achievements.png';
+import customAchievementsIconURL from './customAchievements/achievements-small.svg';
+
 import videoSensingIconURL from './videoSensing/video-sensing.png';
 import videoSensingInsetIconURL from './videoSensing/video-sensing-small.svg';
 
@@ -93,6 +96,27 @@ export default [
                 defaultMessage="Draw with your sprites."
                 description="Description for the 'Pen' extension"
                 id="gui.extension.pen.description"
+            />
+        ),
+        tags: ['scratch'],
+        featured: true
+    },
+    {
+        name: (
+            <FormattedMessage
+                defaultMessage="Achievements"
+                description="Name for the 'Custom Achievements' extension"
+                id="gui.extension.customAchievement.name"
+            />
+        ),
+        extensionId: 'customAchievements',
+        iconURL: customAchievementsURL,
+        insetIconURL: customAchievementsIconURL,
+        description: (
+            <FormattedMessage
+                defaultMessage="Add custom permanently unlockable achievements to your projects."
+                description="Description for the 'Custom Achievements' extension"
+                id="gui.extension.customAchievement.description"
             />
         ),
         tags: ['scratch'],
