@@ -276,23 +276,8 @@ const alerts = [
         ),
         iconSpinner: true,
         level: AlertLevels.SUCCESS
-    }, {
-        alertId: 'TorchyCustomBlockWarning',
-        alertType: AlertTypes.STANDARD,
-        clearList: [],
-        content: (
-            <FormattedMessage
-                // eslint-disable-next-line max-len
-                defaultMessage="Enabling use of custom extensions blocks may cause Torchy to not generate functional code."
-                // eslint-disable-next-line max-len
-                description="Warning message indicating that custom blocks may cause Torchy to not generate functional code"
-                id="gui.alerts.TorchyCustomBlockWarning"
-            />
-        ),
-        closeButton: true,
-        level: AlertLevels.WARN,
-        maxDisplaySecs: 15
-    }, {
+    },
+    {
         alertId: 'TorchyWaitForAIToFinishWarning',
         alertType: AlertTypes.STANDARD,
         clearList: [],
@@ -378,7 +363,7 @@ const alerts = [
         iconURL: successImage,
         level: AlertLevels.SUCCESS,
         maxDisplaySecs: 3
-    },
+    }
 ];
 
 export {

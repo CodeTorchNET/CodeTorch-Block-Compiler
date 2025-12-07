@@ -75,6 +75,14 @@
     flex-direction: column;
 }
 
+.previewWrapper{
+    display: flex;flex-direction: column;
+}
+.previewWrapper svg{
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
 .input-container .input-parent {
     width: 100%;
     display: flex
@@ -693,4 +701,26 @@
 
 .new-chat-tab:hover {
     background-color: var(--ui-tertiary);
+}
+
+
+.raw-code-block {
+    background-color: var(--ui-tertiary);
+    border: 1px solid var(--ui-secondary);
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    overflow-x: auto;
+    font-family: "Monaco", "Menlo", "Consolas", "Courier New", monospace;
+    font-size: 10px;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.raw-code-block pre {
+    margin: 0;
+    font-family: inherit;
 }

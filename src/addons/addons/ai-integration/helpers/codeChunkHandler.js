@@ -1,52 +1,23 @@
-import * as htmlparser2 from "htmlparser2";
-import domSerializer from "dom-serializer";
+import TorchyBridge from "./torchyBridge.js";
+import blockDefinitions from "./blockDefinitions.js";
 import GetSVG from "./parser.js";
 
-const xmlSerializer = new XMLSerializer();
-const xmlParser = new DOMParser();
+const bridge = new TorchyBridge(blockDefinitions);
 const blockParser = new GetSVG();
+const xmlParser = new DOMParser();
+const xmlSerializer = new XMLSerializer();
 
-const allowedTags = [
-    "xml",
-    "statement",
-    "block",
-    "value",
-    "shadow",
-    "mutation",
-    "field",
-    "next",
-    "variableCreationRequest",
-    "listCreationRequest",
-    "comment",
-]
+export function registerExtensionBlocks(defs) {
+    bridge.registerDefinitions(defs);
+}
 
-
-function getUniqueTagNames(xmlString) {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, "application/xml");
-    
-    const tags = new Set();
-    
-    function extractTags(node) {
-      if (node.nodeType === 1) {
-        tags.add(node.nodeName);
-        for (let child of node.children) {
-          extractTags(child);
-        }
-      }
-    }
-    
-    extractTags(xmlDoc.documentElement);
-    
-    return Array.from(tags);
-  }
-  
-export async function handleRawCodeChunk(codeChunk, uniqueCommentID,mainWorkspace) {
+export async function handleRawCodeChunk(codeChunk, uniqueCommentID, mainWorkspace) {
     let response = {
         "variables": [],
         "lists": [],
         "broadcasts": [],
-        "rawXML": codeChunk,
+        "rawXML": "", // Kept for compatibility, though it's technically raw text now
+        "rawCode": codeChunk,
         "BlocksAsXML": "",
         "blocksAsSVG": "",
         "status": "success",
@@ -54,81 +25,75 @@ export async function handleRawCodeChunk(codeChunk, uniqueCommentID,mainWorkspac
         "overlappingLists": [],
         "uniqueCommentID": uniqueCommentID,
     }
-    try {
-        codeChunk = "<xml>" + codeChunk.replace("```xml", "").replaceAll("```", "") + "</xml>";
-        //remove all comments <!-- and --> (Gemini has a tendency to add them)
-        codeChunk = codeChunk.replace(/<!--.*?-->/gs, "");
-        let xmlCode = xmlParser.parseFromString(codeChunk, "text/xml");
-        //check if it successfully parsed
-        if (xmlCode.getElementsByTagName("parsererror").length > 0) {
-            console.log("[DEBUG] received malformed code chunk, attempting to repair it");
-            //response.status = "error";
-            //return response;
-            const handler = new htmlparser2.DomHandler((error, dom) => {
-                if (error) {
-                    console.error("[DEBUG] Attempted to repair the code chunk, but failed to parse it", error);
-                    response.status = "failedToParse";
-                } else {
-                    // Serialize using dom-serializer
-                    let fixedXML = domSerializer(dom); // Use the default export here
-                    codeChunk = fixedXML.replace(/variabletype="removeAfter"/g, 'variabletype=""');
-                    xmlCode = xmlParser.parseFromString(codeChunk, "text/xml");
-                    console.log("[DEBUG] Successfully repaired the code chunk", codeChunk);
-                }
-            });
-            const parser = new htmlparser2.Parser(handler, { xmlMode: true });
-            let modifiedCodeChunk = codeChunk.replace(/variabletype=""/g, 'variabletype="removeAfter"');
-            parser.write(modifiedCodeChunk);
-            parser.end();
-        } else {
-            console.log("[DEBUG] received well formed code chunk");
-        }
-        if (response.status == "failedToParse") { response.status = "error"; return response };
-        //get all the tags in the xml code
-        let tags = getUniqueTagNames(codeChunk);
-        //check if the tags are allowed
-        let unallowedTags = tags.filter(tag => !allowedTags.includes(tag));
-        if (unallowedTags.length > 0) {
-            console.log("[DEBUG] received illegal tags", unallowedTags);
-            response.errorLog = "The following tags are not allowed: " + unallowedTags.join(", ") + ". Please attempt to fix the code.";
-            response.status = "error_fixable";
-            return response;
-        }  
-        while (xmlCode.getElementsByTagName("variableCreationRequest").length > 0) {
-            if (xmlCode.getElementsByTagName("variableCreationRequest")[0].getAttribute("type") == "broadcast_msg") {
-                response.broadcasts.push(xmlCode.getElementsByTagName("variableCreationRequest")[0].textContent);
-            } else {
-                response.variables.push(xmlCode.getElementsByTagName("variableCreationRequest")[0].textContent);
-            }
-            //delete the variable creation request
-            xmlCode.getElementsByTagName("variableCreationRequest")[0].remove();
-        }
-        while (xmlCode.getElementsByTagName("listCreationRequest").length > 0) {
-            response.lists.push(xmlCode.getElementsByTagName("listCreationRequest")[0].textContent);
-            //delete the list creation request
-            xmlCode.getElementsByTagName("listCreationRequest")[0].remove();
-        }
-        for (var x of response.variables) if (mainWorkspace.getVariable(x) != null) response.overlappingVars.push(x)
-        for (var x of response.lists) if (mainWorkspace.getVariable(x, "list") != null) response.overlappingLists.push(x)
 
-        response.BlocksAsXML = xmlSerializer.serializeToString(xmlCode);
+    try {
+        // Clean up the markdown
+        let rawText = codeChunk.replace("```", "").replace("```", "").trim();
+
+        // Strip single-line comments (e.g., // this is a comment)
+        rawText = rawText.replace(/\/\/.*$/gm, '');
+        // Strip multi-line comments (e.g., /* this is a comment */)
+        rawText = rawText.replace(/\/\*[\s\S]*?\*\//g, '');
+
+        // Use TorchyBridge to convert text -> XML
+        // This generates valid Scratch XML based on the definitions
+        let xmlString = bridge.fromText(rawText);
+
+        console.log("debugging output:",rawText,xmlString);
+        // Parse to DOM to extract variables/lists and check for parsing issues
+        let xmlDoc = xmlParser.parseFromString(xmlString, "text/xml");
+
+        if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+            console.error("[Torchy] Generated XML parse error");
+            response.status = "error";
+            return response;
+        }
+
+        // Implicitly extract variables, lists, and broadcasts
+        // TorchyBridge adds the 'variabletype' attribute to fields defined with it in blockDefinitions
+        const fields = xmlDoc.getElementsByTagName("field");
+        const uniqueVars = new Set();
+        const uniqueLists = new Set();
+        const uniqueBroadcasts = new Set();
+
+        for (let field of fields) {
+            if (field.hasAttribute("variabletype")) {
+                const type = field.getAttribute("variabletype");
+                const name = field.textContent;
+                
+                if (type === "list") {
+                    uniqueLists.add(name);
+                } else if (type === "broadcast_msg") {
+                    uniqueBroadcasts.add(name);
+                } else {
+                    // Standard variables usually have type=""
+                    uniqueVars.add(name);
+                }
+            }
+        }
+
+        response.variables = Array.from(uniqueVars);
+        response.lists = Array.from(uniqueLists);
+        response.broadcasts = Array.from(uniqueBroadcasts);
+
+        // Check for overlaps with main workspace
+        for (var x of response.variables) {
+            if (mainWorkspace.getVariable(x) != null) response.overlappingVars.push(x);
+        }
+        for (var x of response.lists) {
+            if (mainWorkspace.getVariable(x, "list") != null) response.overlappingLists.push(x);
+        }
+
+        // Finalize XML string for usage
+        response.BlocksAsXML = xmlSerializer.serializeToString(xmlDoc);
+        
+        // Generate SVG for display
         response.blocksAsSVG = await blockParser.getSVG(response.BlocksAsXML, uniqueCommentID);
+
     } catch (e) {
-        console.error(e);
+        console.error("[Torchy] Error handling code chunk:", e);
         response.status = "error";
     }
-    /* No longer needed as I now make a workspace for each parse
-    //due to the way that the code is parsed, the variables and lists are added to the workspace and we need to remove them (if they don't overlap)
-    response.variables.forEach(variable => {
-      if (!response.overlappingVars.includes(variable)) {
-        if (mainWorkspace.getVariable(variable) != null) mainWorkspace.deleteVariableById(mainWorkspace.getVariable(variable).getId())
-      }
-    });
-    response.lists.forEach(list => {
-      if (!response.overlappingLists.includes(list)) {
-        if (mainWorkspace.getVariable(list, "list") != null) mainWorkspace.deleteVariableById(mainWorkspace.getVariable(list, "list").getId())
-      }
-    });
-    */
+
     return response;
 }

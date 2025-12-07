@@ -1,10 +1,13 @@
-import { handleRawCodeChunk } from "./helpers/codeChunkHandler.js";
+import { handleRawCodeChunk, registerExtensionBlocks } from "./helpers/codeChunkHandler.js";
 import helpers from "./helpers/helpers.js";
 import showdown from "showdown";
 import Attachment from "./helpers/attachment.js";
+import TorchyBridge from "./helpers/torchyBridge.js";
+import blockDefinitions from "./helpers/blockDefinitions.js";
 
 const converter = new showdown.Converter();
 const resistanceThreshold = 10;
+const bridge = new TorchyBridge(blockDefinitions);
 
 export default class main {
     static apiUrl;
@@ -158,10 +161,10 @@ export default class main {
             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"></path>
           </svg>
         </div>
-        <div class="attachedFile" id="AATUCEB">
+        <!--<div class="attachedFile" id="AATUCEB">
           <input type="checkbox" id="AATUCEB_CB" name="AATUCEB_CB" value="AATUCEB_CB" />
           <label for="AATUCEB_CB" class="texta" style="margin-top: 1px;">Allow usage of custom extensions</label>
-        </div>
+        </div>-->
       </div>
   </div>`;
 
@@ -439,7 +442,14 @@ export default class main {
                     const chunkData = session.allCodeChunksEverAdded[codeChunkCounter];
                     codeChunkCounter++;
                     if (!chunkData || !chunkData.renderedHTML) {
-                        return "<h1 class=\"errorMessage\">failed to parse Code Chunk</h1><br>";
+                        let rawContent = (chunkData && chunkData.rawCode) ? chunkData.rawCode : "Raw code unavailable";
+                        // Sanitize HTML
+                        rawContent = rawContent
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;");
+
+                        return `<div class="raw-code-block"><h1 class="errorMessage">failed to parse Code Chunk</h1><pre>${rawContent}</pre></div><br>`;
                     }
                     const uniqueId = codeChunkCounter;
                     const randomId = Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -464,7 +474,7 @@ export default class main {
       }
       session.inputText = document.getElementById('auto-resizing-textarea').value;
       session.selectedModelId = document.getElementById('AI_Selector_select').value;
-      session.allowCustomExtensions = document.getElementById('AATUCEB_CB').checked;
+      session.allowCustomExtensions = true; // document.getElementById('AATUCEB_CB').checked;
       session.attachmentType = document.getElementById('Context_Selector_select').value;
       
       document.AI_INTEGRATION.updateAndSaveSession(session);
@@ -582,9 +592,9 @@ export default class main {
     static renderSettingsUI() {
       const session = document.AI_INTEGRATION.getActiveSession();
       const modelSelector = document.getElementById('AI_Selector_select');
-      const customExtCheckbox = document.getElementById('AATUCEB_CB');
+      //const customExtCheckbox = document.getElementById('AATUCEB_CB');
 
-      if (session && modelSelector && customExtCheckbox) {
+      if (session && modelSelector /*&& customExtCheckbox*/) {
           if (session.selectedModelId && modelSelector.querySelector(`option[value="${session.selectedModelId}"]`)) {
               modelSelector.value = session.selectedModelId;
           } else {
@@ -600,7 +610,7 @@ export default class main {
                   }
               }
           }
-          customExtCheckbox.checked = session.allowCustomExtensions;
+          // customExtCheckbox.checked = session.allowCustomExtensions;
       }
     }
 
@@ -730,19 +740,20 @@ export default class main {
             }
         });
 
-        document.getElementById('AATUCEB_CB').addEventListener('change', (e) => {
-            if (e.target.checked) {
-                ReduxStore.dispatch({
-                    type: "scratch-gui/alerts/SHOW_ALERT",
-                    alertId: "TorchyCustomBlockWarning",
-                })
-            }
-            const session = document.AI_INTEGRATION.getActiveSession();
-            if (session) {
-                session.allowCustomExtensions = e.target.checked;
-                document.AI_INTEGRATION.updateAndSaveSession(session);
-            }
-        });
+        // always allow custom extensions
+        // document.getElementById('AATUCEB_CB').addEventListener('change', (e) => {
+        //     if (e.target.checked) {
+        //         ReduxStore.dispatch({
+        //             type: "scratch-gui/alerts/SHOW_ALERT",
+        //             alertId: "TorchyCustomBlockWarning",
+        //         })
+        //     }
+        //     const session = document.AI_INTEGRATION.getActiveSession();
+        //     if (session) {
+        //         session.allowCustomExtensions = e.target.checked;
+        //         document.AI_INTEGRATION.updateAndSaveSession(session);
+        //     }
+        // });
         document.getElementById('closePopup').addEventListener('click', () => {
             const session = document.AI_INTEGRATION.getActiveSession();
             if (session) {
@@ -765,6 +776,21 @@ export default class main {
             const requestingSession = document.AI_INTEGRATION.getActiveSession();
             if (!requestingSession) return;
             
+            const allowCustomExtensions = true;// document.getElementById('AATUCEB_CB').checked;
+            
+            if (allowCustomExtensions) {
+                // Dynamically load extension definitions
+                const extensionDefs = helpers.generateExtensionDefinitions(vm.runtime);
+                
+                // Register to the local bridge (for attachments/context)
+                bridge.registerDefinitions(extensionDefs);
+                
+                // Register to the code handler bridge (for parsing AI output)
+                registerExtensionBlocks(extensionDefs);
+                
+                console.log(`[Torchy] Loaded ${extensionDefs.length} custom extension blocks.`);
+            }
+
             const attachmentType = document.getElementById('Context_Selector_select').value;
             if (requestingSession.isBlabbering) {
                 ReduxStore.dispatch({
@@ -849,14 +875,34 @@ export default class main {
             var attachmentCode = "";
             if (attachmentType == "1") {
                 if (requestingSession.attachment) {
-                  attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(requestingSession.attachment.GetAttachment(Blockly.Xml.workspaceToDom(main.mainWorkspace)));
+                    const blockDom = requestingSession.attachment.GetAttachment(Blockly.Xml.workspaceToDom(main.mainWorkspace));
+                    // Wrap in <xml> so TorchyBridge parser finds it (it searches for "xml > block")
+                    const xmlText = "<xml>" + Blockly.Xml.domToText(blockDom) + "</xml>";
+                    attachmentCode = "\nAttached Code:\n" + bridge.toText(xmlText);
                 }
             } else if (attachmentType == "2") {
-                attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(Blockly.Xml.workspaceToDom(main.mainWorkspace));
+                const xmlText = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(main.mainWorkspace));
+                attachmentCode = "\nAttached Code:\n" + bridge.toText(xmlText);
             } else if (attachmentType == "3") {
-                attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(helpers.returnEntireProjectAsXML(main.Gaddon));
+                let projectCode = "";
+                const targets = main.Gaddon.tab.redux.state.scratchGui.vm.runtime.targets;
+                for (const target of targets) {
+                    if (target.isOriginal) {
+                        const name = target.getName();
+                        const xml = target.blocks.toXML()
+                                    .replace(/[\n\r]+\s*/g, ' ')
+                                    .replace(/>\s+</g, '><')
+                                    .trim()
+                                    .replace('>,<','><');
+                        const text = bridge.toText(`<xml>${xml}</xml>`);
+                        if (text && text !== "No blocks found.") {
+                            projectCode += `\n--- Sprite: ${name} ---\n${text}\n`;
+                        }
+                    }
+                }
+                attachmentCode = "\nAttached Code:\n" + projectCode;
             }
-
+            console.log("attachment:", attachmentCode)
             const selectedModelForAttachment = document.AI_INTEGRATION.AIModels.find(m => m.id === document.getElementById('AI_Selector_select').value);
             if (!selectedModelForAttachment || selectedModelForAttachment.API_KEY_TYPE !== 'gemini') {
                 requestingSession.attachment = null;
@@ -916,7 +962,7 @@ export default class main {
                 let messageForHistory;
 
                 const historyForAPI = [
-                    { "role": "user", "message": helpers.returnSterilizedToolbox(main.Gaddon, document.getElementById("AATUCEB_CB").checked) },
+                    { "role": "user", "message": bridge.generateToolboxReference() },
                     ...session.chatHistory
                 ];
 
@@ -999,9 +1045,14 @@ export default class main {
                                             editedStreamResult = editedStreamResult.replaceAll("CODECHUNK23407283947", () => {
                                                 instanceCount++;
                                                 if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error") {
-                                                    return "<h1 class=\"errorMessage\">failed to parse Code Chunk</h1><br>"
-                                                } else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
-                                                    return "<div class=\"codeChunkOverlay\" id=\"errorFixable_" + randomId + "_" + instanceCount + "\"></div>";
+                                                    // Retrieve original raw chunk (sanitize for HTML)
+                                                    let rawContent = document.AI_INTEGRATION.CodeChunks[instanceCount] || "";
+                                                    rawContent = rawContent
+                                                        .replace(/&/g, "&amp;")
+                                                        .replace(/</g, "&lt;")
+                                                        .replace(/>/g, "&gt;");
+                                                    
+                                                    return `<div class="raw-code-block"><h1 class="errorMessage">failed to parse Code Chunk</h1><pre>${rawContent}</pre></div><br>`;
                                                 }
                                                 const chunkDataForThisInstance = document.AI_INTEGRATION.processedCodeChunks[instanceCount];
                                                 session.allCodeChunksEverAdded.push(chunkDataForThisInstance);
@@ -1024,10 +1075,18 @@ export default class main {
                                                 document.getElementById(`TEMPCODEBLOCK${instanceCount}`).remove();
 
                                                 let svg = domParser.parseFromString(document.AI_INTEGRATION.processedCodeChunks[instanceCount].blocksAsSVG, "text/html");
-                                                svg = svg.body.children[0];
+                                                svg = svg.body.children[0]; // This is the <div> containing one or more <svg> elements
                                                 for (var i = 0; i < svg.children.length; i++) {
-                                                    //svg.setAttribute('viewBox', `0 0 ${codeBlockWidth} ${codeBlockHeight}`);
-                                                    svg.children[i].setAttribute('viewBox', `0 0 ${codeBlockWidth[i]} ${codeBlockHeight[i]}`);
+                                                    const svgElement = svg.children[i];
+                                                    const width = codeBlockWidth[i];
+                                                    const height = codeBlockHeight[i];
+
+                                                    // Set the viewBox to define the internal coordinate system.
+                                                    svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+                                                    
+                                                    // CRITICAL FIX: Set the width and height to define the element's size in the layout.
+                                                    svgElement.setAttribute('width', width);
+                                                    svgElement.setAttribute('height', height);
                                                 }
                                                 chunkDataForThisInstance.renderedHTML = svg.outerHTML;
                                                 return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${session.allCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;

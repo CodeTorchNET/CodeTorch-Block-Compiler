@@ -1,5 +1,4 @@
-const toolboxOverrides = require('../assets/toolboxOverrides.json');
-const defaultToolbox = require('../assets/defaultToolbox.json');
+import blockDefinitions from "./blockDefinitions.js";
 
 export default class helpers {
     constructor() {
@@ -182,69 +181,121 @@ export default class helpers {
             window.parent.postMessage({ type: "block-compiler-action", action: "addonsPage"}, "*");
         });
     }
-    static returnSterilizedToolbox(Gaddon, allowExtensions = false) {
-        if (Gaddon == null) return;
-        if (!allowExtensions) {
-            return defaultToolbox.default;
-        }
-        function extractBlockReturnType(block) {
-            if (!block) return null;
-            var returnType = "Stack";
-            if (block.outputConnection) {
-                if (block.outputConnection.check_ && block.outputConnection.check_.includes("Boolean")) {
-                    returnType = "Reporter";
-                } else {
-                    returnType = "Boolean";
+    static generateExtensionDefinitions(runtime) {
+        const definitions = [];
+        if (!runtime || !runtime._blockInfo) return definitions;
+
+        // Core categories that are already covered by blockDefinitions.js
+        const ignoredCategories = ['motion', 'looks', 'sound', 'events', 'control', 'sensing', 'operators', 'data', 'myBlocks', 'procedures'];
+
+        for (const category of runtime._blockInfo) {
+            if (ignoredCategories.includes(category.id)) continue;
+
+            for (const block of category.blocks) {
+                // Skip separators, buttons, etc.
+                if (typeof block !== 'object' || !block.info || !block.json) continue;
+                const info = block.info;
+                if (info.hideFromPalette){
+                    console.log("skipping block", info.opcode, "reason: hidden from pallete");
+                    continue;
                 }
-            } else if (!block.previousConnection && block.nextConnection) {
-                returnType = "Hat";
-            }
-            return returnType;
-        }
-        var workspace = new Blockly.Workspace();
+                // Map BlockType to Torchy shape
+                let shape = "stack";
+                if (info.blockType === "reporter") shape = "reporter";
+                else if (info.blockType === "boolean") shape = "boolean";
+                else if (info.blockType === "hat" || info.blockType === "event") shape = "hat";
+                else if (info.blockType === "conditional" || info.blockType === "loop") shape = "c-block";
 
-        var toolbox = Gaddon.tab.redux.state.scratchGui.toolbox.toolboxXML;
-        var parser = new DOMParser();
-        var xmlDoc = parser.parseFromString(toolbox, "text/xml");
-        var sterializedToolbox = document.implementation.createDocument("", "", null);
-        var rootElement = sterializedToolbox.createElement("toolbox");
-        sterializedToolbox.appendChild(rootElement);
-        var blocks = xmlDoc.getElementsByTagName("block");
-        for (var block of blocks) {
-            if (!block.getAttribute("type").includes("procedures_")) { // firefox's toolbox includes procedures problem is that procedures cannot be parsed by Blockly
-                var blockElement = block.cloneNode(true);
-                var newBlock = Blockly.Xml.domToBlock(blockElement, workspace)
-                var returnType = extractBlockReturnType(newBlock);
-                var blockCopy = block.cloneNode(true);
+                // Construct ID (Extension blocks usually follow extensionId_opcode)
+                // However, runtime._blockInfo often stores just the opcode in info.opcode, 
+                // while json.type has the full ID.
+                const id = block.json.type; 
 
-                if (toolboxOverrides.overrides[blockCopy.getAttribute("type")] !== undefined) {
-                    var parser = new DOMParser();
-                    var xmlDoc = parser.parseFromString(toolboxOverrides.overrides[blockCopy.getAttribute("type")], "text/xml");
-                    var overrideBlockElement = xmlDoc.getElementsByTagName("block")[0];
-                    overrideBlockElement.setAttribute("blockType", returnType);
-                    rootElement.appendChild(overrideBlockElement);
-                } else {
-                    blockCopy.removeAttribute("id");
-                    blockCopy.setAttribute("blockType", returnType);
-                    rootElement.appendChild(blockCopy);
+                // Parse text and arguments to build spec and input list
+                const argsMap = info.arguments || {};
+                const inputs = [];
+                const xmlArgs = [];
+                
+                let argCounter = 1;
+                
+                // Replace [ARG_NAME] with %1, %2, etc.
+                let spec = info.text.replace(/\[([^\]]+)\]/g, (match, argName) => {
+                    const argDef = argsMap[argName] || {};
+                    let typeCode = "%s"; // Default string
+                    let shadowType = "text"; 
+                    let fieldName = "TEXT";
+                    let variableType = null;
+
+                    // Determine type based on argument definition
+                    if (argDef.type === "number") { 
+                        typeCode = "%n"; 
+                        shadowType = "math_number"; 
+                        fieldName = "NUM";
+                    } else if (argDef.type === "angle") { 
+                        typeCode = "%n"; 
+                        shadowType = "math_angle"; 
+                        fieldName = "NUM";
+                    } else if (argDef.type === "color") { 
+                        typeCode = "%c"; 
+                        shadowType = "colour_picker"; 
+                        fieldName = "COLOUR";
+                    } else if (argDef.type === "boolean") {
+                        typeCode = "%b";
+                        shadowType = null; // Boolean inputs usually don't have shadows in extensions context unless specialized
+                    } else if (argDef.menu) {
+                        typeCode = `%m.${argDef.menu}`;
+                        // Extension menus usually follow this ID pattern
+                        shadowType = `${category.id}_menu_${argDef.menu}`; 
+                        fieldName = argDef.menu;
+                    }
+
+                    inputs.push(typeCode);
+
+                    // Build XML arg definition
+                    const xmlArg = {
+                        name: argName,
+                        shadow: shadowType,
+                        field: fieldName,
+                        default: argDef.defaultValue !== undefined ? argDef.defaultValue : ""
+                    };
+                    
+                    if (variableType) xmlArg.variableType = variableType;
+                    
+                    xmlArgs.push(xmlArg);
+
+                    return `%${argCounter++}`;
+                });
+
+                const isConflict = blockDefinitions.some(
+                    (def) => def.spec === spec && def.inputs.length === inputs.length
+                );
+        
+                if (isConflict) {
+                    spec = `${category.id} ${spec}`;
                 }
-            }
-        }
-        for (var x of Object.keys(toolboxOverrides.insert)) {
-            if (toolboxOverrides.insert[x] !== undefined) {
-                var parser = new DOMParser();
-                var xmlDoc = parser.parseFromString(toolboxOverrides.insert[x], "text/xml");
-                var overrideBlockElement = xmlDoc.getElementsByTagName("block")[0];
-                rootElement.appendChild(overrideBlockElement);
-            } else {
-                console.error("A REALlY WEIRD ERROR OCCURED");
-            }
-        }
-        workspace.dispose();
-        var serializer = new XMLSerializer();
-        var xmlString = serializer.serializeToString(sterializedToolbox);
-        console.log("[DEBUG] toolbox has", sterializedToolbox.getElementsByTagName("block").length, "blocks");
 
-        return xmlString.replace(/>\s+</g, '><').trim();
+                console.log("pushing block:",{
+                    id: id,
+                    spec: spec,
+                    inputs: inputs,
+                    shape: shape,
+                    category: category.id,
+                    xml: {
+                        args: xmlArgs
+                    }
+                })
+                definitions.push({
+                    id: id,
+                    spec: spec,
+                    inputs: inputs,
+                    shape: shape,
+                    category: category.id,
+                    xml: {
+                        args: xmlArgs
+                    }
+                });
+            }
+        }
+        return definitions;
     }
 }

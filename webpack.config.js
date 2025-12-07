@@ -190,7 +190,7 @@ module.exports = [
                 'process.env.APP_NAME': JSON.stringify(process.env.APP_NAME || 'CodeTorch'),
                 'process.env.APP_DOMAIN': JSON.stringify(process.env.APP_NAME || 'https://codetorch.net'),
                 'process.env.API_HOST': JSON.stringify(process.env.API_HOST || 'https://api.codetorch.net'),
-                'process.env.ASSET_HOST': JSON.stringify(process.env.ASSET_HOST || 'https://assets.scratch.mit.edu'),
+                'process.env.ASSET_HOST': JSON.stringify(process.env.ASSET_HOST || 'https://assets.codetorch.net'),
                 'process.env.EXTENSION_HOST': JSON.stringify(process.env.EXTENSION_HOST || 'https://blockextensions.codetorch.net'),
                 'process.env.DEFAULT_CLOUD_HOST': JSON.stringify(process.env.DEFAULT_CLOUD_HOST || 'wss://cloud.codetorch.org'),
                 'process.env.TRUSTED_IFRAME_HOST': JSON.stringify(process.env.TRUSTED_IFRAME_HOST || 'https://codetorch.net'),
