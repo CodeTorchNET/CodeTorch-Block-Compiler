@@ -3,7 +3,6 @@ import helpers from "./helpers/helpers.js";
 import showdown from "showdown";
 import Attachment from "./helpers/attachment.js";
 
-const attachment = new Attachment();
 const converter = new showdown.Converter();
 const resistanceThreshold = 10;
 
@@ -14,41 +13,40 @@ export default class main {
     static Gaddon;
     constructor() {
     }
-    static updateCodeChunkAttachment(AttachmentDetails) {
-        document.getElementById('Context_Selector_select').value = '1';
-        document.getElementById('Context_Selector_select').children[0].disabled = false;
-        attachment.attachment(AttachmentDetails, vm.runtime.getEditingTarget().sprite.name);
-        document.getElementById('Context_Selector_select').children[0].innerText = attachment.spriteName;
-        document.getElementById('Context_Selector_select').style.width = "fit-content";
+
+    static startNewSessionWithPrompt(fileAttachmentType = 0, inputValue = "", attachmentDOM = null) {
+      let session = document.AI_INTEGRATION.getActiveSession();
+      if (!session || session.chatHistory.length > 0) {
+        session = document.AI_INTEGRATION.createNewSession();
+      }
+      document.AI_INTEGRATION.activeSessionId = session.id;
+      session.inputText = inputValue;
+      if (attachmentDOM) {
+        const newAttachment = new Attachment();
+        newAttachment.attachment(attachmentDOM, vm.runtime.getEditingTarget().sprite.name);
+        session.attachment = newAttachment;
+        session.attachmentType = String(fileAttachmentType);
+      }
+      main.createBasePopup();
     }
+    
     /**
      * @param {*} fileAttachmentType 0 = no attachment, 1 = code chunk, 2 = entire sprite, 3 = entire project 
      * @param {*} inputValue 
      * @returns 
      */
-    static createBasePopup(fileAttachmentType = 0, inputValue = "") {
-        fileAttachmentType = String(fileAttachmentType);
-        if (document.getElementById("popupParentDiv") != null || document.AI_INTEGRATION.popupOpen) { //reopen the popup
+    static createBasePopup() {
+        if (document.AI_INTEGRATION.sessions.length === 0) {
+          document.AI_INTEGRATION.createNewSession();
+        }
+
+        if (document.getElementById("popupParentDiv") != null) { //reopen the popup
             document.AI_INTEGRATION.popupOpen = true;
-            document.getElementById("popupParentDiv").style.display = 'flex'; 
+            document.getElementById("popupParentDiv").style.display = 'block'; 
             document.getElementById("popupParentDiv").style.zIndex = 509;
-            //FINISH ADDING SUPPORT TO reopening popup
-            var textareaa = document.getElementById('auto-resizing-textarea');
-            //focus on textarea
-            textareaa.focus();
-
-            textareaa.value = inputValue;
-
-            if (textareaa.value.length > (textareaa.offsetWidth / 5.84375) || textareaa.value.includes('\n')) {
-                textareaa.style.height = 'auto';
-                textareaa.style.height = `${textareaa.scrollHeight}px`;
-                textareaa.style.top = '0px';
-            } else {
-                textareaa.style.height = '20px';
-                textareaa.style.top = '2px';
-            }
-
-            document.getElementById('Context_Selector_select').value = fileAttachmentType;
+            this.renderChatUI();
+            this.renderActiveSessionContent();
+            document.getElementById('auto-resizing-textarea').focus();
             return;
         }
         document.AI_INTEGRATION.popupOpen = true;
@@ -61,7 +59,6 @@ export default class main {
         const div = document.createElement('div');
         div.style.zIndex = 509;
         div.style.position = 'fixed';
-        div.style.display = 'flex';
         div.id = "popupParentDiv";
 
         //intial popup dimensions
@@ -69,10 +66,6 @@ export default class main {
         div.style.height = '302px';
         div.style.minWidth = '452px';
         div.style.minHeight = '302px';
-
-        const verticalDiv = document.createElement('div');
-        verticalDiv.style.width = '100%';
-
 
         const div2 = document.createElement('div');
         div2.className = 'container';
@@ -91,20 +84,27 @@ export default class main {
         div.style.top = `${newTop}px`;
         div2.innerHTML = `
   <div class="headerT">
-  <svg id="clearChat" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-</svg>
-  <svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="size-6" stroke="currentColor" stroke-width="1.5"  id="closePopup">
-                <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
+    <div id="dragHandle" class="drag-handle">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" height="19" width="19" viewBox="0 0 24 24">
+        <circle cx="5" cy="5" r="1.5"></circle>
+        <circle cx="12" cy="5" r="1.5"></circle>
+        <circle cx="19" cy="5" r="1.5"></circle>
+        
+        <circle cx="5" cy="12" r="1.5"></circle>
+        <circle cx="12" cy="12" r="1.5"></circle>
+        <circle cx="19" cy="12" r="1.5"></circle>
+        
+        <circle cx="5" cy="19" r="1.5"></circle>
+        <circle cx="12" cy="19" r="1.5"></circle>
+        <circle cx="19" cy="19" r="1.5"></circle>
+        </svg>
+    </div>
+      <div class="chat-tabs-container" id="chat_tabs_container"></div>
+    <svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="size-6" stroke="currentColor" stroke-width="1.5"  id="closePopup">
+                  <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
   </div>
-  <div class= content id= chat_content>
-      <div class=Popup_Header>
-          <div class=a>
-             ${helpers.FireAnimation}
-          </div>
-          <p class=b>Hi I'm Torchy, How can I help you today?
-      </div>
+  <div class=content id=chat_content_wrapper>
   </div>
   <div class=input-container id= chat_box>
       <div class=input-parent>
@@ -149,7 +149,7 @@ export default class main {
           </svg>
           <select name="AI Model Selector" id="Context_Selector_select">
             <option value="1" disabled>Code Chunk</option>
-            <option value="0">None</option>
+            <option value="0" selected>None</option>
             <option value="2">Entire Sprite</option>
             <option value="3">Entire Project</option>
           </select>
@@ -166,16 +166,6 @@ export default class main {
   </div>`;
 
         let offsetX, offsetY, isDragging = false, startX, startY, hasMoved = false;
-
-        div.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            hasMoved = false;
-            startX = e.clientX;
-            startY = e.clientY;
-            offsetX = e.clientX - div.offsetLeft;
-            offsetY = e.clientY - div.offsetTop;
-            div.style.cursor = 'grabbing';
-        });
 
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
@@ -247,41 +237,55 @@ export default class main {
             const minWidth = 452;
             const minHeight = 302;
 
-            if (resizeDirection === 'right') {
-                let newWidth = startWidth + (e.clientX - startX);
-                if (newWidth < minWidth) newWidth = minWidth;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (resizeDirection.includes('right')) {
+                let newWidth = startWidth + dx;
                 if (startLeft + newWidth > viewportWidth - tolerance) {
                     newWidth = viewportWidth - startLeft - tolerance;
                 }
-                div.style.width = `${newWidth}px`;
+                div.style.width = `${Math.max(newWidth, minWidth)}px`;
             }
-            else if (resizeDirection === 'left') {
-                let newWidth = startWidth - (e.clientX - startX);
-                if (newWidth < minWidth) return;
-                let newLeft = startLeft + (e.clientX - startX);
+            
+            if (resizeDirection.includes('left')) {
+                let newWidth = startWidth - dx;
+                let newLeft = startLeft + dx;
+                
+                if (newWidth < minWidth) {
+                    newWidth = minWidth;
+                    newLeft = startLeft + startWidth - minWidth;
+                }
                 if (newLeft < tolerance) {
                     newLeft = tolerance;
-                    newWidth = startWidth + (startLeft - tolerance);
+                    newWidth = startWidth + startLeft - tolerance;
                 }
+                
                 div.style.width = `${newWidth}px`;
                 div.style.left = `${newLeft}px`;
             }
-            else if (resizeDirection === 'bottom') {
-                let newHeight = startHeight + (e.clientY - startY);
-                if (newHeight < minHeight) newHeight = minHeight;
+        
+            if (resizeDirection.includes('bottom')) {
+                let newHeight = startHeight + dy;
                 if (startTop + newHeight > viewportHeight - tolerance) {
                     newHeight = viewportHeight - startTop - tolerance;
                 }
-                div.style.height = `${newHeight}px`;
+                div.style.height = `${Math.max(newHeight, minHeight)}px`;
             }
-            else if (resizeDirection === 'top') {
-                let newHeight = startHeight - (e.clientY - startY);
-                if (newHeight < minHeight) return;
-                let newTop = startTop + (e.clientY - startY);
+        
+            if (resizeDirection.includes('top')) {
+                let newHeight = startHeight - dy;
+                let newTop = startTop + dy;
+                
+                if (newHeight < minHeight) {
+                    newHeight = minHeight;
+                    newTop = startTop + startHeight - minHeight;
+                }
                 if (newTop < tolerance) {
                     newTop = tolerance;
-                    newHeight = startHeight + (startTop - tolerance);
+                    newHeight = startHeight + startTop - tolerance;
                 }
+                
                 div.style.height = `${newHeight}px`;
                 div.style.top = `${newTop}px`;
             }
@@ -294,13 +298,23 @@ export default class main {
         };
 
         const leftResize = document.createElement('div');
-        leftResize.className = 'left-resize';
+        leftResize.className = 'resize-handle left-resize';
         const rightResize = document.createElement('div');
-        rightResize.className = 'right-resize';
+        rightResize.className = 'resize-handle right-resize';
         const topResize = document.createElement('div');
-        topResize.className = 'top-resize';
+        topResize.className = 'resize-handle top-resize';
         const bottomResize = document.createElement('div');
-        bottomResize.className = 'bottom-resize';
+        bottomResize.className = 'resize-handle bottom-resize';
+
+        const topLeftResize = document.createElement('div');
+        topLeftResize.className = 'resize-handle top-left-resize';
+        const topRightResize = document.createElement('div');
+        topRightResize.className = 'resize-handle top-right-resize';
+        const bottomLeftResize = document.createElement('div');
+        bottomLeftResize.className = 'resize-handle bottom-left-resize';
+        const bottomRightResize = document.createElement('div');
+        bottomRightResize.className = 'resize-handle bottom-right-resize';
+
 
         // Add event listeners for resize handles
         leftResize.addEventListener('mousedown', (e) => handleResizeMouseDown('left', e));
@@ -308,34 +322,37 @@ export default class main {
         topResize.addEventListener('mousedown', (e) => handleResizeMouseDown('top', e));
         bottomResize.addEventListener('mousedown', (e) => handleResizeMouseDown('bottom', e));
 
+        topLeftResize.addEventListener('mousedown', (e) => handleResizeMouseDown('top-left', e));
+        topRightResize.addEventListener('mousedown', (e) => handleResizeMouseDown('top-right', e));
+        bottomLeftResize.addEventListener('mousedown', (e) => handleResizeMouseDown('bottom-left', e));
+        bottomRightResize.addEventListener('mousedown', (e) => handleResizeMouseDown('bottom-right', e));
+
         document.addEventListener('mousemove', handleResizeMouseMove);
         document.addEventListener('mouseup', handleResizeMouseUp);
 
-
-        //add to body
-        //document.body.appendChild(div);
-        //add to resizeDiv
+        div.appendChild(div2);
         div.appendChild(leftResize);
-        verticalDiv.appendChild(topResize);
-        verticalDiv.appendChild(div2);
-        verticalDiv.appendChild(bottomResize);
-        div.appendChild(verticalDiv);
         div.appendChild(rightResize);
+        div.appendChild(topResize);
+        div.appendChild(bottomResize);
+        div.appendChild(topLeftResize);
+        div.appendChild(topRightResize);
+        div.appendChild(bottomLeftResize);
+        div.appendChild(bottomRightResize);
         document.body.appendChild(div);
 
-        var textareaa = document.getElementById('auto-resizing-textarea');
-        //focus on textarea
-        textareaa.focus();
+        document.getElementById('dragHandle').addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            hasMoved = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            offsetX = e.clientX - div.offsetLeft;
+            offsetY = e.clientY - div.offsetTop;
+            div.style.cursor = 'grabbing';
+        });
 
-        textareaa.value = inputValue;
-        if (textareaa.value.length > (textareaa.offsetWidth / 5.84375) || textareaa.value.includes('\n')) { //must be done once in the beginning due to the fact that `inputValue` might be a long string
-            textareaa.style.height = 'auto';
-            textareaa.style.height = `${textareaa.scrollHeight}px`;
-            textareaa.style.top = '0px';
-        } else {
-            textareaa.style.height = '20px';
-            textareaa.style.top = '2px';
-        }
+        var textareaa = document.getElementById('auto-resizing-textarea');
         textareaa.addEventListener('input', () => {
             if (textareaa.value.length > (textareaa.offsetWidth / 5.84375) || textareaa.value.includes('\n')) { //make sure there is more than one line
                 textareaa.style.height = 'auto';
@@ -346,18 +363,343 @@ export default class main {
                 textareaa.style.top = '2px';
             }
         });
-        document.getElementById('Context_Selector_select').value = fileAttachmentType;
-        if (fileAttachmentType == "1") {
-            document.getElementById('Context_Selector_select').style.width = "26px";
-        } else if (fileAttachmentType == "3") {
-            document.getElementById('Context_Selector_select').style.width = "66px";
-        } else if (fileAttachmentType == "2") {
-            document.getElementById('Context_Selector_select').style.width = "60px";
-        } else {
-            document.getElementById('Context_Selector_select').style.width = "fit-content";
+        
+        main.renderChatUI();
+        main.renderActiveSessionContent();
+        main.popupFunctionality();
+        textareaa.focus();
+    }
+
+    static rehydrateChatPane(session, pane) {
+        pane.innerHTML = '';
+        let codeChunkCounter = 0;
+
+        if (!session.chatHistory || session.chatHistory.length === 0) {
+            pane.innerHTML = `
+                <div class=Popup_Header>
+                    <div class=a>
+                      ${helpers.FireAnimation}
+                    </div>
+                    <p class=b>Hi I'm Torchy, How can I help you today?
+                </div>
+              `;
+            return;
         }
 
-        main.popupFunctionality();
+        session.chatHistory.forEach(turn => {
+            if (turn.role === 'user') {
+                const userMessageText = turn.message.split('\n\n\nContext:\n')[0];
+                var userMessage = document.createElement('div');
+                userMessage.className = 'user-message';
+
+                var messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                
+                var textSpan = document.createElement('span');
+                textSpan.innerText = userMessageText;
+                messageDiv.appendChild(textSpan);
+                
+                if (turn.attachment && turn.attachment.type !== "0") {
+                    var fileAttachmentDiv = document.createElement('div');
+                    fileAttachmentDiv.className = 'FileAttachment';
+                    var svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    svgElement.setAttribute("width", "24");
+                    svgElement.setAttribute("height", "24");
+                    svgElement.setAttribute("viewBox", "0 0 24 24");
+                    svgElement.setAttribute("fill", "none");
+                    svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+                    svgElement.classList.add("svg");
+                    var pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    pathElement.setAttribute("d", "M2 7V14.7519H4.53246L5.9122 16.0909H8.12402L9.50376 14.7519H22V7H9.50376L8.12402 8.33905H5.9122L4.53246 7H2Z");
+                    pathElement.setAttribute("stroke-linecap", "round");
+                    pathElement.setAttribute("stroke-linejoin", "round");
+                    pathElement.setAttribute("stroke-width", "2");
+                    pathElement.setAttribute("stroke", "currentcolor");
+                    svgElement.appendChild(pathElement);
+                    var attachmentText = document.createElement('p');
+                    attachmentText.className = 'p';
+                    attachmentText.textContent = turn.attachment.name;
+                    fileAttachmentDiv.appendChild(svgElement);
+                    fileAttachmentDiv.appendChild(attachmentText);
+                    messageDiv.appendChild(fileAttachmentDiv);
+                }
+
+                userMessage.appendChild(messageDiv);
+                pane.appendChild(userMessage);
+            } else if (turn.role === 'assistant') {
+                const aiMessage = document.createElement('div');
+                aiMessage.className = 'ai-message';
+                const messageDiv = document.createElement('p');
+                messageDiv.className = 'message';
+
+                let editedStreamResult = turn.message.replaceAll(/```(.*?)```/gs, "CODECHUNK23407283947");
+                editedStreamResult = converter.makeHtml(editedStreamResult);
+
+                editedStreamResult = editedStreamResult.replaceAll("CODECHUNK23407283947", () => {
+                    const chunkData = session.allCodeChunksEverAdded[codeChunkCounter];
+                    codeChunkCounter++;
+                    if (!chunkData || !chunkData.renderedHTML) {
+                        return "<h1 class=\"errorMessage\">failed to parse Code Chunk</h1><br>";
+                    }
+                    const uniqueId = codeChunkCounter;
+                    const randomId = Math.random().toString(36).substr(2, 5).toUpperCase();
+
+                    return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${uniqueId}"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${uniqueId}">${chunkData.renderedHTML}</div></div></div>`;
+                });
+
+                messageDiv.innerHTML = editedStreamResult;
+                aiMessage.appendChild(messageDiv);
+                pane.appendChild(aiMessage);
+                main.attachInsertButtonListeners(aiMessage);
+            }
+        });
+    }
+
+    static saveSessionStateFromUI(session) {
+      if (!session) return;
+  
+      const pane = document.querySelector(`.chat-content-pane[data-session-id="${session.id}"]`);
+      if (pane) {
+          session.domCache = pane.innerHTML;
+      }
+      session.inputText = document.getElementById('auto-resizing-textarea').value;
+      session.selectedModelId = document.getElementById('AI_Selector_select').value;
+      session.allowCustomExtensions = document.getElementById('AATUCEB_CB').checked;
+      session.attachmentType = document.getElementById('Context_Selector_select').value;
+      
+      document.AI_INTEGRATION.updateAndSaveSession(session);
+    }
+
+    static switchSession(sessionId) {
+      document.AI_INTEGRATION.activeSessionId = sessionId;
+      document.AI_INTEGRATION.saveActiveSessionMetadata();
+      this.renderChatUI();
+      this.renderActiveSessionContent();
+    }
+
+    static closeSessionUI(sessionId) {
+      const paneToRemove = document.querySelector(`.chat-content-pane[data-session-id="${sessionId}"]`);
+      if (paneToRemove) {
+          paneToRemove.remove();
+      }
+      if (document.AI_INTEGRATION.sessions.length <= 1) {
+        helpers.closePopup();
+        document.AI_INTEGRATION.sessions = [];
+        document.AI_INTEGRATION.activeSessionId = null;
+        return;
+      }
+      document.AI_INTEGRATION.closeSession(sessionId);
+      this.renderChatUI();
+      this.renderActiveSessionContent();
+    }
+
+    static startNewSessionUI() {
+      const currentSession = document.AI_INTEGRATION.getActiveSession();
+      if (currentSession) {
+        this.saveSessionStateFromUI(currentSession);
+      }
+      const session = document.AI_INTEGRATION.createNewSession();
+      this.switchSession(session.id);
+    }
+    
+    static renderChatUI() {
+      const sessions = document.AI_INTEGRATION.sessions;
+      const activeSessionId = document.AI_INTEGRATION.activeSessionId;
+      const tabsContainer = document.getElementById('chat_tabs_container');
+      
+      tabsContainer.innerHTML = '<div class="new-chat-tab" id="new_chat_tab"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg></div>';
+      
+      sessions.forEach(session => {
+        const tab = document.createElement('div');
+        tab.className = `chat-tab ${session.id === activeSessionId ? 'active' : ''}`;
+        tab.dataset.sessionId = session.id;
+        tab.innerHTML = `
+          <span>${session.name}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 close-tab"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        `;
+        tabsContainer.insertBefore(tab, document.getElementById('new_chat_tab'));
+
+        tab.addEventListener('click', (e) => {
+            if (e.target.closest('.close-tab')) {
+                this.closeSessionUI(session.id);
+            } else {
+                const currentSession = document.AI_INTEGRATION.getActiveSession();
+                if (currentSession) {
+                    this.saveSessionStateFromUI(currentSession);
+                }
+                this.switchSession(session.id);
+            }
+        });
+      });
+
+      document.getElementById('new_chat_tab').addEventListener('click', () => this.startNewSessionUI());
+    }
+
+    static renderActiveSessionContent() {
+      const wrapper = document.getElementById('chat_content_wrapper');
+      if (!wrapper) return;
+      
+      const input = document.getElementById('auto-resizing-textarea');
+      const activeSession = document.AI_INTEGRATION.getActiveSession();
+
+      wrapper.querySelectorAll('.chat-content-pane').forEach(pane => {
+        pane.style.display = 'none';
+      });
+
+      if (!activeSession) {
+        if(input) input.value = '';
+        return;
+      }
+
+      let activePane = wrapper.querySelector(`.chat-content-pane[data-session-id="${activeSession.id}"]`);
+      if (!activePane) {
+        activePane = document.createElement('div');
+        activePane.className = 'chat-content-pane';
+        activePane.dataset.sessionId = activeSession.id;
+
+        if (activeSession.domCache) {
+          activePane.innerHTML = activeSession.domCache;
+          this.attachInsertButtonListeners(activePane);
+        } else {
+          // Rehydrate from history if available, otherwise show welcome.
+          this.rehydrateChatPane(activeSession, activePane);
+        }
+        wrapper.appendChild(activePane);
+      }
+      
+      activePane.style.display = 'block';
+      activePane.scrollTop = activePane.scrollHeight;
+
+      if(input) {
+        input.value = activeSession.inputText || '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      this.renderAttachmentUI();
+      this.renderSettingsUI();
+    }
+
+    static renderSettingsUI() {
+      const session = document.AI_INTEGRATION.getActiveSession();
+      const modelSelector = document.getElementById('AI_Selector_select');
+      const customExtCheckbox = document.getElementById('AATUCEB_CB');
+
+      if (session && modelSelector && customExtCheckbox) {
+          if (session.selectedModelId && modelSelector.querySelector(`option[value="${session.selectedModelId}"]`)) {
+              modelSelector.value = session.selectedModelId;
+          } else {
+              const defaultOption = modelSelector.querySelector('option:not([disabled])[selected]');
+              if (defaultOption) {
+                  session.selectedModelId = defaultOption.value;
+                  modelSelector.value = defaultOption.value;
+              } else { 
+                  const firstEnabledOption = modelSelector.querySelector('option:not([disabled])');
+                  if (firstEnabledOption) {
+                     session.selectedModelId = firstEnabledOption.value;
+                     modelSelector.value = firstEnabledOption.value;
+                  }
+              }
+          }
+          customExtCheckbox.checked = session.allowCustomExtensions;
+      }
+    }
+
+    static renderAttachmentUI() {
+      const session = document.AI_INTEGRATION.getActiveSession();
+      const select = document.getElementById('Context_Selector_select');
+      const option = select.querySelector('option[value="1"]');
+
+      if (session && session.attachment) {
+        select.value = session.attachmentType;
+        option.disabled = false;
+        option.innerText = session.attachment.spriteName;
+        select.style.width = "fit-content";
+      } else {
+        const attachmentType = session ? session.attachmentType : '0';
+        select.value = attachmentType;
+        option.disabled = true;
+        option.innerText = "Code Chunk";
+        if (attachmentType === '2') {
+          select.style.width = "60px";
+        } else if (attachmentType === '3') {
+          select.style.width = "66px";
+        } else { // '0' or any other case
+          select.style.width = "26px";
+        }
+      }
+    }
+
+    static attachInsertButtonListeners(parentElement) {
+      parentElement.querySelectorAll('.insert_button').forEach(button => {
+        if (button.dataset.listenerAttached) return;
+        button.dataset.listenerAttached = 'true';
+        button.addEventListener("click", function () {
+            const element = this;
+            const uniqueid = element.getAttribute("uniqueid");
+            const session = document.AI_INTEGRATION.getActiveSession();
+            if(!session) return;
+            const chunkData = session.allCodeChunksEverAdded[uniqueid - 1];
+
+            function callback() {
+                var workspace = main.mainWorkspace;
+                var xml = Blockly.Xml.textToDom(chunkData.BlocksAsXML);
+                var [listNames, variableNames, broadcastNames] = helpers.workspaceVariables(true, main.mainWorkspace);
+                for (var name of chunkData.variables) if (!variableNames.includes(name)) main.mainWorkspace.createVariable(name, "", null);
+                for (var name of chunkData.lists) if (!listNames.includes(name)) main.mainWorkspace.createVariable(name, "list", null);
+                for (var name of chunkData.broadcasts) if (!broadcastNames.includes(name)) main.mainWorkspace.createVariable(name, "broadcast_msg", null);
+                
+                if (replacingBlocksInternal.length > 0) {
+                    main.mainWorkspace.getAllBlocks().forEach(block => {
+                        if (block.type == "procedures_definition" && replacingBlocksInternal.includes(block.id)) block.dispose();
+                    });
+                }
+
+                var totalWidth = 0;
+                Array.from(xml.children).forEach(block => {
+                    const newBlock = ScratchBlocks.Xml.domToBlock(block, workspace);
+                    const x = workspace.scrollX + totalWidth || 0;
+                    const y = workspace.scrollY || 0;
+                    try { newBlock.moveBy(x, y); } catch (e) { console.error("failed to move block", e); }
+                    totalWidth += (newBlock.getBoundingRectangle().bottomRight.x - newBlock.getBoundingRectangle().topLeft.x) + 20;
+                });
+                main.mainWorkspace.refreshToolboxSelection_();
+            }
+
+            var message = `<p style="font-weight: 900;margin-bottom: 10px;">Adding this code will:</p><ul>`;
+            var [listNames, variableNames] = helpers.workspaceVariables(false, main.mainWorkspace);
+            var newVariables = chunkData.variables.filter(name => !variableNames.includes(name));
+            var newLists = chunkData.lists.filter(name => !listNames.includes(name));
+            var existingVariables = chunkData.variables.filter(name => variableNames.includes(name));
+            var existingLists = chunkData.lists.filter(name => listNames.includes(name));
+
+            if (newVariables.length > 0) message += `<li>Create ${newVariables.length} new ${newVariables.length == 1 ? "variable" : "variables"}: "${newVariables.join('", "')}"</li>`;
+            if (newLists.length > 0) message += `<li>Create ${newLists.length} new ${newLists.length == 1 ? "list" : "lists"}: "${newLists.join('", "')}"</li>`;
+            if (existingVariables.length > 0) message += `<li>Use ${existingVariables.length} existing ${existingVariables.length == 1 ? "variable" : "variables"}: "${existingVariables.join('", "')}"</li>`;
+            if (existingLists.length > 0) message += `<li>Use ${existingLists.length} existing ${existingLists.length == 1 ? "list" : "lists"}: "${existingLists.join('", "')}"</li>`;
+
+            var currentWorkspaceBlocks = helpers.getCustomBlockNames(Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(main.mainWorkspace)));
+            var newBlocks = helpers.getCustomBlockNames(chunkData.BlocksAsXML);
+            var replacingBlocks = [], replacingBlocksInternal = [], trulyNewBlocks = [];
+
+            for (var block of newBlocks) {
+                var matchingBlock = currentWorkspaceBlocks.find(b => b.customBlockName === block.customBlockName);
+                const cleanName = "\"" + block.customBlockName.replaceAll(/%[sbn]/g, "").trim() + "\"";
+                if (matchingBlock) {
+                    replacingBlocks.push(cleanName);
+                    replacingBlocksInternal.push(matchingBlock.blockId);
+                } else {
+                    trulyNewBlocks.push(cleanName);
+                }
+            }
+
+            if (trulyNewBlocks.length > 0) message += `<li>Create ${trulyNewBlocks.length} new block${trulyNewBlocks.length > 1 ? "s" : ""}: ${trulyNewBlocks.join(", ")}</li>`;
+            if (replacingBlocks.length > 0) message += `<li>Replace ${replacingBlocks.length} existing block${replacingBlocks.length > 1 ? "s" : ""}: ${replacingBlocks.join(", ")} <span><p class="errorMessage">(THIS WILL REPLACE YOUR CURRENT BLOCK DEFINITION)</p></span></li>`;
+            if (message === `<p style="font-weight: 900;margin-bottom: 10px;">Adding this code will:</p><ul>`) message = `<p>This code does not create/use any variables or lists.</p>`;
+            else message += `</ul>`;
+
+            ScratchBlocks.prompt(message, null, callback, "Add Code to Workspace?", ScratchBlocks.BROADCAST_MESSAGE_VARIABLE_TYPE, true);
+        });
+      });
     }
 
     static popupFunctionality() {
@@ -373,6 +715,19 @@ export default class main {
             } else {
                 e.target.style.width = "fit-content";
             }
+            const session = document.AI_INTEGRATION.getActiveSession();
+            if (session) {
+                session.attachmentType = e.target.value;
+                document.AI_INTEGRATION.updateAndSaveSession(session);
+            }
+        });
+
+        document.getElementById('AI_Selector_select').addEventListener('change', (e) => {
+            const session = document.AI_INTEGRATION.getActiveSession();
+            if (session) {
+                session.selectedModelId = e.target.value;
+                document.AI_INTEGRATION.updateAndSaveSession(session);
+            }
         });
 
         document.getElementById('AATUCEB_CB').addEventListener('change', (e) => {
@@ -382,24 +737,18 @@ export default class main {
                     alertId: "TorchyCustomBlockWarning",
                 })
             }
+            const session = document.AI_INTEGRATION.getActiveSession();
+            if (session) {
+                session.allowCustomExtensions = e.target.checked;
+                document.AI_INTEGRATION.updateAndSaveSession(session);
+            }
         });
         document.getElementById('closePopup').addEventListener('click', () => {
-            helpers.closePopup();
-        });
-        document.getElementById('clearChat').addEventListener('click', () => {
-            //prompt user if they are sure
-            if (confirm("Are you sure you want to clear the chat?")) {
-                while (document.getElementById('chat_content').children.length > 1) {
-                    document.getElementById('chat_content').children[1].remove();
-                }
-                helpers.disableCodeChunkAttachment();
-                document.AI_INTEGRATION.AI_currently_blabbering = false;
-                document.AI_INTEGRATION.CodeChunks = [];
-                document.AI_INTEGRATION.AllCodeChunksEverAdded = [];
-                document.AI_INTEGRATION.processedCodeChunks = [];
-                document.AI_INTEGRATION.chatHistory = [];
-                document.AI_INTEGRATION.errorsDetected = [];
+            const session = document.AI_INTEGRATION.getActiveSession();
+            if (session) {
+                this.saveSessionStateFromUI(session);
             }
+            helpers.closePopup();
         });
         document.getElementById('submitChat').addEventListener('click', () => {
             internal();
@@ -413,23 +762,41 @@ export default class main {
         });
 
         function internal() {
+            const requestingSession = document.AI_INTEGRATION.getActiveSession();
+            if (!requestingSession) return;
+            
             const attachmentType = document.getElementById('Context_Selector_select').value;
-            if (document.AI_INTEGRATION.AI_currently_blabbering) {
+            if (requestingSession.isBlabbering) {
                 ReduxStore.dispatch({
                     type: "scratch-gui/alerts/SHOW_ALERT",
                     alertId: "TorchyWaitForAIToFinishWarning",
                 })
                 return;
             }
-            document.AI_INTEGRATION.AI_currently_blabbering = true;
+            requestingSession.isBlabbering = true;
+            requestingSession.attachmentType = attachmentType;
             const input = document.getElementById('auto-resizing-textarea');
 
             if (input.value.trim() == "") {
+                requestingSession.isBlabbering = false;
                 return;
             }
-            if (attachmentType != "0") {
-                helpers.disableCodeChunkAttachment();
 
+            const sessionPane = document.querySelector(`.chat-content-pane[data-session-id="${requestingSession.id}"]`);
+            if (!sessionPane) {
+                console.error("Could not find session pane for session", requestingSession.id);
+                requestingSession.isBlabbering = false;
+                return;
+            }
+
+            let attachmentName = "";
+            if (attachmentType !== "0") {
+                if(attachmentType === "1") attachmentName = requestingSession.attachment ? requestingSession.attachment.spriteName : "Code Chunk";
+                else if (attachmentType === "2") attachmentName = "Entire Sprite";
+                else if (attachmentType === "3") attachmentName = "Entire Project";
+            }
+
+            if (attachmentType != "0") {
                 var userMessage = document.createElement('div');
                 userMessage.className = 'user-message';
                 var messageDiv = document.createElement('div');
@@ -455,23 +822,20 @@ export default class main {
                 svgElement.appendChild(pathElement);
                 var attachmentText = document.createElement('p');
                 attachmentText.className = 'p';
-                attachmentText.textContent = (attachmentType == "1" ? attachment.spriteName : (attachmentType == "2" ? "Entire Sprite" : "Entire Project"));
+                attachmentText.textContent = attachmentName;
                 fileAttachmentDiv.appendChild(svgElement);
                 fileAttachmentDiv.appendChild(attachmentText);
                 messageDiv.appendChild(fileAttachmentDiv);
                 userMessage.appendChild(messageDiv);
-                document.getElementById('chat_content').appendChild(userMessage);
+                sessionPane.appendChild(userMessage);
             } else {
                 var userMessage = document.createElement('div');
                 userMessage.className = 'user-message';
-                //userMessage.innerHTML = `
-                //    <div class="message">${input.value}</div>
-                //`;
                 var message = document.createElement('div');
                 message.className = 'message';
                 message.innerText = input.value;
                 userMessage.appendChild(message);
-                document.getElementById('chat_content').appendChild(userMessage);
+                sessionPane.appendChild(userMessage);
             }
             var customNames = "";
             for (var customName of vm.runtime.getEditingTarget().sprite.costumes) customNames += customName.name + ", ";
@@ -484,56 +848,98 @@ export default class main {
 
             var attachmentCode = "";
             if (attachmentType == "1") {
-                attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(attachment.GetAttachment(Blockly.Xml.workspaceToDom(main.mainWorkspace)));
+                if (requestingSession.attachment) {
+                  attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(requestingSession.attachment.GetAttachment(Blockly.Xml.workspaceToDom(main.mainWorkspace)));
+                }
             } else if (attachmentType == "2") {
                 attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(Blockly.Xml.workspaceToDom(main.mainWorkspace));
             } else if (attachmentType == "3") {
                 attachmentCode = "\nAttached Code:" + Attachment.getAttachmentReady(helpers.returnEntireProjectAsXML(main.Gaddon));
             }
-            const messageContents = input.value + attachmentCode + "\n\n\nContext:\nSprite Customes: " + customNames + "\nSprite Sounds: " + soundNames + "\nAll Sprites Names: " + allSpriteNames + "\nCurrent Sprite Name:" + vm.runtime.getEditingTarget().sprite.name;
+
+            const selectedModelForAttachment = document.AI_INTEGRATION.AIModels.find(m => m.id === document.getElementById('AI_Selector_select').value);
+            if (!selectedModelForAttachment || selectedModelForAttachment.API_KEY_TYPE !== 'gemini') {
+                requestingSession.attachment = null;
+            }
+            main.renderAttachmentUI();
+            
+            const userMessageFinal = input.value;
+            const attachmentInfo = { type: attachmentType, name: attachmentName };
+            const contextString = attachmentCode + "\n\n\nContext:\nSprite Customes: " + customNames + "\nSprite Sounds: " + soundNames + "\nAll Sprites Names: " + allSpriteNames + "\nCurrent Sprite Name:" + vm.runtime.getEditingTarget().sprite.name;
+
             input.value = '';
             //reset input height
             input.style.height = '20px';
             input.style.top = '2px';
 
-            function requestChat(messageContents) {
+            function requestChat(userMessage, contextString, session, attachmentInfo) {
+                const messageId = `blabbering-message-${session.id}-${Date.now()}`;
                 var loadingDots = document.createElement('div');
                 loadingDots.className = 'ai-message';
-                loadingDots.id = "AI_is_thinking_what_to_blabber";
+                loadingDots.id = `loading-dots-${session.id}`;
                 loadingDots.innerHTML = `
                 <div class="message" style="width: 22px;">
                     <div class="dot-elastic"></div>
                 </div>
             `;
-                document.getElementById('chat_content').appendChild(loadingDots);
+                if(sessionPane.querySelector('.Popup_Header')) {
+                    sessionPane.querySelector('.Popup_Header').remove();
+                }
+                sessionPane.appendChild(loadingDots);
                 //scroll to bottom
-                document.getElementById('chat_content').scrollTop = document.getElementById('chat_content').scrollHeight;
+                sessionPane.scrollTop = sessionPane.scrollHeight;
                 document.AI_INTEGRATION.CodeChunks = [];
 
                 var authTokenToUse = "";
-                for (var i of document.AI_INTEGRATION.AIModels) {
-                    if (i.id == document.getElementById('AI_Selector_select').value) {
-                        authTokenToUse = i.API_KEY_TYPE;
-                    }
-                }
-                if (authTokenToUse == "") {
-                    console.error("No API Key found for the selected AI Model");
+                const selectedModelId = document.getElementById('AI_Selector_select').value;
+                const selectedModel = document.AI_INTEGRATION.AIModels.find(m => m.id === selectedModelId);
+
+                if (!selectedModel) {
+                    console.error("No AI Model selected");
+                    helpers.messageErrorOccured(userMessage + contextString, session);
                     return;
                 }
+                
+                authTokenToUse = selectedModel.API_KEY_TYPE;
+                
                 if (authTokenToUse == "gemini") {
                     authTokenToUse = main.authToken.gemini;
                 } else if (authTokenToUse == "openrouter") {
                     authTokenToUse = main.authToken.openrouter;
                 } else {
                     console.error("Invalid API Key Type");
+                    helpers.messageErrorOccured(userMessage + contextString, session);
                     return;
                 }
-                var data = {
-                    api_key: authTokenToUse,
-                    message: messageContents,
-                    history: [{ "role": "user", "message": helpers.returnSterilizedToolbox(main.Gaddon, document.getElementById("AATUCEB_CB").checked) }, ...document.AI_INTEGRATION.chatHistory],
-                    ai_model: document.getElementById('AI_Selector_select').value,
-                };
+
+                let data;
+                let messageForHistory;
+
+                const historyForAPI = [
+                    { "role": "user", "message": helpers.returnSterilizedToolbox(main.Gaddon, document.getElementById("AATUCEB_CB").checked) },
+                    ...session.chatHistory
+                ];
+
+                if (selectedModel && selectedModel.API_KEY_TYPE === 'gemini') {
+                    data = {
+                        api_key: authTokenToUse,
+                        message: userMessage, // pure user message
+                        history: historyForAPI,
+                        ai_model: selectedModelId,
+                        context: contextString,
+                    };
+                    messageForHistory = userMessage;
+                } else {
+                    // For other models, combine user message and context.
+                    const fullMessage = userMessage + contextString;
+                    data = {
+                        api_key: authTokenToUse,
+                        message: fullMessage,
+                        history: historyForAPI,
+                        ai_model: selectedModelId,
+                    };
+                    messageForHistory = fullMessage;
+                }
 
                 helpers.fetchWithTimeout(main.apiUrl + "/chat", {
                     method: 'POST',
@@ -548,33 +954,37 @@ export default class main {
                             const decoder = new TextDecoder();
                             let streamResult = '';
 
-                            //remove the loading dots
-                            document.getElementById('AI_is_thinking_what_to_blabber').remove();
-                            if (document.getElementById("currentlyBlabberingOnThis") != null) { //fixes a glitch
-                                document.getElementById("currentlyBlabberingOnThis").remove();
-                            }
+                            const loadingDotsEl = document.getElementById(`loading-dots-${session.id}`);
+                            if (loadingDotsEl) loadingDotsEl.remove();
+
                             var aiMessage = document.createElement('div');
                             aiMessage.className = 'ai-message';
-                            aiMessage.innerHTML = `<p class="message ` + (main.Gaddon.tab.redux.state.scratchGui.theme.theme.gui == "light" ? "animated-text-light" : "animated-text") + `" id="currentlyBlabberingOnThis">loading...</p>`;
-                            document.getElementById('chat_content').appendChild(aiMessage);
+                            aiMessage.innerHTML = `<p class="message ` + (main.Gaddon.tab.redux.state.scratchGui.theme.theme.gui == "light" ? "animated-text-light" : "animated-text") + `" id="${messageId}">loading...</p>`;
+                            sessionPane.appendChild(aiMessage);
 
                             var chunkNumber = 0;
                             const domParser = new DOMParser();
                             helpers.isFirstRequest = true;
                             helpers.readWithTimeout(reader)
-                                .then(function processText({ done, value }) {
+                                .then(async function processText({ done, value }) {
                                     if (done) {
+                                        session.isBlabbering = false;
 
-                                        document.AI_INTEGRATION.AI_currently_blabbering = false;
-                                        document.AI_INTEGRATION.chatHistory.push({ "role": "user", "message": messageContents });
-                                        document.AI_INTEGRATION.chatHistory.push({ "role": "assistant", "message": streamResult });
-                                        helpers.disableCodeChunkAttachment();
+                                        const userHistoryObject = {
+                                            role: "user",
+                                            message: userMessage, // Use the pure user message
+                                        };
+                                        if (attachmentInfo && attachmentInfo.type !== "0") {
+                                            userHistoryObject.attachment = attachmentInfo;
+                                        }
+                                        session.chatHistory.push(userHistoryObject);
+                                        session.chatHistory.push({ "role": "assistant", "message": streamResult });
 
                                         async function processAndRenderCodeChunks() {
                                             var randomId = Math.random().toString(36).substr(2, 5).toUpperCase();
                                             document.AI_INTEGRATION.CodeChunks = streamResult.match(/```(.*?)```/gs) || [];
                                             document.AI_INTEGRATION.processedCodeChunks = [];
-
+ 
                                             const processedChunks = await Promise.all(
                                                 document.AI_INTEGRATION.CodeChunks.map((chunk, index) =>
                                                     handleRawCodeChunk(chunk, `${randomId}_${index}`, main.mainWorkspace)
@@ -582,7 +992,7 @@ export default class main {
                                             );
 
                                             document.AI_INTEGRATION.processedCodeChunks = processedChunks;
-
+ 
                                             let instanceCount = -1;
                                             var editedStreamResult = streamResult.replaceAll(/```(.*?)```/gs, "CODECHUNK23407283947");
                                             editedStreamResult = converter.makeHtml(editedStreamResult)
@@ -593,7 +1003,8 @@ export default class main {
                                                 } else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
                                                     return "<div class=\"codeChunkOverlay\" id=\"errorFixable_" + randomId + "_" + instanceCount + "\"></div>";
                                                 }
-                                                document.AI_INTEGRATION.AllCodeChunksEverAdded.push(document.AI_INTEGRATION.processedCodeChunks[instanceCount]);
+                                                const chunkDataForThisInstance = document.AI_INTEGRATION.processedCodeChunks[instanceCount];
+                                                session.allCodeChunksEverAdded.push(chunkDataForThisInstance);
                                                 let Div = document.createElement('div');
                                                 Div.id = `TEMPCODEBLOCK${instanceCount}`;
                                                 Div.style.position = 'absolute';
@@ -618,277 +1029,25 @@ export default class main {
                                                     //svg.setAttribute('viewBox', `0 0 ${codeBlockWidth} ${codeBlockHeight}`);
                                                     svg.children[i].setAttribute('viewBox', `0 0 ${codeBlockWidth[i]} ${codeBlockHeight[i]}`);
                                                 }
-                                                return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${document.AI_INTEGRATION.AllCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;
+                                                chunkDataForThisInstance.renderedHTML = svg.outerHTML;
+                                                return `<div class="codeChunkOverlay"><div class="insert_button_parent"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 insert_button" uniqueid="${session.allCodeChunksEverAdded.length}"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg></div><div class="codeChunkOverlay_child"><div id="CODEBLOCK_${randomId}_${instanceCount}">${svg.outerHTML}</div></div></div>`;
                                             });
 
-                                            document.getElementById('currentlyBlabberingOnThis').innerHTML = editedStreamResult;
-                                            for (let i = 0; i <= instanceCount; i++) { // each code block
-                                                try {
-                                                    if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error") {
-                                                        document.getElementById('currentlyBlabberingOnThis').id = '';
-                                                        console.warn("DEBUG: skipping codeblock #" + instanceCount + " due to status failure", document.AI_INTEGRATION.processedCodeChunks[instanceCount])
-                                                        return;
-                                                    } else if (document.AI_INTEGRATION.processedCodeChunks[instanceCount].status == "error_fixable") {
-                                                        var div = document.createElement('div');
-                                                        div.innerHTML = `<p style="text-align: center;">A fatal issue was detected with this code</p><div style="display: flex;margin: 10px;"></div>`;
-                                                        var button = document.createElement('button');
-                                                        button.innerHTML = "Attempt to Repair";
-                                                        button.style = "margin-left:auto;margin-right: auto;background-color: transparent;border: 1px solid var(--ui-tertiary);padding: 5px 10px;border-radius: 5px;";
-                                                        button.addEventListener('click', (e) => {
-                                                            button.innerHTML = "Attempting to Repair...";
-                                                            button.disabled = true;
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            //create new message
-                                                            var userMessage = document.createElement('div');
-                                                            userMessage.className = 'user-message';
-                                                            userMessage.innerHTML = `
-                                                                <div class="message">
-                                                                    <span>Attempting to repair code block</span>
-                                                                    <span>
-                                                                        <div class="FileAttachment">
-                                                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="svg">
-                                                                                <path d="M2 7V14.7519H4.53246L5.9122 16.0909H8.12402L9.50376 14.7519H22V7H9.50376L8.12402 8.33905H5.9122L4.53246 7H2Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentcolor"></path>
-                                                                            </svg>
-                                                                            <p class="p">Error Logs</p>
-                                                                        </div>
-                                                                    </span>
-                                                                </div>    
-                                                            `;
-                                                            document.getElementById('chat_content').appendChild(userMessage);
-                                                            requestChat(document.AI_INTEGRATION.processedCodeChunks[instanceCount].errorLog);
-                                                        });
-                                                        div.children[1].appendChild(button);
-                                                        document.getElementById(`errorFixable_${randomId}_${i}`).appendChild(div);
-                                                    }
-                                                    let currentWidth = 150;
-                                                    for (var xx = 0; xx < document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children.length; xx++) { //each top level block
-                                                        if (document.getElementById("popupParentDiv").style.display != "flex") {
-                                                            document.getElementById("popupParentDiv").style.display = 'flex';
-                                                            document.getElementById("popupParentDiv").style.zIndex = 509;
-                                                        }
-
-                                                        const currentElement = document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0].children[xx];
-                                                        currentElement.style.width = (currentElement.getBoundingClientRect().width * (currentWidth / currentElement.children[1].children[0].getBoundingClientRect().width)) + "px";
-
-                                                        //THE SMARTED/MOST INSANE CODE THAT WORKS IN THE HISTORY OF JS
-                                                        const currentText = currentElement.querySelector("text");
-                                                        const oldText = currentText.innerHTML;
-                                                        currentText.innerHTML = "a";
-
-                                                        var currentHeight = currentText.getBoundingClientRect().height;
-                                                        //console.log(currentText);
-                                                        while (currentHeight > 16 && currentWidth > 5) {
-                                                            //console.log("minimizing","currentWidth", currentWidth, "currentHeight", currentHeight);
-                                                            currentWidth -= 5;
-                                                            currentElement.style.width = (currentElement.getBoundingClientRect().width * (currentWidth / currentElement.children[1].children[0].getBoundingClientRect().width)) + "px";
-                                                            currentHeight = currentText.getBoundingClientRect().height;
-                                                        }
-                                                        while (Math.round(currentHeight) < 16 && currentWidth > 5) {
-                                                            //console.log("maximizing","currentWidth", currentWidth, "currentHeight", currentHeight);
-                                                            currentWidth += 1;
-                                                            currentElement.style.width = (currentElement.getBoundingClientRect().width * (currentWidth / currentElement.children[1].children[0].getBoundingClientRect().width)) + "px";
-                                                            currentHeight = currentText.getBoundingClientRect().height;
-                                                        }
-                                                        currentText.innerHTML = oldText;
-                                                    }
-                                                    const currentElement = document.getElementById(`CODEBLOCK_${randomId}_${i}`).children[0];
-                                                    //currentElement.parentElement.parentElement.style = "border: 1px solid var(--ui-tertiary);padding: 5px;padding-top: 10px;margin-bottom: 5px;margin-top: 5px;border-radius: 6px;overflow: auto;";
-                                                    currentElement.parentElement.parentElement.parentElement.children[0].children[0].addEventListener("click", function () {
-                                                        const element = this;
-                                                        function callback() {
-                                                            /*if (this.getAttribute("allowRender") == "false") {
-                                                              return;
-                                                            }*/
-                                                            var workspace = main.mainWorkspace;
-                                                            var xml = Blockly.Xml.textToDom(document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].BlocksAsXML);
-                                                            //add the variables and lists that don't overlap
-                                                            var [listNames, variableNames, broadcastNames] = helpers.workspaceVariables(true, main.mainWorkspace);
-                                                            for (var name of document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].variables) {
-                                                                if (!variableNames.includes(name)) {
-                                                                    main.mainWorkspace.createVariable(name, "", null);
-                                                                }
-                                                            }
-                                                            for (var name of document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].lists) {
-                                                                if (!listNames.includes(name)) {
-                                                                    main.mainWorkspace.createVariable(name, "list", null);
-                                                                }
-                                                            }
-                                                            for (var name of document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].broadcasts) {
-                                                                if (!broadcastNames.includes(name)) {
-                                                                    main.mainWorkspace.createVariable(name, "broadcast_msg", null);
-                                                                }
-                                                            }
-                                                            if (replacingBlocksInternal.length > 0) {
-                                                                main.mainWorkspace.getAllBlocks().forEach(block => {
-                                                                    if (block.type == "procedures_definition") {
-                                                                        if (replacingBlocksInternal.includes(block.id)) {
-                                                                            console.log("disposing block", block);
-                                                                            block.dispose();
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }
-
-                                                            var totalWidth = 0;
-                                                            //Blockly.Xml.domToWorkspace(xml, workspace);
-                                                            Array.from(xml.children).forEach(block => {
-                                                                const newBlock = ScratchBlocks.Xml.domToBlock(block, workspace);
-                                                                const x = workspace.scrollX + totalWidth || 0;
-                                                                const y = workspace.scrollY || 0;
-                                                                try {
-                                                                    newBlock.moveBy(x, y);
-                                                                } catch (e) {
-                                                                    console.error("failed to move block", e);
-                                                                }
-                                                                totalWidth += (newBlock.getBoundingRectangle().bottomRight.x - newBlock.getBoundingRectangle().topLeft.x) + 20;
-                                                            });
-                                                            main.mainWorkspace.refreshToolboxSelection_();
-                                                            /*const newBlock = ScratchBlocks.Xml.domToBlock(xml, workspace);
-                                                            const x = workspace.scrollX || 0;
-                                                            const y = workspace.scrollY || 0;
-                                                            newBlock.moveBy(x, y);*/
-                                                        }
-                                                        var message = `<p style="font-weight: 900;margin-bottom: 10px;">Adding this code will:</p><ul>`;
-
-                                                        var [listNames, variableNames] = helpers.workspaceVariables(false, main.mainWorkspace);
-                                                        var newVariables = [];
-                                                        var newLists = [];
-                                                        var existingVariables = [];
-                                                        var existingLists = [];
-                                                        for (var name of document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].variables) {
-                                                            if (!variableNames.includes(name)) {
-                                                                newVariables.push(name);
-                                                            } else {
-                                                                existingVariables.push(name);
-                                                            }
-                                                        }
-                                                        for (var name of document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].lists) {
-                                                            if (!listNames.includes(name)) {
-                                                                newLists.push(name);
-                                                            } else {
-                                                                existingLists.push(name);
-                                                            }
-                                                        }
-                                                        if (newVariables.length > 0) {
-                                                            message += `<li>Create ${newVariables.length} new ${newVariables.length == 1 ? "variable" : "variables"}: "${newVariables.join('", "')}"</li>`;
-                                                        }
-                                                        if (newLists.length > 0) {
-                                                            message += `<li>Create ${newLists.length} new ${newLists.length == 1 ? "list" : "lists"}: "${newLists.join('", "')}"</li>`;
-                                                        }
-                                                        if (existingVariables.length > 0) {
-                                                            message += `<li>Use ${existingVariables.length} existing ${existingVariables.length == 1 ? "variable" : "variables"}: "${existingVariables.join('", "')}"</li>`;
-                                                        }
-                                                        if (existingLists.length > 0) {
-                                                            message += `<li>Use ${existingLists.length} existing ${existingLists.length == 1 ? "list" : "lists"}: "${existingLists.join('", "')}"</li>`;
-                                                        }
-                                                        var currentWorkspaceBlocks = helpers.getCustomBlockNames(Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(main.mainWorkspace)));
-                                                        var newBlocks = helpers.getCustomBlockNames(document.AI_INTEGRATION.AllCodeChunksEverAdded[element.getAttribute("uniqueid") - 1].BlocksAsXML);
-                                                        //if their are overlapping ones give a warning
-                                                        var replacingBlocks = [];
-                                                        var replacingBlocksInternal = [];
-                                                        var trulyNewBlocks = [];
-
-                                                        for (var block of newBlocks) {
-                                                            var matchingBlock = currentWorkspaceBlocks.find(currentBlock => currentBlock.customBlockName === block.customBlockName);
-                                                            if (matchingBlock) {
-                                                                replacingBlocks.push("\"" + block.customBlockName.replaceAll("%s", "").replaceAll("%b", "").replaceAll("%n", "").trim() + "\"");
-                                                                replacingBlocksInternal.push(matchingBlock.blockId);
-                                                            } else {
-                                                                trulyNewBlocks.push("\"" + block.customBlockName.replaceAll("%s", "").replaceAll("%b", "").replaceAll("%n", "").trim() + "\"");
-                                                            }
-                                                        }
-                                                        // List truly new blocks
-                                                        if (trulyNewBlocks.length > 0) {
-                                                            message += `<li>Create ${trulyNewBlocks.length} new block${trulyNewBlocks.length == 1 ? "" : "s"}: ${trulyNewBlocks.join(", ")}</li>`;
-                                                        }
-
-                                                        // List blocks that are being replaced
-                                                        if (replacingBlocks.length > 0) {
-                                                            message += `<li>Replace ${replacingBlocks.length} existing block${replacingBlocks.length == 1 ? "" : "s"}: ${replacingBlocks.join(", ")} <span><p class="errorMessage">(THIS WILL REPLACE YOUR CURRENT BLOCK DEFINITION)</p></span></li>`;
-                                                        }
-                                                        if (message === `<p style="font-weight: 900;margin-bottom: 10px;">Adding this code will:</p><ul>`) {
-                                                            message = `<p>This code does not create/use any variables or lists.</p>`;
-                                                        } else {
-                                                            message += `</ul>`;
-                                                        }
-                                                        const title = "Add Code to Workspace?";
-                                                        ScratchBlocks.prompt(message, null, callback, title, ScratchBlocks.BROADCAST_MESSAGE_VARIABLE_TYPE, true);
-                                                    });
-
-                                                    var errorForChunk = [];
-                                                    for (var xx = 0; xx < document.AI_INTEGRATION.errorsDetected.length; xx++) {
-                                                        if (document.AI_INTEGRATION.errorsDetected[xx].uniqueCommentID == currentElement.parentElement.id.replace("CODEBLOCK_", "")) {
-                                                            errorForChunk.push(document.AI_INTEGRATION.errorsDetected[xx]);
-                                                        }
-                                                    }
-
-                                                    if (errorForChunk.length == 0) {
-                                                        currentElement.parentElement.style = "width: fit-content;height: fit-content;margin: auto;";
-                                                    } else {
-                                                        console.log(errorForChunk);
-                                                        var div = document.createElement('div');
-                                                        div.innerHTML = `<p style="text-align: center;">A non-fatal issue was detected with this code</p><div style="display: flex;margin: 10px;"></div>`;
-                                                        var button = document.createElement('button');
-                                                        var button2 = document.createElement('button');
-                                                        button.style = "margin-left: auto;margin-right: 10px;background-color: transparent;border: 1px solid var(--ui-tertiary);padding: 5px 10px;border-radius: 5px;";
-                                                        button.innerText = "Render Anyways";
-                                                        button.addEventListener("click", function (e) {
-                                                            button.disabled = true;
-                                                            button2.disabled = true;
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            currentElement.parentElement.style = "width: fit-content;height: fit-content;margin: auto;";
-                                                            //currentElement.parentElement.parentElement.setAttribute("allowRender", "true");
-                                                            currentElement.parentElement.parentElement.parentElement.children[0].style.display = "";
-                                                            div.remove();
-                                                        });
-                                                        div.children[1].appendChild(button);
-                                                        button2.style = "margin-right: auto;background-color: transparent;border: 1px solid var(--ui-tertiary);padding: 5px 10px;border-radius: 5px;";
-                                                        button2.innerText = "Attempt to Repair";
-                                                        button2.addEventListener("click", function (e) {
-                                                            button.disabled = true;
-                                                            button2.disabled = true;
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            //create new message
-                                                            var userMessage = document.createElement('div');
-                                                            userMessage.className = 'user-message';
-                                                            userMessage.innerHTML = `
-                                                                      <div class="message">
-                                                                        <span>Attempting to repair code block</span>
-                                                                          <span>
-                                                                              <div class="FileAttachment">
-                                                                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="svg">
-                                                                                      <path d="M2 7V14.7519H4.53246L5.9122 16.0909H8.12402L9.50376 14.7519H22V7H9.50376L8.12402 8.33905H5.9122L4.53246 7H2Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentcolor"></path>
-                                                                                  </svg>
-                                                                                  <p class="p">Error Logs</p>
-                                                                              </div>
-                                                                          </span>
-                                                                      </div>    
-                                                                  `;
-                                                            document.getElementById('chat_content').appendChild(userMessage);
-                                                            requestChat("the following errors occured while trying to parse the code (attempt to fix them):" + errorForChunk.map(error => error.error || "Unknown error").join("\n"));
-                                                        });
-                                                        div.children[1].appendChild(button2);
-                                                        currentElement.parentElement.style = "width: 0px; height: 0px; display: none;";
-                                                        currentElement.parentElement.parentElement.appendChild(div);
-                                                        currentElement.parentElement.parentElement.parentElement.children[0].style.display = "none";
-                                                        //currentElement.parentElement.parentElement.parentElement.children[0].children[0].setAttribute("allowRender", "false");
-                                                    }
-                                                } catch (e) {
-                                                    console.log(e);
-                                                }
+                                            const blabberingElement = document.getElementById(messageId);
+                                            if (blabberingElement) {
+                                              blabberingElement.innerHTML = editedStreamResult;
+                                              main.attachInsertButtonListeners(blabberingElement);
+                                              blabberingElement.className = 'message';
+                                              blabberingElement.id = '';
                                             }
-                                            document.getElementById('currentlyBlabberingOnThis').className = 'message';
-                                            document.getElementById('currentlyBlabberingOnThis').id = '';
-                                        }
-                                        processAndRenderCodeChunks();
-                                        //edittedStreamResult = edittedStreamResult.replace(/CODEBLOCK{(.*?)}/gs, (match, p1) => `<div>CHANGE THIS IN FUTURE</div>`);
+                                        } 
+                                        await processAndRenderCodeChunks(); 
+                                        document.AI_INTEGRATION.updateAndSaveSession(session); 
                                         return;
 
                                     }
-                                    document.getElementById('currentlyBlabberingOnThis').className = 'message';
+                                    const blabberingElement = document.getElementById(messageId);
+                                    if (blabberingElement) blabberingElement.className = 'message';
                                     // Decode the chunk and append to the stream result
                                     streamResult += decoder.decode(value, { stream: true });
 
@@ -898,12 +1057,14 @@ export default class main {
                                         var edittedStreamResult = streamResult.replace(/```(.*?)```/gs, () => `<div class="codeChunkOverlay"><p>Currently Processing Code Block</p></div>`);
                                         edittedStreamResult = edittedStreamResult.replace(/```[\s\S]*$/, "<div><p class=\"" + animatedTextClass + "\">currently writing a code block</p><p id=\"chunkNumber\">(Recieved " + chunkNumber + " chunk)</p></div>");
                                         edittedStreamResult = converter.makeHtml(edittedStreamResult);
-                                        document.getElementById('currentlyBlabberingOnThis').innerHTML = edittedStreamResult;
-                                        document.getElementById('chat_content').scrollTop = document.getElementById('chat_content').scrollHeight;
+                                        if (blabberingElement) {
+                                            blabberingElement.innerHTML = edittedStreamResult;
+                                            sessionPane.scrollTop = sessionPane.scrollHeight;
+                                        }
                                         reader.read().then(processText);
                                     }
-                                    if ((streamResult.match(/```/g) || []).length % 2 == 1) { //fixed animation resetting bug
-                                        if (document.getElementById('currentlyBlabberingOnThis').innerHTML.includes("<p class=\"" + animatedTextClass + "\">currently writing a code block</p>")) {
+                                    if (blabberingElement && (streamResult.match(/```/g) || []).length % 2 == 1) { //fixed animation resetting bug
+                                        if (blabberingElement.innerHTML.includes("<p class=\"" + animatedTextClass + "\">currently writing a code block</p>")) {
                                             chunkNumber++;
                                             document.getElementById("chunkNumber").innerText = `(Received ${chunkNumber} chunks for this code block)`;
                                             reader.read().then(processText);
@@ -916,19 +1077,43 @@ export default class main {
                                 })
                                 .catch(error => {
                                     console.error("Error reading:", error);
-                                    helpers.messageErrorOccured(messageContents);
+                                    helpers.messageErrorOccured(messageForHistory, session);
+                                    const loadingDotsEl = document.getElementById(`loading-dots-${session.id}`);
+                                    if (loadingDotsEl) loadingDotsEl.remove();
+                                    const errorEl = document.getElementById(messageId);
+                                    if (errorEl) {
+                                        errorEl.innerHTML = `<h1 class="errorMessage">Error reading response</h1>`;
+                                        errorEl.className = 'message';
+                                        errorEl.id = '';
+                                    }
                                 });
                         } else {
                             console.error('Error:', response.statusText);
-                            helpers.messageErrorOccured(messageContents);
+                            helpers.messageErrorOccured(messageForHistory, session);
+                            const loadingDotsEl = document.getElementById(`loading-dots-${session.id}`);
+                            if (loadingDotsEl) loadingDotsEl.remove();
+                             const errorEl = document.getElementById(messageId);
+                             if (errorEl) {
+                                errorEl.innerHTML = `<h1 class="errorMessage">Error reading response</h1>`;
+                                errorEl.className = 'message';
+                                errorEl.id = '';
+                            }
                         }
                     })
                     .catch(error => {
                         console.error('Request failed', error);
-                        helpers.messageErrorOccured(messageContents);
+                        helpers.messageErrorOccured(messageForHistory, session);
+                        const loadingDotsEl = document.getElementById(`loading-dots-${session.id}`);
+                        if (loadingDotsEl) loadingDotsEl.remove();
+                        const errorEl = document.getElementById(messageId);
+                        if (errorEl) {
+                            errorEl.innerHTML = `<h1 class="errorMessage">Error reading response</h1>`;
+                            errorEl.className = 'message';
+                            errorEl.id = '';
+                        }
                     });
             }
-            requestChat(messageContents);
+            requestChat(userMessageFinal, contextString, requestingSession, attachmentInfo);
         }
     }
 }

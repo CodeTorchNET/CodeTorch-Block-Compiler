@@ -96,26 +96,13 @@ export default class helpers {
         document.getElementById('Context_Selector_select').children[0].disabled = true;
         document.getElementById('Context_Selector_select').children.innerText = "Code Chunk";
     }
-    static messageErrorOccured(messageContents) {
-        document.AI_INTEGRATION.chatHistory.push({ "role": "user", "message": messageContents });
-        //document.AI_INTEGRATION.chatHistory.push({ "role": "assistant", "message": "Error reading response" }); //not sure if the AI needs to know that it failed
-
-        helpers.disableCodeChunkAttachment();
-
-        document.AI_INTEGRATION.AI_currently_blabbering = false;
-        if (document.getElementById('currentlyBlabberingOnThis') != null) {
-            document.getElementById('currentlyBlabberingOnThis').innerHTML = "<h1 class=\"errorMessage\">Error reading response</h1>";
-            document.getElementById('currentlyBlabberingOnThis').className = 'message';
-        } else {
-            document.getElementById('AI_is_thinking_what_to_blabber').remove();
-            if (document.getElementById("currentlyBlabberingOnThis") != null) { //fixes a glitch
-                document.getElementById("currentlyBlabberingOnThis").remove();
-            }
-            var aiMessage = document.createElement('div');
-            aiMessage.className = 'ai-message';
-            aiMessage.innerHTML = `<p class="message" id="currentlyBlabberingOnThis" class=\"errorMessage\">Error reading response</p>`;
-            document.getElementById('chat_content').appendChild(aiMessage);
+    static messageErrorOccured(messageContents, session) {
+        if (!session) {
+            console.error("messageErrorOccured called without a session.");
+            return;
         }
+        session.chatHistory.push({ "role": "user", "message": messageContents });
+        session.isBlabbering = false;
     }
 
     static isFirstRequest = true;
