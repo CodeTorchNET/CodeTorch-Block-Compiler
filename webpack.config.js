@@ -192,7 +192,7 @@ module.exports = [
                 'process.env.API_HOST': JSON.stringify(process.env.API_HOST || 'https://api.codetorch.net'),
                 'process.env.ASSET_HOST': JSON.stringify(process.env.ASSET_HOST || 'https://assets.codetorch.net'),
                 'process.env.EXTENSION_HOST': JSON.stringify(process.env.EXTENSION_HOST || 'https://blockextensions.codetorch.net'),
-                'process.env.DEFAULT_CLOUD_HOST': JSON.stringify(process.env.DEFAULT_CLOUD_HOST || 'wss://cloud.codetorch.org'),
+                'process.env.DEFAULT_CLOUD_HOST': JSON.stringify(process.env.DEFAULT_CLOUD_HOST || 'wss://cloudserver.codetorch.net'),
                 'process.env.TRUSTED_IFRAME_HOST': JSON.stringify(process.env.TRUSTED_IFRAME_HOST || 'https://codetorch.net'),
                 'process.env.FORCE_EMBED': JSON.stringify(process.env.FORCE_EMBED || 'true'),
                 'process.env.COLLABORATION_HOST': JSON.stringify(process.env.COLLABORATION_HOST || 'wss://collaborator.codetorch.net/'),
