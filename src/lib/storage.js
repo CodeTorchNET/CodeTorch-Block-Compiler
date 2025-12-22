@@ -66,7 +66,7 @@ class Storage extends ScratchStorage {
 
         window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
 
-        const jwt = await new Promise(resolve => {
+        const creds = await new Promise(resolve => {
             // eslint-disable-next-line require-jsdoc, func-style
             function handleMessage (event) {
                 if (event.origin !== trustedOrigin) {
@@ -76,16 +76,19 @@ class Storage extends ScratchStorage {
 
                 if (event.data?.type === 'JWT_AUTH CREDS' && event.data?.token) {
                     window.removeEventListener('message', handleMessage);
-                    resolve(event.data.token);
+                    resolve({
+                        token: event.data.token,
+                        username: event.data.username || ''
+                    });
                 }
             }
 
             window.addEventListener('message', handleMessage);
         });
 
-        console.log('Received JWT:', jwt);
-        this.projectToken = jwt;
-        return jwt;
+        this.projectToken = creds.token;
+        this.username = creds.username;
+        return creds;
     }
     async getProjectToken () {
         if (!this.projectToken) {

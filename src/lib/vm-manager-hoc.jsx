@@ -7,6 +7,7 @@ import VM from 'scratch-vm';
 import AudioEngine from 'scratch-audio';
 
 import {setProjectUnchanged} from '../reducers/project-changed';
+import {setUsername} from '../reducers/tw';
 import {
     LoadingStates,
     getIsLoadingWithId,
@@ -88,6 +89,9 @@ const vmManagerHOC = function (WrappedComponent) {
                         canRecieveAchievement: !this.props.hasEverEnteredEditor,
                         canSave: this.props.canSave
                     };
+                    const username = storage.username || '';
+                    this.props.onSetUsername(username);
+
                     this.props.vm.loadProject(this.props.projectData, additionalData)
                         .then(() => {
                             this.props.onLoadedProject(this.props.loadingState, this.props.canSave);
@@ -158,7 +162,8 @@ const vmManagerHOC = function (WrappedComponent) {
         projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         username: PropTypes.string,
         vm: PropTypes.instanceOf(VM).isRequired,
-        hasEverEnteredEditor: PropTypes.bool
+        hasEverEnteredEditor: PropTypes.bool,
+        onSetUsername: PropTypes.func
     };
 
     const mapStateToProps = state => {
@@ -181,7 +186,8 @@ const vmManagerHOC = function (WrappedComponent) {
         onError: error => dispatch(projectError(error)),
         onLoadedProject: (loadingState, canSave) =>
             dispatch(onLoadedProject(loadingState, canSave, true)),
-        onSetProjectUnchanged: () => dispatch(setProjectUnchanged())
+        onSetProjectUnchanged: () => dispatch(setProjectUnchanged()),
+        onSetUsername: username => dispatch(setUsername(username))
     });
 
     // Allow incoming props to override redux-provided props. Used to mock in tests.

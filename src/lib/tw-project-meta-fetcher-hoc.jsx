@@ -8,7 +8,7 @@ import log from './log';
 const {API_HOST} = require('./brand');
 
 import {setProjectTitle} from '../reducers/project-title';
-import {setAuthor, setDescription, setUsername} from '../reducers/tw';
+import {setAuthor, setDescription} from '../reducers/tw';
 
 import storage from './storage';
 
@@ -88,11 +88,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         if (title) {
                             this.props.onSetProjectTitle(title);
                         }
-                        const username = data.username;
-                        if (username) {
-                            this.props.onSetUsername(username);
-                            this.setState({canUseCloud: true});
-                        }
+
                         const authorName = data.author.username;
                         const authorThumbnail = data.author.PFP;
                         this.props.onSetAuthor(authorName, authorThumbnail);
@@ -103,7 +99,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         }
 
                         this.setState({canSave: data.canSave === 'true'});
-                        // this.setState({canEditTitle: true}); // if you can save, you can edit title (it doesn't work the prop isn't passed down)
+                        // if you can save, you can edit title (it doesn't work the prop isn't passed down)
+                        // this.setState({canEditTitle: true});
                         this.setState({canRemix: data.canRemix === 'true'});
                         storage.setCloudOTT(data?.cloudDataOTT);
                         storage.setCustomAchievements(data?.customAchievements);
@@ -129,7 +126,6 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 onSetAuthor,
                 onSetDescription,
                 onSetProjectTitle,
-                onSetUsername,
                 /* eslint-enable no-unused-vars */
                 ...props
             } = this.props;
@@ -147,8 +143,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         reduxProjectId: PropTypes.string,
         onSetAuthor: PropTypes.func,
         onSetDescription: PropTypes.func,
-        onSetProjectTitle: PropTypes.func,
-        onSetUsername: PropTypes.func
+        onSetProjectTitle: PropTypes.func
     };
     const mapStateToProps = state => ({
         reduxProjectId: state.scratchGui.projectState.projectId
@@ -162,8 +157,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             instructions,
             credits
         })),
-        onSetProjectTitle: title => dispatch(setProjectTitle(title)),
-        onSetUsername: username => dispatch(setUsername(username))
+        onSetProjectTitle: title => dispatch(setProjectTitle(title))
     });
     return connect(
         mapStateToProps,
