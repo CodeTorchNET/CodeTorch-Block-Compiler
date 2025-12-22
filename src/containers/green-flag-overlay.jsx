@@ -10,7 +10,7 @@ import Box from '../components/box/box.jsx';
 import greenFlag from '../components/green-flag/icon--green-flag.svg';
 import {setStartedState} from '../reducers/vm-status.js';
 import {FormattedMessage} from 'react-intl';
-import ProjectAnalyticsHOC from '../lib/project-analytics-hoc.jsx'; // Import HOC
+import ProjectAnalyticsHOC from '../lib/project-analytics-hoc.jsx';
 
 import styles from '../components/stage/stage.css';
 
@@ -37,31 +37,50 @@ class GreenFlagOverlay extends React.Component {
     render () {
         // Check if project has cloud vars and user is generic 'player' or empty string (not logged in)
         const isGuest = !this.props.username || this.props.username === 'player';
-        const showCloudWarning = this.props.hasCloudVariables && isGuest;
+        
+        const showScratchCloudWarning = this.props.hasCloudVariables && this.props.isScratchProject;
+        const showGuestCloudWarning = !showScratchCloudWarning && this.props.hasCloudVariables && isGuest;
+
+        const anyWarning = showScratchCloudWarning || showGuestCloudWarning;
 
         return (
             <Box
                 className={classNames(
                     this.props.wrapperClass,
-                    {[styles.greenFlagOverlayWithWarning]: showCloudWarning}
+                    {[styles.greenFlagOverlayWithWarning]: anyWarning}
                 )}
                 onClick={this.handleClick}
             >
-                {showCloudWarning && (
+                {anyWarning && (
                     <div className={styles.cloudWarningContent}>
                         <div className={styles.cloudWarningText}>
                             <span className={styles.cloudWarningTextRed}>
-                                <FormattedMessage
-                                    defaultMessage="Multiplayer Features: "
-                                    id="gui.greenFlagOverlay.cloudTitle"
-                                />
+                                {showScratchCloudWarning ? (
+                                    <FormattedMessage
+                                        defaultMessage="Scratch Preview: "
+                                        id="gui.greenFlagOverlay.scratchCloudTitle"
+                                    />
+                                ) : (
+                                    <FormattedMessage
+                                        defaultMessage="Multiplayer Features: "
+                                        id="gui.greenFlagOverlay.cloudTitle"
+                                    />
+                                )}
                             </span>
                             <span>
-                                <FormattedMessage
-                                    // eslint-disable-next-line max-len
-                                    defaultMessage="This project uses cloud variables. To play online or interact with others, you must log in."
-                                    id="gui.greenFlagOverlay.cloudWarning"
-                                />
+                                {showScratchCloudWarning ? (
+                                    <FormattedMessage
+                                        // eslint-disable-next-line max-len
+                                        defaultMessage="Cloud variables do not work for Scratch Preview Projects. Please remix this project to use multiplayer features."
+                                        id="gui.greenFlagOverlay.scratchCloudWarning"
+                                    />
+                                ) : (
+                                    <FormattedMessage
+                                        // eslint-disable-next-line max-len
+                                        defaultMessage="This project uses cloud variables. To play online or interact with others, you must log in."
+                                        id="gui.greenFlagOverlay.cloudWarning"
+                                    />
+                                )}
                             </span>
                         </div>
                     </div>
@@ -84,6 +103,7 @@ GreenFlagOverlay.propTypes = {
     wrapperClass: PropTypes.string,
     onStarted: PropTypes.func,
     hasCloudVariables: PropTypes.bool,
+    isScratchProject: PropTypes.bool,
     username: PropTypes.string,
     onGreenFlagClickAnalytics: PropTypes.func.isRequired
 };
@@ -91,6 +111,7 @@ GreenFlagOverlay.propTypes = {
 const mapStateToProps = state => ({
     vm: state.scratchGui.vm,
     hasCloudVariables: state.scratchGui.tw.hasCloudVariables,
+    isScratchProject: state.scratchGui.projectState.isScratchProject,
     username: state.scratchGui.tw.username,
     projectRunning: state.scratchGui.vmStatus.running
 });

@@ -83,7 +83,8 @@ const cloudManagerHOC = function (WrappedComponent) {
                 props.vm &&
                 props.projectId &&
                 props.hasCloudPermission &&
-                !props.cloudVariablesDisabledByUser
+                !props.cloudVariablesDisabledByUser &&
+                !props.isScratchProject // disable for scratch preview projects
             );
         }
         shouldConnect (props) {
@@ -201,6 +202,7 @@ const cloudManagerHOC = function (WrappedComponent) {
             cloudVariablesDisabledByUser: !state.scratchGui.tw.cloud,
             isShowingWithId: getIsShowingWithId(loadingState),
             projectId: state.scratchGui.projectState.projectId,
+            isScratchProject: state.scratchGui.projectState.isScratchProject,
             // if you're editing someone else's project, you can't modify cloud data
             canModifyCloudData: (!state.scratchGui.mode.hasEverEnteredEditor || ownProps.canSave) &&
                 // possible security concern if the program attempts to encode webcam data over cloud variables
