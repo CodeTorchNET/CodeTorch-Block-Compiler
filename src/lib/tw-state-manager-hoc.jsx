@@ -53,15 +53,29 @@ const setLocalStorage = (key, value) => {
 
 const readHashProjectId = () => {
     if (location.pathname === '/projects/editor'){
-        return '0';
+        return {id: '0', isScratch: false};
     }
     try {
-        return location.pathname.split('/projects/')[1].split('/editor')[0].split('/fullscreen')[0].replaceAll('/', '');
-    } catch (e){
-        const match = location.hash.match(/#(\d+)/);
-        return match === null ? null : match[1];
+        const pathId = location.pathname.split('/projects/')[1]
+            .split('/editor')[0]
+            .split('/fullscreen')[0]
+            .replaceAll('/', '');
+        if (pathId) return {id: pathId, isScratch: false};
+    } catch (e) {
+        // do nothing
     }
     
+    const scratchMatch = location.hash.match(/#scratch:(\d+)/);
+    if (scratchMatch) {
+        return {id: scratchMatch[1], isScratch: true};
+    }
+    
+    const normalMatch = location.hash.match(/#(\d+)/);
+    if (normalMatch) {
+        return {id: normalMatch[1], isScratch: false};
+    }
+    
+    return null;
 };
 
 const shouldRemix = () => {
@@ -92,7 +106,12 @@ class Router {
 
 class HashRouter extends Router {
     onhashchange () {
-        this.onSetProjectId(readHashProjectId() || defaultProjectId);
+        const hashData = readHashProjectId();
+        if (hashData) {
+            this.onSetProjectId(hashData.id, hashData.isScratch);
+        } else {
+            this.onSetProjectId(defaultProjectId, false);
+        }
     }
 
     generateURL ({projectId}) {
@@ -490,7 +509,7 @@ const TWStateManager = function (WrappedComponent) {
         handlePopState () {
             this.router.onpathchange();
         }
-        onSetProjectId (id) {
+        onSetProjectId (id, isScratch = false) {
             if (`${id}` === `${this.props.reduxProjectId}`) {
                 return true;
             }
@@ -499,7 +518,7 @@ const TWStateManager = function (WrappedComponent) {
                     return false;
                 }
             }
-            this.props.onSetProjectId(id);
+            this.props.onSetProjectId(id, isScratch);
             return true;
         }
         onSetIsPlayerOnly (isPlayerOnly) {
@@ -601,7 +620,7 @@ const TWStateManager = function (WrappedComponent) {
     const mapDispatchToProps = dispatch => ({
         onSetIsFullScreen: isFullScreen => dispatch(setFullScreen(isFullScreen)),
         onSetIsPlayerOnly: isPlayerOnly => dispatch(setPlayer(isPlayerOnly)),
-        onSetProjectId: projectId => dispatch(setProjectId(projectId)),
+        onSetProjectId: (projectId, isScratch) => dispatch(setProjectId(projectId, isScratch)),
         onSetUsername: username => dispatch(setUsername(username)),
         handleRemix: () => dispatch(remixProject())
     });

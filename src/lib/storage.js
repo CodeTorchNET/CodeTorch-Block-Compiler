@@ -43,6 +43,9 @@ class Storage extends ScratchStorage {
     setProjectToken (projectToken) {
         this.projectToken = projectToken;
     }
+    setScratchProjectToken (projectToken) {
+        this.scratchProjectToken = projectToken;
+    }
     getTrustedHost (inputUrl){
         const url = new URL(inputUrl);
         const parts = url.hostname.split('.');
@@ -98,6 +101,9 @@ class Storage extends ScratchStorage {
     }
     getProjectGetConfig (projectAsset) {
         const path = `${this.projectHost}/${projectAsset.assetId}`;
+        if (this.scratchProjectToken) {
+            return `${path}?token=${this.scratchProjectToken}`;
+        }
         return path;
     }
     getProjectCreateConfig () {

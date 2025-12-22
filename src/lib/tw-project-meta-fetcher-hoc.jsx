@@ -4,29 +4,57 @@ import {connect} from 'react-redux';
 import log from './log';
 
 // eslint-disable-next-line import/no-commonjs
-const {API_HOST} = require('./brand');
+const {API_HOST, ASSET_HOST} = require('./brand');
 
 import {setProjectTitle} from '../reducers/project-title';
 import {setAuthor, setDescription} from '../reducers/tw';
 
 import storage from './storage';
 
-export const fetchProjectMeta = async projectId => {
+/**
+ * Shared promise cache to prevent double-loading metadata
+ * when both HOCs trigger at the same time.
+ * (this is primarily due to Scratch Project Loading)
+ */
+let activeFetchMetadataPromise = null;
+
+export const fetchProjectMeta = async (projectId, isScratch) => {
     const authToken = await storage.getProjectToken();
-    const urls = [
+    let urls = [
         `${API_HOST}/v1/projects/blocks/${projectId}/meta`,
         `${API_HOST}/v1/projects/blocks/${projectId}/meta`
     ];
+    if (isScratch) {
+        urls = [
+            `${ASSET_HOST}/scratch_project_meta/${projectId}`,
+            `${ASSET_HOST}/scratch_project_meta/${projectId}`
+        ];
+    }
     let firstError;
     for (const url of urls) {
         try {
             const res = await fetch(url, {
-                headers: {
+                headers: isScratch ? {} : {
                     Authorization: `Bearer ${authToken}`
-                }});
+                }
+            });
 
             const data = await res.json();
             if (res.ok) {
+                if (isScratch){
+                    storage.setScratchProjectToken(data.project_token); // so we can load actual project JSON file
+                    return {
+                        title: data.title,
+                        author: {
+                            username: data.author.username,
+                            PFP: data.author.profile.images['90x90']
+                        },
+                        instructions: data.instructions,
+                        description: data.description,
+                        canSave: 'false',
+                        canRemix: 'false'
+                    };
+                }
                 return data;
             }
             if (res.status === 404) {
@@ -40,6 +68,20 @@ export const fetchProjectMeta = async projectId => {
         }
     }
     throw firstError;
+};
+
+export const fetchProjectMetaWithCache = (projectId, isScratch) => {
+    if (activeFetchMetadataPromise && activeFetchMetadataPromise.id === projectId) {
+        return activeFetchMetadataPromise.promise;
+    }
+
+    const promise = fetchProjectMeta(projectId, isScratch);
+    activeFetchMetadataPromise = {
+        id: projectId,
+        promise: promise.finally(() => {
+        })
+    };
+    return promise;
 };
 
 const getNoIndexTag = () => document.querySelector('meta[name="robots"][content="noindex"]');
@@ -68,21 +110,22 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 canEditTitle: false
             };
         }
+
         componentDidUpdate (prevProps) {
-            // project title resetting is handled in titled-hoc.jsx
-            if (this.props.reduxProjectId !== prevProps.reduxProjectId) {
+            if (
+                this.props.reduxProjectId !== prevProps.reduxProjectId ||
+                this.props.isScratchProject !== prevProps.isScratchProject
+            ) {
                 this.props.onSetAuthor('', '');
                 this.props.onSetDescription('', '');
                 const projectId = this.props.reduxProjectId;
+                const isScratch = this.props.isScratchProject;
 
                 if (projectId === '0') {
-                    // don't try to get metadata
+                    activeFetchMetadataPromise = null; // Reset cache on new project
                 } else {
-                    fetchProjectMeta(projectId).then(data => {
-                        // If project ID changed, ignore the results.
-                        if (this.props.reduxProjectId !== projectId) {
-                            return;
-                        }
+                    fetchProjectMetaWithCache(projectId, isScratch).then(data => {
+                        if (this.props.reduxProjectId !== projectId) return;
 
                         const title = data.title;
                         if (title) {
@@ -92,6 +135,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         const authorName = data.author.username;
                         const authorThumbnail = data.author.PFP;
                         this.props.onSetAuthor(authorName, authorThumbnail);
+                        
                         const instructions = data.instructions || '';
                         const credits = data.description || '';
                         if (instructions || credits) {
@@ -105,11 +149,15 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                             canEditTitle: canSave // Enable title editing if user has save permissions
                         });
                         
-                        storage.setCloudOTT(data?.cloudDataOTT);
-                        storage.setCustomAchievements(data?.customAchievements);
-                        window.CollaborationRoom = data?.collaboratorRoom;
-                        window.CollaborationUsername = data?.username;
-                        window.collaborationOTT = data?.collaborationOTT;
+                        if (isScratch) {
+                            window.CollaborationRoom = null;
+                        } else {
+                            storage.setCloudOTT(data?.cloudDataOTT);
+                            storage.setCustomAchievements(data?.customAchievements);
+                            window.CollaborationRoom = data?.collaboratorRoom;
+                            window.CollaborationUsername = data?.username;
+                            window.collaborationOTT = data?.collaborationOTT;
+                        }
                         setIndexable(true);
                     })
                         .catch(err => {
@@ -126,6 +174,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             const {
                 /* eslint-disable no-unused-vars */
                 reduxProjectId,
+                isScratchProject,
                 onSetAuthor,
                 onSetDescription,
                 onSetProjectTitle,
@@ -145,12 +194,14 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
     }
     ProjectMetaFetcherComponent.propTypes = {
         reduxProjectId: PropTypes.string,
+        isScratchProject: PropTypes.bool,
         onSetAuthor: PropTypes.func,
         onSetDescription: PropTypes.func,
         onSetProjectTitle: PropTypes.func
     };
     const mapStateToProps = state => ({
-        reduxProjectId: state.scratchGui.projectState.projectId
+        reduxProjectId: state.scratchGui.projectState.projectId,
+        isScratchProject: state.scratchGui.projectState.isScratchProject
     });
     const mapDispatchToProps = dispatch => ({
         onSetAuthor: (username, thumbnail) => dispatch(setAuthor({

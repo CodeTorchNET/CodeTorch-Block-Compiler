@@ -7,6 +7,7 @@ import {connect} from 'react-redux';
 const {API_HOST, ASSET_HOST} = require('./brand');
 
 import {setProjectUnchanged} from '../reducers/project-changed';
+import {fetchProjectMetaWithCache} from './tw-project-meta-fetcher-hoc.jsx';
 import {
     LoadingStates,
     getIsCreatingNew,
@@ -79,7 +80,7 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 storage.setAssetLoadHost(this.props.assetLoadHost);
             }
             if (this.props.isFetchingWithId && !prevProps.isFetchingWithId) {
-                this.fetchProject(this.props.reduxProjectId, this.props.loadingState);
+                this.fetchProject(this.props.reduxProjectId, this.props.loadingState, this.props.isScratchProject);
             }
             if (this.props.isShowingProject && !prevProps.isShowingProject) {
                 this.props.onProjectUnchanged();
@@ -88,7 +89,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 this.props.onActivateTab(BLOCKS_TAB_INDEX);
             }
         }
-        fetchProject (projectId, loadingState) {
+        fetchProject (projectId, loadingState, isScratchProject) {
+            if (isScratchProject){
+                storage.setProjectHost(this.props.scratchProjectHost);
+                storage.setAssetLoadHost(this.props.scratchTrampolineHost);
+            }
             // tw: clear and stop the VM before fetching
             // these will also happen later after the project is fetched, but fetching may take a while and
             // the project shouldn't be running while fetching the new project
@@ -117,8 +122,16 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                         return r.arrayBuffer();
                     })
                     .then(buffer => ({data: buffer}));
+            } else if (isScratchProject) {
+                assetPromise = fetchProjectMetaWithCache(projectId, true)
+                    .then(() =>
+                        storage.load(
+                            storage.AssetType.Project,
+                            projectId,
+                            storage.DataFormat.JSON
+                        )
+                    );
             } else {
-                // TW: Temporary hack for project tokens
                 assetPromise = fetchProjectToken(projectId)
                     .then(token => {
                         storage.setProjectToken(token);
@@ -194,12 +207,15 @@ const ProjectFetcherHOC = function (WrappedComponent) {
     ProjectFetcherComponent.propTypes = {
         assetHost: PropTypes.string,
         assetLoadHost: PropTypes.string,
+        scratchProjectHost: PropTypes.string,
+        scratchTrampolineHost: PropTypes.string,
         canSave: PropTypes.bool,
         intl: intlShape.isRequired,
         isCreatingNew: PropTypes.bool,
         isFetchingWithId: PropTypes.bool,
         isLoadingProject: PropTypes.bool,
         isShowingProject: PropTypes.bool,
+        isScratchProject: PropTypes.bool,
         loadingState: PropTypes.oneOf(LoadingStates),
         onActivateTab: PropTypes.func,
         onError: PropTypes.func,
@@ -215,7 +231,9 @@ const ProjectFetcherHOC = function (WrappedComponent) {
     ProjectFetcherComponent.defaultProps = {
         assetHost: `${API_HOST}/v1/projects/blocks/assets`, // used to upload assets
         assetLoadHost: `${ASSET_HOST}/block_project_assets`, // used to load assets
-        projectHost: `${API_HOST}/v1/projects/blocks`
+        scratchTrampolineHost: `${ASSET_HOST}/scratch_project_assets`, // used to load Scratch projects
+        projectHost: `${API_HOST}/v1/projects/blocks`,
+        scratchProjectHost: `${ASSET_HOST}/scratch_project_json` // used to load Scratch projects
     };
 
     const mapStateToProps = state => ({
@@ -225,6 +243,7 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         isShowingProject: getIsShowingProject(state.scratchGui.projectState.loadingState),
         loadingState: state.scratchGui.projectState.loadingState,
         reduxProjectId: state.scratchGui.projectState.projectId,
+        isScratchProject: state.scratchGui.projectState.isScratchProject,
         vm: state.scratchGui.vm
     });
     const mapDispatchToProps = dispatch => ({
