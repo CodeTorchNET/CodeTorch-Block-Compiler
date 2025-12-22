@@ -54,7 +54,7 @@ const mapStateToProps = state => ({
 
 const mapDispatchToProps = dispatch => ({
     onSubmitDispatch: title => dispatch(setProjectTitle(title)),
-    titleChangedSuccess: () => dispatch(showAlertWithTimeout(dispatch, 'TitleChanged'))
+    titleChangedSuccess: () => showAlertWithTimeout(dispatch, 'TitleChanged')
 });
 
 const mergeProps = (stateProps, dispatchProps, ownProps) => ({

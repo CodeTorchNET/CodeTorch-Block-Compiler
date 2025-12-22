@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
 import log from './log';
 
-
 // eslint-disable-next-line import/no-commonjs
 const {API_HOST} = require('./brand');
 
@@ -65,7 +64,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             this.state = {
                 canSave: false,
                 canRemix: false,
-                canUseCloud: false
+                canUseCloud: false,
+                canEditTitle: false
             };
         }
         componentDidUpdate (prevProps) {
@@ -98,10 +98,13 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                             this.props.onSetDescription(instructions, credits);
                         }
 
-                        this.setState({canSave: data.canSave === 'true'});
-                        // if you can save, you can edit title (it doesn't work the prop isn't passed down)
-                        // this.setState({canEditTitle: true});
-                        this.setState({canRemix: data.canRemix === 'true'});
+                        const canSave = data.canSave === 'true';
+                        this.setState({
+                            canSave: canSave,
+                            canRemix: data.canRemix === 'true',
+                            canEditTitle: canSave // Enable title editing if user has save permissions
+                        });
+                        
                         storage.setCloudOTT(data?.cloudDataOTT);
                         storage.setCustomAchievements(data?.customAchievements);
                         window.CollaborationRoom = data?.collaboratorRoom;
@@ -135,6 +138,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                     canSave={this.state.canSave}
                     canRemix={this.state.canRemix}
                     canUseCloud={this.state.canUseCloud}
+                    canEditTitle={this.state.canEditTitle}
                 />
             );
         }
