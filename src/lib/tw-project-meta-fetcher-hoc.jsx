@@ -151,6 +151,14 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         
                         if (isScratch) {
                             window.CollaborationRoom = null;
+                            window.parent.postMessage({
+                                type: 'block-compiler-action',
+                                action: 'scratch-project-description',
+                                payload: {
+                                    instructions: data.instructions || ''
+                                    // description: data.description || ''
+                                }
+                            }, '*');
                         } else {
                             storage.setCloudOTT(data?.cloudDataOTT);
                             storage.setCustomAchievements(data?.customAchievements);
