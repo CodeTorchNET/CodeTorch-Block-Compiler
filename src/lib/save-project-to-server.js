@@ -29,6 +29,8 @@ export default function (projectId, vmState, params) {
     if (Object.prototype.hasOwnProperty.call(params, 'isCopy')) queryParams.is_copy = params.isCopy;
     if (Object.prototype.hasOwnProperty.call(params, 'isRemix')) queryParams.is_remix = params.isRemix;
     if (Object.prototype.hasOwnProperty.call(params, 'title')) queryParams.title = params.title;
+    if (Object.prototype.hasOwnProperty.call(params, 'source')) queryParams.source = params.source;
+
     let qs = queryString.stringify(queryParams);
     if (qs) qs = `?${qs}`;
 
@@ -42,12 +44,12 @@ export default function (projectId, vmState, params) {
         if (creatingProject) {
             Object.assign(opts, {
                 method: 'post',
-                url: `${storage.projectHost}/${qs}`
+                url: `${storage.CTprojectHost}/${qs}`
             });
         } else {
             Object.assign(opts, {
                 method: 'put',
-                url: `${storage.projectHost}/${projectId}${qs}`
+                url: `${storage.CTprojectHost}/${projectId}${qs}`
             });
         }
 

@@ -40,6 +40,9 @@ class Storage extends ScratchStorage {
     setProjectHost (projectHost) {
         this.projectHost = projectHost;
     }
+    setCTProjectHost (projectHost) { // this is the same regardless of wether scratch project or not
+        this.CTprojectHost = projectHost;
+    }
     setProjectToken (projectToken) {
         this.projectToken = projectToken;
     }

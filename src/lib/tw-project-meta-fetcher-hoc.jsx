@@ -43,6 +43,8 @@ export const fetchProjectMeta = async (projectId, isScratch) => {
             if (res.ok) {
                 if (isScratch){
                     storage.setScratchProjectToken(data.project_token); // so we can load actual project JSON file
+
+                    const canRemix = (authToken && authToken !== 'anonymous') ? 'true' : 'false';
                     return {
                         title: data.title,
                         author: {
@@ -52,7 +54,7 @@ export const fetchProjectMeta = async (projectId, isScratch) => {
                         instructions: data.instructions,
                         description: data.description,
                         canSave: 'false',
-                        canRemix: 'false'
+                        canRemix: canRemix
                     };
                 }
                 return data;
