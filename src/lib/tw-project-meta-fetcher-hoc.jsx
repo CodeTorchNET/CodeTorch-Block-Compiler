@@ -157,7 +157,10 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                                 type: 'block-compiler-action',
                                 action: 'scratch-project-description',
                                 payload: {
-                                    instructions: data.instructions || ''
+                                    instructions: data.instructions || '',
+                                    pfp: data.author.pfp,
+                                    username: data.author.username,
+                                    title: data.title
                                     // description: data.description || ''
                                 }
                             }, '*');
