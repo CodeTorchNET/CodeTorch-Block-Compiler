@@ -38,6 +38,9 @@ const vmManagerHOC = function (WrappedComponent) {
     class VMManager extends React.Component {
         constructor (props) {
             super(props);
+            this.state = {
+                canUseCloud: false
+            };
             bindAll(this, [
                 'loadProject'
             ]);
@@ -92,6 +95,10 @@ const vmManagerHOC = function (WrappedComponent) {
                     const username = storage.username || '';
                     this.props.onSetUsername(username);
 
+                    if (username !== ''){
+                        this.setState({canUseCloud: true});
+                    }
+
                     this.props.vm.loadProject(this.props.projectData, additionalData)
                         .then(() => {
                             this.props.onLoadedProject(this.props.loadingState, this.props.canSave);
@@ -139,6 +146,7 @@ const vmManagerHOC = function (WrappedComponent) {
                 <WrappedComponent
                     isLoading={isLoadingWithIdProp}
                     vm={vm}
+                    canUseCloud={this.state.canUseCloud}
                     {...componentProps}
                 />
             );

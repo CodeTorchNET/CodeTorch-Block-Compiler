@@ -108,7 +108,6 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             this.state = {
                 canSave: false,
                 canRemix: false,
-                canUseCloud: false,
                 canEditTitle: false
             };
         }
@@ -168,7 +167,6 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                             storage.setCloudOTT(data?.cloudDataOTT);
                             storage.setCustomAchievements(data?.customAchievements);
                             window.CollaborationRoom = data?.collaboratorRoom;
-                            window.CollaborationUsername = data?.username;
                             window.collaborationOTT = data?.collaborationOTT;
                         }
                         setIndexable(true);
@@ -199,7 +197,6 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                     {...props}
                     canSave={this.state.canSave}
                     canRemix={this.state.canRemix}
-                    canUseCloud={this.state.canUseCloud}
                     canEditTitle={this.state.canEditTitle}
                 />
             );
