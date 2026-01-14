@@ -63,7 +63,7 @@ class Storage extends ScratchStorage {
         this.customAchievements = customAchievements;
     }
     async loadCustomAchievementData () {
-        const accessToken = await this.loadAccessToken();
+        const accessToken = (await this.loadAccessToken()).token;
         const customAchievements = this.customAchievements ? this.customAchievements : {};
         return {accessToken, customAchievements};
     }
@@ -95,7 +95,7 @@ class Storage extends ScratchStorage {
         this.projectToken = creds.token;
         this.username = creds.username;
         // eslint-disable-next-line require-atomic-updates
-        window.CollaborationUsername = creds.username;
+        window.CollaborationUsername = creds?.username;
         return creds;
     }
     async getProjectToken () {
