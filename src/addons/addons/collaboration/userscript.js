@@ -1,500 +1,771 @@
-// collaboration-main.js
-
-/**
- *  PLEASE NOTE:
- * I am going to be completely honest the comments for this entire addon are AI generated.
- * I told it to take my dirty comments and make them better. That being said it probably messed up.
- * So if you have questions just contact me.
-*/
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 
-import * as collabUI from './helpers/collaboration-ui.js'; // Manages UI updates related to collaboration (cursors, user icons, popups).
-import * as constants from './helpers/constants.js'; // Stores global constants and mutable references for the collaboration addon.
-import * as assetSync from './helpers/assetSync.js'; // Handles synchronization of costume and sound asset changes.
-import * as timeout from './helpers/timeout.js'; // Manages inactivity detection and related timeouts.
-import * as helper from './helpers/helper.js'; // Contains general utility functions.
-import * as yEventsHandler from './helpers/yEvents.js'; // Observes and processes block-related Yjs events.
-import * as yProjectEventsHandler from './helpers/yProjectEvents.js'; // Observes and processes project-level Yjs events (e.g., sprite, costume, sound changes).
-import CollaborationConsole from './helpers/CollaborationConsole.js';
-import { recorder } from './helpers/DebugRecorder.js'; 
+import * as collabUI from './helpers/collaboration-ui.js';
+import * as constants from './helpers/constants.js';
+import * as timeout from './helpers/timeout.js';
+import * as helper from './helpers/helper.js';
+import * as costumeSync from './helpers/costumeSync.js';
+import * as soundSync from './helpers/soundSync.js';
+import * as OH from './helpers/observeHandlers.js';
 
-/**
- * Checks if a specific asset (costume or sound) is currently locked by another collaborator,
- * or if it's already being edited by the local user. If unlocked, the local user attempts to acquire the lock.
- * This function dictates whether the UI for an asset should be enabled (unlocked) or disabled (locked).
- *
- * @param {number} assetIndexToCheck The index of the asset (costume or sound) within its target.
- * @param {1|2} type The type of asset: 1 for costume, 2 for sound.
- * @returns {boolean} True if the asset is locked by another user (UI should be disabled), false otherwise (UI should be enabled for local editing).
- */
-window.assetLocked = function (assetIndexToCheck, type) {
-    // Pre-check: Ensure necessary Yjs, user info, and VM instances are available.
-    if (!constants.mutableRefs.yjsAwarenessInstance || !constants.localUserInfo || !constants.mutableRefs.vm) {
-        if (constants.debugging) CollaborationConsole.log(`Collab AssetLock: Awareness, constants.localUserInfo, or constants.mutableRefs.vm not ready. Assuming not locked for type ${type}.`);
-        return false; // If not ready, assume unlocked to avoid blocking.
-    }
 
-    // Get the name of the currently editing target (sprite or stage).
-    const targetNameOfAsset = constants.mutableRefs.vm.runtime.getEditingTarget()?.getName?.() || null;
-    // Get the local client's unique ID from Yjs awareness.
-    const localClientID = constants.mutableRefs.yjsAwarenessInstance.clientID;
-
-    // Validate input parameters.
-    if (typeof targetNameOfAsset !== 'string' || typeof assetIndexToCheck !== 'number' || (type !== 1 && type !== 2)) {
-        CollaborationConsole.error('Collab AssetLock: Invalid parameters.', { targetNameOfAsset, assetIndexToCheck, type });
-        return false;
-    }
-
-    // Retrieve all current awareness states from connected clients.
-    const states = constants.mutableRefs.yjsAwarenessInstance.getStates();
-    let isAssetLockedByOtherUser = false; // Flag to track if another user has locked this asset.
-    let lockerName = null; // Stores the name of the user who locked the asset.
-
-    // Iterate through remote users' awareness states to check for existing locks.
-    states.forEach((state, clientID) => {
-        if (clientID === localClientID) return; // Skip the local client's own state.
-
-        const remoteUser = state.user; // Remote user's general info.
-        let remoteEditingAssetInfo = null;
-
-        // Determine which asset info to check based on 'type'.
-        if (type === 1) { // Costume
-            remoteEditingAssetInfo = state.editingCostumeInfo;
-        } else { // Sound
-            remoteEditingAssetInfo = state.editingSoundInfo;
-        }
-
-        // Check if a remote user is editing the SAME asset (same target, same asset index, same type).
-        if (remoteUser && remoteEditingAssetInfo &&
-            remoteEditingAssetInfo.targetName === targetNameOfAsset &&
-            ((type === 1 && remoteEditingAssetInfo.costumeIndex === assetIndexToCheck) ||
-                (type === 2 && remoteEditingAssetInfo.soundIndex === assetIndexToCheck))) {
-            isAssetLockedByOtherUser = true;
-            lockerName = remoteUser.name; // Record the name of the user holding the lock.
-        }
-    });
-
-    // Get the local user's current editing asset info.
-    let currentLocalEditInfo = null;
-    if (type === 1) {
-        currentLocalEditInfo = constants.localUserInfo.editingCostumeInfo;
-    } else {
-        currentLocalEditInfo = constants.localUserInfo.editingSoundInfo;
-    }
-
-    const assetTypeString = type === 1 ? 'Costume' : 'Sound';
-
-    // Scenario 1: Asset is locked by another user.
-    if (isAssetLockedByOtherUser) {
-        if (constants.debugging) {
-            CollaborationConsole.log(`Collab AssetLock: ${assetTypeString} index ${assetIndexToCheck} for target "${targetNameOfAsset}" is LOCKED by ${lockerName}.`);
-        }
-        // If the local user *thought* they were editing this asset but a remote user has the lock,
-        // it indicates a conflict or a stale local state. Clear the local lock.
-        if (currentLocalEditInfo &&
-            currentLocalEditInfo.targetName === targetNameOfAsset &&
-            ((type === 1 && currentLocalEditInfo.costumeIndex === assetIndexToCheck) ||
-                (type === 2 && currentLocalEditInfo.soundIndex === assetIndexToCheck))) {
-            CollaborationConsole.warn(`Collab AssetLock: Conflict detected. ${assetTypeString} ${targetNameOfAsset}[${assetIndexToCheck}] is locked by ${lockerName}, but was locally marked as editing. Clearing local lock.`);
-            if (type === 1) assetSync.clearLocalEditingCostume();
-            else assetSync.clearLocalEditingSound();
-        }
-        return true; // Return true to indicate the UI should be disabled.
-    }
-
-    // Scenario 2: Asset is NOT locked by another user, and the local user is ALREADY editing it.
-    if (currentLocalEditInfo &&
-        currentLocalEditInfo.targetName === targetNameOfAsset &&
-        ((type === 1 && currentLocalEditInfo.costumeIndex === assetIndexToCheck) ||
-            (type === 2 && currentLocalEditInfo.soundIndex === assetIndexToCheck))) {
-        if (constants.debugging) {
-            CollaborationConsole.log(`Collab AssetLock: ${assetTypeString} index ${assetIndexToCheck} for target "${targetNameOfAsset}" is ALREADY being edited by local user. UNLOCKED for local.`);
-        }
-        
-        return false; // Return false to indicate the UI should be enabled.
-    }
-
-    // Scenario 3: Asset is NOT locked by another user, and the local user is NOT editing it.
-    // The local user can now acquire the lock.
-    if (constants.debugging) {
-        CollaborationConsole.log(`Collab AssetLock: ${assetTypeString} index ${assetIndexToCheck} for target "${targetNameOfAsset}" is UNLOCKED. Local user will take the lock.`);
-    }
-
-    // Set the local editing state in constants.localUserInfo and update awareness.
-    // For sounds, verify that sounds are loaded before attempting to set editing state.
-    // If sounds aren't loaded yet, return false (unlocked) to avoid blocking the UI.
-    if (type === 1) {
-        assetSync.setLocalEditingCostume(targetNameOfAsset, assetIndexToCheck);
-    } else {
-        // For sounds, check if sounds are available first
-        const target = targetNameOfAsset === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetNameOfAsset);
-        if (target) {
-            const sounds = target.getSounds();
-            if (sounds && sounds.length > assetIndexToCheck && sounds[assetIndexToCheck] && sounds[assetIndexToCheck].asset && sounds[assetIndexToCheck].asset.data) {
-                assetSync.setLocalEditingSound(targetNameOfAsset, assetIndexToCheck);
-            } else {
-                // Sounds not loaded yet - defer setting editing state, but don't block UI
-                if (constants.debugging) {
-                    CollaborationConsole.log(`Collab AssetLock: Sounds not fully loaded yet for "${targetNameOfAsset}". Will retry when sound is available.`);
-                }
-                // Try again after a short delay to allow sounds to load
-                setTimeout(() => {
-                    const retryTarget = targetNameOfAsset === 'Stage' ? constants.mutableRefs.vm.runtime.getTargetForStage() : constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetNameOfAsset);
-                    if (retryTarget) {
-                        const retrySounds = retryTarget.getSounds();
-                        if (retrySounds && retrySounds.length > assetIndexToCheck && retrySounds[assetIndexToCheck] && retrySounds[assetIndexToCheck].asset && retrySounds[assetIndexToCheck].asset.data) {
-                            assetSync.setLocalEditingSound(targetNameOfAsset, assetIndexToCheck);
-                        }
-                    }
-                }, 100);
-            }
-        }
-    }
-
-    return false; // Return false to indicate the UI should be enabled.
-};
-
-// --- Main Yjs Attachment Function ---
-/**
- * Initializes and connects the Yjs WebsocketProvider, setting up the collaborative environment.
- * This includes creating the Yjs document, awareness instance, and attaching event listeners.
- * @returns {function | null} A cleanup function to disconnect and tear down the collaboration, or null if initialization fails.
- */
 function attachYjsProvider() {
-    // Show a "Syncing..." popup to indicate collaboration is starting.
     collabUI.showSyncingPopup();
-    // Initialize global collaboration lock state to false.
-    window.collaborationLocked = false;
-    // Reset flags indicating if initial project/block events have been processed.
-    constants.mutableRefs.hasProcessedInitialProjectEvents = false;
-    constants.mutableRefs.hasProcessedInitialBlockEvents = false;
 
-    // Prevent re-attachment if Yjs provider or document already exists.
     if (constants.mutableRefs.ydoc || constants.mutableRefs.provider) {
         collabUI.hideSyncingPopup();
-        CollaborationConsole.warn('Collab: Yjs already attached. Skipping.');
+        
         return null;
     }
-    CollaborationConsole.log('Collab: Attaching Yjs constants.mutableRefs.provider...');
+    
 
-    // Ensure VM and Blockly instances are available before proceeding.
     if (!constants.mutableRefs.vm || !constants.mutableRefs.BlocklyInstance) {
         collabUI.hideSyncingPopup();
-        CollaborationConsole.error('Collab: Cannot attach Yjs constants.mutableRefs.provider without constants.mutableRefs.vm and Blockly instances.');
+        
         return null;
     }
 
-    // --- DEV MODE INITIALIZATION ---
-    // Prepare credentials, falling back to defaults if devMode is enabled
     let roomName = window.CollaborationRoom;
     let username = window.CollaborationUsername;
     let token = window.collaborationOTT;
 
     if (constants.devMode) {
-        if (!roomName) {
-            roomName = 'dev_room';
-            CollaborationConsole.warn(`Collab: DevMode enabled. Using default Room ID: ${roomName}`);
-        }
-        if (!username) {
-            username = 'DevUser_' + Math.floor(Math.random() * 1000);
-            CollaborationConsole.warn(`Collab: DevMode enabled. Using generated Username: ${username}`);
-        }
-        if (!token) {
-            token = 'dev_token_bypass';
-            CollaborationConsole.warn(`Collab: DevMode enabled. Using bypass token.`);
-        }
+        if (!roomName) roomName = 'dev_room';
+        if (!username) username = 'DevUser_' + Math.floor(Math.random() * 1000);
+        if (!token) token = 'dev_token_bypass';
     }
 
-    // Check if we have the OTT before proceeding.
-    // We check the local 'token' variable now, which handles the devMode fallback
     if (!token) {
-        CollaborationConsole.error('Collab: Cannot attach Yjs provider, collaboration OTT is missing.');
+        
         collabUI.hideSyncingPopup();
-        const popup = document.createElement('div');
-        popup.className = 'collab-popup';
-        popup.innerHTML = `
-            <div class="collab-popup-content">
-                <h2>Collaboration Error</h2>
-                <p>Could not retrieve a collaboration session token. You might not have permission to edit this project.</p>
-            </div>
-        `;
-        document.body.appendChild(popup);
         return null;
     }
 
-    // Initialize the Yjs document.
+    constants.mutableRefs.roomUUID = roomName;
+
     constants.mutableRefs.ydoc = new Y.Doc();
-    // Get Y.Array instances for block-related events and project-level events.
-    constants.mutableRefs.yEvents = constants.mutableRefs.ydoc.getArray('events'); // Block events.
-    constants.mutableRefs.yProjectEvents = constants.mutableRefs.ydoc.getArray('project-events'); // Project asset/sprite changes.
-    // Get a Y.Map instance for initial project data synchronization.
-    constants.mutableRefs.yProjectDataSync = constants.mutableRefs.ydoc.getMap('project-data-sync');
 
-    // --- Initialize Debug Recorder for this session ---
-    // Extract project ID from global logic, URL, or local roomName variable
-    const projectId = roomName || 'unknown_project';
-    
-    recorder.startSession(projectId).then(() => {
-        // Save the initial project JSON snapshot for debugging
-        if (constants.mutableRefs.vm) {
-            try {
-                const projectJSON = constants.mutableRefs.vm.toJSON();
-                recorder.saveSnapshot(projectJSON);
-                CollaborationConsole.log('Collab: Saved initial project JSON snapshot to IndexedDB');
-            } catch (e) {
-                CollaborationConsole.error('Collab: Failed to save initial project JSON snapshot:', e);
-            }
-        }
-    });
+    constants.mutableRefs.sharedBlocks = constants.mutableRefs.ydoc.getMap('blocks');
+    constants.mutableRefs.sharedVariables = constants.mutableRefs.ydoc.getMap('variables');
+    constants.mutableRefs.sharedMonitors = constants.mutableRefs.ydoc.getMap('monitors');
+    constants.mutableRefs.sharedComments = constants.mutableRefs.ydoc.getMap('comments');
+    constants.mutableRefs.sharedCostumes = constants.mutableRefs.ydoc.getMap('costumes');
+    constants.mutableRefs.sharedSounds = constants.mutableRefs.ydoc.getMap('sounds');
+    constants.mutableRefs.sharedSprites = constants.mutableRefs.ydoc.getArray('sprites');
+    constants.mutableRefs.sharedExtensions = constants.mutableRefs.ydoc.getArray('extensions');
 
-    // Set up observers to react to changes in Yjs shared types.
-    yEventsHandler.setupYEventsObserver();
-    yProjectEventsHandler.setupYProjectEventsObserver();
-
-    // --- WebRTC Provider Setup ---
     const baseServerUrl = constants.WEBSOCKETBASEURL;
-    
-    // Abort if authentication details are missing.
+
     if (!username || !token) {
-        CollaborationConsole.error('Collab: Cannot attach Yjs provider, missing CollaborationUsername or OTT.');
+        
         collabUI.hideSyncingPopup();
-        const popup = document.createElement('div');
-        popup.className = 'collab-popup';
-        popup.innerHTML = `
-            <div class="collab-popup-content">
-                <h2>Collaboration Error</h2>
-                <p>Authentication information (username/token) is missing. Please ensure you are logged in.</p>
-                <p style="font-size: 11px;">You might need to refresh the page after logging in.</p>
-            </div>
-        `;
-        document.body.appendChild(popup);
         return null;
     }
 
     try {
-        // Pass the OTT as a query parameter in the room name. The y-websocket server expects this.
         const roomNameWithToken = `${roomName}?ott=${token}`;
+
         
-        CollaborationConsole.log(`Collab: Attempting to connect to WebSocket server for room: ${roomName}`);
-        
-        // Instantiate the WebsocketProvider.
-        // `connect: false` allows setting initial awareness state *before* the WebSocket opens.
+
         constants.mutableRefs.provider = new WebsocketProvider(
             baseServerUrl,
-            roomNameWithToken, // Use the room name with the token
+            roomNameWithToken,
             constants.mutableRefs.ydoc,
             {
-                connect: false // Don't connect immediately.
+                connect: false
             }
         );
 
-        CollaborationConsole.log('Collab: WebsocketProvider instance created');
-        // Get the Yjs Awareness instance from the provider.
+        
         constants.mutableRefs.yjsAwarenessInstance = constants.mutableRefs.provider.awareness;
 
-        // --- Initialize Local Awareness State (before provider.connect()) ---
-        // This ensures the local user's initial state is sent immediately upon connection.
         const localUserColor = collabUI.getRandomColor();
-        constants.localUserInfo.name = username; // Set local user's name from authentication.
+        constants.localUserInfo.name = username;
         constants.localUserInfo.color = localUserColor;
-        constants.localUserInfo.currentTargetName = null; // Will be set by Redux listener.
+        constants.localUserInfo.currentTargetId = helper.getCurrentEditingTargetId();
 
-        // Set the local user's initial awareness state fields.
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('user', { name: constants.localUserInfo.name, color: constants.localUserInfo.color });
-        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('currentTargetName', constants.localUserInfo.currentTargetName);
+        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('currentTargetId', constants.localUserInfo.currentTargetId);
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('activeTabIndex', constants.localUserInfo.activeTabIndex);
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('chatMessage', null);
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('cursor', null);
         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('dragging', null);
-        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingCostumeInfo', constants.localUserInfo.editingCostumeInfo);
-        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingSoundInfo', constants.localUserInfo.editingSoundInfo);
-        CollaborationConsole.log(`Collab: Local user initialized: ${constants.localUserInfo.name} (${localUserColor}), Target: ${constants.localUserInfo.currentTargetName}`);
+        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', null);
 
-        // Connect the provider AFTER setting up the initial awareness state.
+        
+
+        constants.mutableRefs.isWorkspaceLoading = true;
+        constants.mutableRefs.isInitialSync = true;
+        if (constants.mutableRefs.loadingCooldownTimer) {
+            clearTimeout(constants.mutableRefs.loadingCooldownTimer);
+            constants.mutableRefs.loadingCooldownTimer = null;
+        }
+
+
         constants.mutableRefs.provider.connect();
+        constants.mutableRefs.sharedSprites.observeDeep(events => {
+            if (events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN)) return;
+            
+            if (constants.mutableRefs.isWorkspaceLoading) {
+                return;
+            }
 
-        // --- Listener for successful sync ---
-        // This event fires when the Yjs document is fully synced with peers.
-        constants.mutableRefs.provider.on('synced', (syncedState) => {
-            if (syncedState && constants.mutableRefs.provider.synced) {
-                if (constants.debugging) CollaborationConsole.log('Collab: Provider synced with peers.');
+            
 
-                // Logic for initial project data synchronization:
-                if (constants.mutableRefs.alreadyRanSetup !== true) {
-                    if (!constants.mutableRefs.yProjectDataSync.get('sync')) {
-                        if (constants.debugging) CollaborationConsole.log('Collab: First user detected, pushing initial project state');
+            const remoteList = constants.mutableRefs.sharedSprites.toArray();
+            const vm = constants.mutableRefs.vm;
+            const runtime = vm.runtime;
+            const remoteIds = new Set(remoteList.map(m => m.get('id')));
 
-                        const projectDataSync = {
-                            type: 'projectDataSync',
-                            data: constants.mutableRefs.vm.runtime.targets.map(target => ({
-                                targetId: target.id,
-                                targetName: target.getName(),
-                                blockData: JSON.stringify(target.blocks._blocks || {}), 
-                                commentData: JSON.stringify(target.comments || {})
-                            }))
-                        };
+            constants.mutableRefs.BlocklyInstance.Events.setGroup('yjs-remote-sync');
+            
+            try {
+                remoteList.forEach(yMap => {
+                    const id = yMap.get('id');
+                    const name = yMap.get('name');
+                    const isStage = yMap.get('isStage');
+                    const existingTarget = runtime.getTargetById(id);
 
-                        constants.mutableRefs.ydoc.transact(() => {
-                            constants.mutableRefs.yProjectDataSync.set('sync', projectDataSync);
-                            if (constants.debugging) CollaborationConsole.log('Collab: Pushed initial project data sync');
-                        }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+                    if (!existingTarget) {
+                        
+                        const newSprite = new constants.mutableRefs.vm.exports.Sprite(null, runtime);
+                        newSprite.name = name;
+                        
+                        const target = newSprite.createClone(isStage ? 'background' : 'sprite');
+                        target.id = id;
+                        target.originalTargetId = id;
+                        
+                        runtime.addTarget(target);
+
+                        helper.applyQueuedEventsForTarget(id); 
                     } else {
-                        if (constants.debugging) CollaborationConsole.log('Collab: Initial sync data already exists, applying it now.');
-                        const syncData = constants.mutableRefs.yProjectDataSync.get('sync');
-                        if (syncData && syncData.data) {
-                            let corruptionDetails = null;
-                            for (const targetData of syncData.data) {
-                                const blocksObject = JSON.parse(targetData.blockData);
-                                const cycleCheckResult = helper.findCircularDependency(blocksObject, targetData.targetName);
-                                if (cycleCheckResult.hasCycle) {
-                                    corruptionDetails = cycleCheckResult;
-                                    break;
-                                }
+                        if (existingTarget.getName() !== name) {
+                            vm.renameSprite(id, name, false);
+                        }
+                    }
+                });
+                const localTargets = runtime.targets.filter(t => t.isOriginal);
+                localTargets.forEach(target => {
+                    if (!remoteIds.has(target.id) && !target.isStage) {
+                        
+                        if (vm.deleteSpriteNoWarning !== undefined) {
+                            vm.deleteSpriteNoWarning(target.id, false);
+                        } else {
+                            vm.deleteSprite(target.id, false);
+                        }
+                    }
+                });
+                const newOrder = [];
+                remoteList.forEach(yMap => {
+                    const t = runtime.getTargetById(yMap.get('id'));
+                    if (t) newOrder.push(t);
+                });
+                
+                runtime.targets.forEach(t => {
+                    if (!t.isOriginal) newOrder.push(t);
+                });
+
+                if (newOrder.length > 0) {
+                    runtime.targets = newOrder;
+                    runtime.executableTargets = [...newOrder].reverse(); 
+                }
+
+                vm.emitTargetsUpdate(false);
+            } finally {
+                constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
+            }
+        });
+        constants.mutableRefs.sharedExtensions.observe(event => {
+            if (event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN) return;
+            
+            const remoteExtensions = constants.mutableRefs.sharedExtensions.toArray();
+            remoteExtensions.forEach(urlOrId => {
+                if (!constants.mutableRefs.vm.extensionManager.isExtensionLoaded(urlOrId)) {
+                    constants.mutableRefs.vm.extensionManager.loadExtensionURL(urlOrId, false);
+                }
+            });
+        });
+        constants.mutableRefs.sharedBlocks.observeDeep(events => {
+            
+            let needsWorkspaceRefresh = false;
+            let needsToolboxRefresh = false;
+
+            try {
+                const isLocal = events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN);
+                if (isLocal) return;
+
+                const Blockly = constants.mutableRefs.BlocklyInstance;
+
+                Blockly.Events.setGroup('yjs-remote-sync');
+                events.forEach(event => {
+                    let targetId = event.path.length >= 1 ? event.path[0] : null;
+                    if (!targetId && event.target instanceof Y.Map) {
+                        event.changes.keys.forEach((change, key) => { targetId = key; });
+                    }
+
+                    if (constants.mutableRefs.isWorkspaceLoading) {
+                        constants.mutableRefs.initialSyncEvents.push({
+                            "eventType": "blocks",
+                            "event": event,
+                            "targetId": targetId
+                        });
+                        return;
+                    }
+                    if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
+                        constants.mutableRefs.initialSyncEvents.push({ 
+                            "eventType": "blocks", 
+                            "event": event, 
+                            "targetId": targetId 
+                        });
+                        return;
+                    }
+
+                    const [workspaceTemp, toolboxTemp] = OH.sharedBlocks(event);
+                    needsWorkspaceRefresh = needsWorkspaceRefresh || workspaceTemp;
+                    needsToolboxRefresh = needsToolboxRefresh || toolboxTemp;
+                });
+                OH.sharedBlocksRefresh(needsToolboxRefresh, needsWorkspaceRefresh);
+            } finally {
+                setTimeout(() => {
+                    constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
+                }, 0);
+            }
+        });
+        constants.mutableRefs.sharedVariables.observeDeep(events => {
+            
+            try {
+                if (events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN)) return; 
+                const Blockly = constants.mutableRefs.BlocklyInstance;
+
+                Blockly.Events.setGroup('yjs-remote-sync');
+
+                let needsWorkspaceRefresh = false;
+                events.forEach(event => {
+                    let targetId = event.path.length >= 1 ? event.path[0] : null;
+                    if (!targetId && event.target instanceof Y.Map) {
+                        event.changes.keys.forEach((change, key) => { targetId = key; });
+                    }
+
+                    if (constants.mutableRefs.isWorkspaceLoading) {
+                        constants.mutableRefs.initialSyncEvents.push({
+                            "eventType": "variables",
+                            "event": event,
+                            "targetId": targetId
+                        });
+                        return;
+                    }
+
+                    if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
+                        constants.mutableRefs.initialSyncEvents.push({ 
+                            "eventType": "variables", 
+                            "event": event, 
+                            "targetId": targetId 
+                        });
+                        return;
+                    }
+
+                    needsWorkspaceRefresh = needsWorkspaceRefresh || OH.sharedVariables(event);
+                });
+
+                if (needsWorkspaceRefresh) {
+                    constants.mutableRefs.vm.emitWorkspaceUpdate();
+                }
+
+                setTimeout(() => {
+                    constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
+                }, 0);
+                const workspace = Blockly.getMainWorkspace();
+                if (workspace) {
+                    workspace.refreshToolboxSelection_();
+                }
+
+            } catch (e) {
+                
+                constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
+            }
+        });
+
+        constants.mutableRefs.sharedMonitors.observeDeep(events => {
+            
+            const isLocal = events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN);
+            if (isLocal) return;
+            try {
+                const Blockly = constants.mutableRefs.BlocklyInstance;
+                Blockly.Events.setGroup('yjs-remote-sync');
+
+                events.forEach(event => {
+                    if (!constants.mutableRefs.isWorkspaceLoading) {
+                        OH.sharedMonitors(event);
+                    } else {
+                        constants.mutableRefs.initialSyncEvents.push({"eventType":"monitors","event":event})
+                    }
+                });
+            } catch (e) {
+                
+            } finally {
+                setTimeout(() => {
+                    constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
+                }, 0);
+            }
+        });
+
+        constants.mutableRefs.sharedComments.observeDeep(events => {
+            
+            const isLocal = events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN);
+            if (isLocal) return;
+
+            const Blockly = constants.mutableRefs.BlocklyInstance;
+            Blockly.Events.setGroup('yjs-remote-sync');
+
+            try {
+                events.forEach(event => {
+                    let targetId = event.path.length >= 1 ? event.path[0] : null;
+                    if (!targetId && event.target instanceof Y.Map) {
+                        event.changes.keys.forEach((change, key) => { targetId = key; });
+                    }
+
+                    if (constants.mutableRefs.isWorkspaceLoading) {
+                        constants.mutableRefs.initialSyncEvents.push({
+                            "eventType": "comments",
+                            "event": event,
+                            "targetId": targetId
+                        });
+                        return;
+                    }
+
+                    if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
+                        constants.mutableRefs.initialSyncEvents.push({ 
+                            "eventType": "comments", 
+                            "event": event, 
+                            "targetId": targetId 
+                        });
+                        return;
+                    }
+
+                    OH.sharedComments(event);
+                });
+            } finally {
+                setTimeout(() => {
+                    constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
+                }, 0);
+            }
+        });
+        constants.mutableRefs.sharedCostumes.observeDeep(events => {
+            
+            events.forEach(event => {
+                let targetId = event.path.length > 0 ? event.path[0] : null;
+                if (!targetId && event.target instanceof Y.Map) {
+                    event.changes.keys.forEach((change, key) => { targetId = key; });
+                }
+
+                if (constants.mutableRefs.isWorkspaceLoading) {
+                    constants.mutableRefs.initialSyncEvents.push({
+                        "eventType": "costumes",
+                        "event": event,
+                        "targetId": targetId
+                    });
+                    return;
+                }
+                if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
+                    constants.mutableRefs.initialSyncEvents.push({ 
+                        "eventType": "costumes", 
+                        "event": event, 
+                        "targetId": targetId 
+                    });
+                    return;
+                }
+
+                costumeSync.handleRemoteCostumeChanges(event);
+            });
+        });
+
+        constants.mutableRefs.sharedSounds.observeDeep(events => {
+            
+            events.forEach(event => {
+                let targetId = event.path.length > 0 ? event.path[0] : null;
+                if (!targetId && event.target instanceof Y.Map) {
+                    event.changes.keys.forEach((change, key) => { targetId = key; });
+                }
+
+                if (constants.mutableRefs.isWorkspaceLoading) {
+                    constants.mutableRefs.initialSyncEvents.push({
+                        "eventType": "sounds",
+                        "event": event,
+                        "targetId": targetId
+                    });
+                    return;
+                }
+                if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
+                    constants.mutableRefs.initialSyncEvents.push({ 
+                        "eventType": "sounds", 
+                        "event": event, 
+                        "targetId": targetId 
+                    });
+                    return;
+                }
+
+                soundSync.handleRemoteSoundChanges(event);
+            });
+        });
+
+        const resetSilenceCooldown = () => {
+            if (constants.mutableRefs.loadingCooldownTimer) clearTimeout(constants.mutableRefs.loadingCooldownTimer);
+            constants.mutableRefs.loadingCooldownTimer = setTimeout(() => {
+                if (constants.mutableRefs.isWorkspaceLoading) {
+                    
+                    constants.mutableRefs.isWorkspaceLoading = false;
+                }
+                constants.mutableRefs.loadingCooldownTimer = null;
+            }, 50); 
+        };
+
+        const handleTargetBlocksChanged = (targetId, [type, payload]) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+            if (constants.mutableRefs.isWorkspaceLoading && type !== 'add') {
+                resetSilenceCooldown();
+                return;
+            }
+            const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
+            if (!target) return;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                let yTargetMap = constants.mutableRefs.sharedBlocks.get(targetId);
+                if (!yTargetMap) {
+                    yTargetMap = new Y.Map();
+                    yTargetMap.set('__targetName', target.getName());
+                    constants.mutableRefs.sharedBlocks.set(targetId, yTargetMap);
+                }
+
+                if (type === 'add') {
+                    payload.forEach(block => {
+                        const yBlock = helper.serializeBlockForYjs(block);
+                        yTargetMap.set(block.id, yBlock);
+                    });
+                } else if (type === 'delete') {
+                    yTargetMap.delete(payload);
+                } else if (type === 'update') {
+                    Object.keys(payload).forEach(blockId => {
+                        let yBlock = yTargetMap.get(blockId);
+                        if (!yBlock) {
+                            const fullBlock = constants.mutableRefs.vm.runtime.getTargetById(targetId)?.blocks.getBlock(blockId);
+                            if (fullBlock) {
+                                yBlock = helper.serializeBlockForYjs(fullBlock);
+                                yTargetMap.set(blockId, yBlock);
+                            } else {
+                                return;
                             }
+                        }
 
-                            if (corruptionDetails) {
-                                CollaborationConsole.error("Collab FATAL: Received corrupt master copy with circular dependency. Aborting project load.", corruptionDetails);
-                                collabUI.hideSyncingPopup();
-
-                                const popup = document.createElement('div');
-                                popup.className = 'collab-popup';
-                                popup.innerHTML = `
-                                    <div class="collab-popup-content">
-                                        <h2>Collaboration Error</h2>
-                                        <p>The project data from the session is corrupt and cannot be loaded. This session is in an unrecoverable state.</p>
-                                        <p>Please report this to @CodeTorch.</p>
-                                    </div>
-                                `;
-                                document.body.appendChild(popup);
-
-                                return; // Abort applying the sync data.
+                        const updates = payload[blockId];
+                        Object.keys(updates).forEach(prop => {
+                            if (typeof updates[prop] === 'object' && updates[prop] !== null) {
+                                yBlock.set(prop, JSON.stringify(updates[prop]));
+                            } else {
+                                yBlock.set(prop, updates[prop]);
                             }
-                            
-                            constants.mutableRefs.vm.runtime.targets.forEach(t => {
-                                const originalForceNoGlow = t.blocks.forceNoGlow;
-                                t.blocks.forceNoGlow = true; 
-                                t.blocks.deleteAllBlocks(); 
-                                t.blocks.forceNoGlow = originalForceNoGlow; 
-                            });
+                        });
+                    });
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
 
-                            syncData.data.forEach(targetData => {
-                                CollaborationConsole.log("Collab: Applying initial blocks for target:", targetData.targetName);
-                                const { targetName, blockData, commentData } = targetData;
+        const handleTargetVariablesChanged = (targetId, [varId, varType, op, data]) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+            if (constants.mutableRefs.isWorkspaceLoading && op !== 'add') return;
 
-                                const target = targetName === 'Stage' ?
-                                    constants.mutableRefs.vm.runtime.getTargetForStage() :
-                                    constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
+            const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
 
-                                if (target && blockData) {
-                                    try {
-                                        const newBlocksObject = JSON.parse(blockData);
-                                        const originalForceNoGlow = target.blocks.forceNoGlow;
-                                        target.blocks.forceNoGlow = true; 
-                                        for (const blockId in newBlocksObject) {
-                                            if (Object.prototype.hasOwnProperty.call(newBlocksObject, blockId)) {
-                                                target.blocks.createBlock(newBlocksObject[blockId]); 
-                                            }
-                                        }
-                                        target.blocks.forceNoNoGlow = originalForceNoGlow; 
-                                    } catch (e) {
-                                        CollaborationConsole.error(`Collab: Error applying initial blocks for target "${targetName}":`, e);
-                                    }
-                                }
-                                if (target && commentData) {
-                                    for (var x of Object.keys(target.comments)) {
-                                        const commentToDelete = target.comments[x];
-                                        helper.CommentDelete({
-                                            commentId: commentToDelete.id,
-                                            blockId: commentToDelete.blockId
-                                        }, target.getName());
-                                    }
-                                    const newCommentsObject = JSON.parse(commentData);
-                                    for (const commentId in newCommentsObject) {
-                                        if (Object.prototype.hasOwnProperty.call(newCommentsObject, commentId)) {
-                                            const comment = newCommentsObject[commentId];
-                                            const commentCreateEvent = {
-                                                type: constants.mutableRefs.BlocklyInstance.Events.COMMENT_CREATE,
-                                                commentId: comment.id,
-                                                blockId: comment.blockId,
-                                                text: comment.text,
-                                                xy: { x: comment.x, y: comment.y },
-                                                width: comment.width,
-                                                height: comment.height,
-                                                minimized: comment.minimized
-                                            };
-                                            helper.CommentCreate(commentCreateEvent, target.getName());
-                                        }
-                                    }
-                                }
+            if (!target) return;
+            data.varType = varType;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                let yTargetVarMap = constants.mutableRefs.sharedVariables.get(targetId);
+                if (!yTargetVarMap) {
+                    yTargetVarMap = new Y.Map();
+                    constants.mutableRefs.sharedVariables.set(targetId, yTargetVarMap);
+                }
+
+                if (op === 'add') {
+                    const variable = target.variables[varId];
+                    if (variable) {
+                        yTargetVarMap.set(varId, helper.serializeVariableForYjs(variable));
+                    }
+                } else if (op === 'update') {
+                    const yVarMap = yTargetVarMap.get(varId);
+                    if (yVarMap) {
+                        Object.keys(data).forEach(key => {
+                            let val = data[key];
+                            if (Array.isArray(val)) {
+                                yVarMap.set(key, JSON.stringify(val));
+                            } else {
+                                yVarMap.set(key, val);
+                            }
+                        });
+                    }
+                } else if (op === 'delete') {
+                    yTargetVarMap.delete(varId);
+                    constants.mutableRefs.vm.emitWorkspaceUpdate();
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        const handleMonitorsUpdate = (monitorList) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+            if (constants.mutableRefs.isWorkspaceLoading) return;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                monitorList.forEach((monitor, id) => {
+                    const existingYMonitor = constants.mutableRefs.sharedMonitors.get(id);
+
+                    if (!existingYMonitor) {
+                        const yMonitor = helper.serializeMonitorForYjs(monitor);
+                        constants.mutableRefs.sharedMonitors.set(id, yMonitor);
+                    } else {
+                        const existingMonitor = helper.deserializeMonitorFromYjs(existingYMonitor);
+                        if (!helper.compareMonitorData(existingMonitor, monitor.toJS())) {
+                            const yMonitor = helper.serializeMonitorForYjs(monitor);
+                            constants.mutableRefs.sharedMonitors.set(id, yMonitor);
+                        }
+                    }
+                });
+                constants.mutableRefs.sharedMonitors.forEach((_, id) => {
+                    if (!monitorList.has(id)) {
+                        constants.mutableRefs.sharedMonitors.delete(id);
+                    }
+                });
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        const handleTargetCommentsChanged = (targetId, [type, commentId, payload]) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+            if (constants.mutableRefs.isWorkspaceLoading && type !== 'add') return;
+
+            const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
+            if (!target) return;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                let yTargetMap = constants.mutableRefs.sharedComments.get(targetId);
+                if (!yTargetMap) {
+                    yTargetMap = new Y.Map();
+                    constants.mutableRefs.sharedComments.set(targetId, yTargetMap);
+                }
+
+                if (type === 'add') {
+                    const comment = target.comments[commentId];
+                    if (comment) {
+                        yTargetMap.set(commentId, helper.serializeCommentForYjs(comment));
+                    }
+                } else if (type === 'update') {
+                    const yComment = yTargetMap.get(commentId);
+                    if (yComment) {
+                        Object.keys(payload).forEach(key => {
+                            yComment.set(key, payload[key]);
+                        });
+                    }
+                } else if (type === 'delete') {
+                    yTargetMap.delete(commentId);
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        const handleTargetCostumeChanged = (targetId, [op, costumeId, data]) => {
+            costumeSync.handleLocalCostumeChange(targetId, [op, costumeId, data]);
+        };
+
+        const handleTargetSoundsChanged = (targetId, eventData) => {
+            soundSync.handleLocalSoundChange(targetId, eventData);
+        };
+
+        const handleTargetSimplePropertyChanged = (data) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+
+            for (const [targetId, properties] of data) {
+                if (Object.prototype.hasOwnProperty.call(properties, 'currentCostume')) {
+                    const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
+                    if (target && target === constants.mutableRefs.vm.runtime.getEditingTarget()) {
+                        const newIndex = properties.currentCostume;
+                        const currentLocalState = constants.mutableRefs.yjsAwarenessInstance.getLocalState();
+                        const currentAsset = currentLocalState?.editingAsset;
+                        if (currentAsset && currentAsset.type === 'costume' && currentAsset.index !== newIndex) {           
+                            constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', {
+                                ...currentAsset,
+                                index: newIndex
                             });
                         }
                     }
                 }
+            }
+        };
+
+        const handleTargetsIndexChanged = (data) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                const sharedSprites = constants.mutableRefs.sharedSprites;
+                const { id, currentIndex } = data[0];
                 
-                constants.mutableRefs.vm.runtime.emitProjectChanged();
-                if (constants.debugging) CollaborationConsole.log('Collab: Initial sync data applied successfully');
-                
-                constants.mutableRefs.vm.setEditingTarget(constants.mutableRefs.vm.runtime.getTargetForStage().id);
-                if (constants.mutableRefs.vm.runtime.targets[1]) {
-                    constants.mutableRefs.vm.setEditingTarget(constants.mutableRefs.vm.runtime.targets[1].id);
+                let oldIndex = -1;
+                let itemToMove = null;
+
+                for (let i = 0; i < sharedSprites.length; i++) {
+                    const yMap = sharedSprites.get(i);
+                    if (yMap.get('id') === id) {
+                        oldIndex = i;
+                        itemToMove = yMap;
+                        break;
+                    }
                 }
-                constants.mutableRefs.alreadyRanSetup = true; 
-                CollaborationConsole.log('Collab: Provider synced, running initial setup...');
+
+                if (oldIndex !== -1 && oldIndex !== currentIndex) {
+                    const cloneMap = new Y.Map();
+                    itemToMove.forEach((v, k) => cloneMap.set(k, v));
+                    
+                    sharedSprites.delete(oldIndex);
+                    sharedSprites.insert(currentIndex, [cloneMap]);
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        const handleAddSprite = () => {
+            setTimeout(async () => {
+                const targets = constants.mutableRefs.vm.runtime.targets;
+                const sharedSprites = constants.mutableRefs.sharedSprites;
                 
-                helper.processSyncItems().then(() => {
-                    collabUI.hideSyncingPopup();
-                    timeout.resetInactivityTimers();
-                });
-            }
-        });
+                for (const target of targets) {
+                    if (target.isOriginal && !constants.mutableRefs.sharedBlocks.has(target.id)) {
+                        
+                        await helper.pushTargetStateToYjs(target);
+                    }
+                }
 
-        // Listener for when the provider is explicitly destroyed.
-        constants.mutableRefs.provider.on('destroy', () => {
-            CollaborationConsole.log("Collab: constants.mutableRefs.provider emitted 'destroy'.");
-            timeout.clearInactivityTimers(); 
-            collabUI.hideSyncingPopup(); 
-        });
+                constants.mutableRefs.ydoc.transact(() => {
+                    if (sharedSprites.length > 0) sharedSprites.delete(0, sharedSprites.length);
+                    const ySpriteArray = targets.map(target => helper.serializeSpriteForYjs(target));
+                    sharedSprites.insert(0, ySpriteArray);
+                }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+            }, 100);
+        };
 
-        // Listener for WebSocket connection close events.
-        constants.mutableRefs.provider.on('ws-close', (event) => {
-            if (constants.debugging) CollaborationConsole.log('Collab: constants.mutableRefs.provider WebSocket connection closed. Clearing inactivity timers.', event.code, event.reason);
-            timeout.clearInactivityTimers(); 
+        const handleDeleteSprite = (targetId) => {
+            constants.mutableRefs.ydoc.transact(() => {
+                const sharedSprites = constants.mutableRefs.sharedSprites;
+                for (let i = 0; i < sharedSprites.length; i++) {
+                    const yMap = sharedSprites.get(i);
+                    if (yMap.get('id') === targetId) {
+                        sharedSprites.delete(i);
+                        break;
+                    }
+                }
+                if (constants.mutableRefs.sharedBlocks.has(targetId)) {
+                    constants.mutableRefs.sharedBlocks.delete(targetId);
+                }
+                if (constants.mutableRefs.sharedVariables.has(targetId)) {
+                    constants.mutableRefs.sharedVariables.delete(targetId);
+                }
+                if (constants.mutableRefs.sharedComments.has(targetId)) {
+                    constants.mutableRefs.sharedComments.delete(targetId);
+                }
+                if (constants.mutableRefs.sharedCostumes.has(targetId)) {
+                    constants.mutableRefs.sharedCostumes.delete(targetId);
+                }
+                if (constants.mutableRefs.sharedSounds.has(targetId)) {
+                    constants.mutableRefs.sharedSounds.delete(targetId);
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        const handleTargetRenamed = (targetId, newName) => {
             
-            if (event.code === 1008 || event.reason === 'Authentication failed') {
-                const popup = document.createElement('div');
-                popup.className = 'collab-popup';
-                popup.innerHTML = `
-                     <div class="collab-popup-content">
-                         <h2>Authentication Required</h2>
-                         <p>Your collaboration session could not be authenticated. Please ensure you are logged in.</p>
-                         <p style="font-size: 11px;margin-top: 1.5rem;">It's recommended to refresh the page.</p>
-                     </div>
-                 `;
-                document.body.appendChild(popup);
-            } else {
-                collabUI.hideSyncingPopup(); 
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                
+                const sharedSprites = constants.mutableRefs.sharedSprites;
+                for (let i = 0; i < sharedSprites.length; i++) {
+                    const yMap = sharedSprites.get(i);
+                    
+                    if (yMap.get('id') === targetId) {
+                        
+                        yMap.set('name', newName);
+                        break;
+                    }
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        const handleExtensionAdded = (extension) => {
+            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+
+            constants.mutableRefs.ydoc.transact(() => {
+                const currentExts = constants.mutableRefs.sharedExtensions.toArray();
+                if (!currentExts.includes(extension)) {
+                    constants.mutableRefs.sharedExtensions.push([extension]);
+                }
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+        };
+
+        constants.mutableRefs.vm.on('TARGET_BLOCKS_CHANGED', handleTargetBlocksChanged);
+        constants.mutableRefs.vm.on('TARGET_VARIABLES_CHANGED', handleTargetVariablesChanged);
+        constants.mutableRefs.vm.on('MONITORS_UPDATE', handleMonitorsUpdate);
+        constants.mutableRefs.vm.on('TARGET_COMMENTS_CHANGED', handleTargetCommentsChanged);
+        constants.mutableRefs.vm.on('TARGET_COSTUME_CHANGED', handleTargetCostumeChanged);
+        constants.mutableRefs.vm.on('SOUNDS_CHANGED', handleTargetSoundsChanged);
+        constants.mutableRefs.vm.on('TARGET_SIMPLE_PROPERTY_CHANGED', handleTargetSimplePropertyChanged);
+        constants.mutableRefs.vm.on('TARGET_RENAMED', handleTargetRenamed);
+        constants.mutableRefs.vm.on('TARGETS_INDEX_CHANGED', handleTargetsIndexChanged);
+        constants.mutableRefs.vm.on('ADD_SPRITE', handleAddSprite);
+        constants.mutableRefs.vm.on('DELETE_SPRITE', handleDeleteSprite);
+        constants.mutableRefs.vm.on('COLLABORATION_EXTENSION_ADDED', handleExtensionAdded);
+        constants.mutableRefs.provider.on('synced', (syncedState) => {
+            if (syncedState && constants.mutableRefs.provider.synced) {
+                setTimeout(() => {
+                    constants.mutableRefs.isWorkspaceLoading = true;
+                    try {
+                        constants.mutableRefs.ydoc.transact(() => {
+                            helper.performInitialSync();
+                        }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+                        helper.applyInitialSyncEventQueue();
+                    } finally {
+                        collabUI.hideSyncingPopup();
+                        timeout.resetInactivityTimers();
+                        constants.mutableRefs.isWorkspaceLoading = false;
+                        constants.mutableRefs.isInitialSync = false;
+
+                        if (constants.mutableRefs.addon?.tab?.redux?.dispatch) {
+                            constants.mutableRefs.addon.tab.redux.dispatch({
+                                type: 'scratch-gui/collaboration/SET_COLLAB_ACTIVE',
+                                payload: true
+                            });
+                        }
+                    }
+                }, 100);
             }
         });
 
-        // Listener for provider status changes (connecting, connected, disconnected).
+        constants.mutableRefs.provider.on('destroy', () => {
+            timeout.clearInactivityTimers();
+            collabUI.hideSyncingPopup();
+        });
+
+        constants.mutableRefs.provider.on('ws-close', (event) => {
+            timeout.clearInactivityTimers();
+            collabUI.hideSyncingPopup();
+        });
+
         constants.mutableRefs.provider.on('status', event => {
-            if (constants.debugging) CollaborationConsole.log('Collab: constants.mutableRefs.provider status event:', event.status);
             if (event.status === 'disconnected') {
-                if (constants.debugging) CollaborationConsole.log('Collab: Provider disconnected.');
-                timeout.clearInactivityTimers(); 
+                timeout.clearInactivityTimers();
             } else if (event.status === 'connecting') {
-                collabUI.showSyncingPopup(); 
+                collabUI.showSyncingPopup();
                 timeout.clearInactivityTimers();
             } else if (event.status === 'connected') {
-                if (constants.debugging) CollaborationConsole.log('Collab: Provider connected.');
                 if (constants.mutableRefs.provider.synced) {
                     collabUI.hideSyncingPopup();
                 }
             }
         });
 
-        // --- Initial UI Setup for Collaboration Layer ---
         setTimeout(() => collabUI.setupCollaborationLayer(), 500);
         setTimeout(() => {
             collabUI.updateUserMenuBarIcons();
@@ -502,437 +773,56 @@ function attachYjsProvider() {
             collabUI.updateTabUserIcons();
         }, 600);
 
-        // --- Attach the MASTER Blockly Listener ---
-        const mainWorkspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
-        if (mainWorkspace) {
-            if (constants.mutableRefs.workspaceChangeListener) mainWorkspace.removeChangeListener(constants.mutableRefs.workspaceChangeListener);
-            constants.mutableRefs.workspaceChangeListener = collabUI.handleBlocklyEventForCollaboration;
-            mainWorkspace.addChangeListener(constants.mutableRefs.workspaceChangeListener);
-            CollaborationConsole.log('Collab: Attached main workspace change listener for ALL relevant events.');
-        } else {
-            CollaborationConsole.error('Collab: Could not find main workspace to attach listener!');
-        }
-
-        // --- Event Listener for CUSTOM Triggers ---
-        const handleCustomTrigger = event => {
-            if (!constants.mutableRefs.yjsAwarenessInstance || !constants.mutableRefs.provider || !constants.mutableRefs.provider.synced) return;
-            
-            const detail = event.detail;
-            if (!detail || !detail.triggerId) return;
-
-            if (!constants.mutableRefs.yEvents && detail.triggerId === 'shareBlocksToTarget') {
-                CollaborationConsole.warn('Collab Send: constants.mutableRefs.yEvents not ready for shareBlocksToTarget trigger.');
-                return;
-            }
-
-            const currentTargetNameForAwareness = helper.getCurrentEditingTargetName();
-            if (constants.debugging) CollaborationConsole.log('Collab Trigger RX:', detail.triggerId, 'Current Editing Target:', currentTargetNameForAwareness, 'Data:', detail.data);
-
-            const config = constants.triggerEventConfig[detail.triggerId];
-
-            if (detail.triggerId === 'blockDrag') {
-                const { blockId, x, y } = detail.data;
-                constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('dragging', { blockId, x, y, targetName: currentTargetNameForAwareness });
-            } else if (detail.triggerId === 'blockDragEnd') {
-                constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('dragging', null);
-            }
-            else if (detail.triggerId === 'shareBlocksToTarget') {
-                if (!constants.mutableRefs.ydoc || !constants.mutableRefs.yEvents || !constants.mutableRefs.vm || !constants.mutableRefs.vm.runtime) {
-                    CollaborationConsole.warn('Collab Send: Cannot process shareBlocksToTarget trigger, Yjs or constants.mutableRefs.vm not ready.');
-                    return;
-                }
-                const { blocks, targetId, optFromTargetId } = detail.data;
-
-                if (!blocks || !targetId) {
-                    CollaborationConsole.error('Collab Send [shareBlocksToTarget]: Invalid data received from constants.mutableRefs.vm trigger.', detail.data);
-                    return;
-                }
-
-                let destinationTargetName = null;
-                const destTarget = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-                if (destTarget) {
-                    destinationTargetName = destTarget.getName();
-                } else {
-                    CollaborationConsole.error(`Collab Send [shareBlocksToTarget]: Destination target ID "${targetId}" not found in constants.mutableRefs.vm.`);
-                    return;
-                }
-
-                let sourceTargetName = null;
-                if (optFromTargetId) {
-                    const sourceTarget = constants.mutableRefs.vm.runtime.getTargetById(optFromTargetId);
-                    if (sourceTarget) {
-                        sourceTargetName = sourceTarget.getName();
-                    } else {
-                        CollaborationConsole.warn(`Collab Send [shareBlocksToTarget]: Optional source target ID "${optFromTargetId}" not found. Proceeding without source name.`);
-                    }
-                }
-
-                const eventDataForYjs = {
-                    type: constants.CUSTOM_REMOTE_SHARE_BLOCKS_CALL_TYPE,
-                    data: {
-                        blocksData: blocks, 
-                        destinationTargetName: destinationTargetName,
-                        sourceTargetName: sourceTargetName
-                    }
-                };
-
-                constants.mutableRefs.ydoc.transact(() => {
-                    eventDataForYjs.timestamp = Date.now();
-                    constants.mutableRefs.yEvents.push([eventDataForYjs]);
-                    // Record TX event
-                    recorder.recordYjsEvent('SEND', 'yEvents', eventDataForYjs);
-                    if (constants.debugging) CollaborationConsole.log(`Collab Send [${constants.CUSTOM_REMOTE_SHARE_BLOCKS_CALL_TYPE}]: Pushed event to constants.mutableRefs.yEvents`, eventDataForYjs.data);
-                }, constants.LOCAL_EVENT_SYNC_ORIGIN);
-            }
-            else if (config) { 
-                if (!constants.mutableRefs.yProjectEvents || !constants.mutableRefs.vm || !constants.mutableRefs.vm.runtime) {
-                    CollaborationConsole.warn(`Collab Send: Cannot process ${detail.triggerId} trigger, constants.mutableRefs.yProjectEvents or constants.mutableRefs.vm not ready.`);
-                    return;
-                }
-
-                let payloadData;
-
-                if (config.preparePayload) {
-                    payloadData = config.preparePayload(detail.data);
-                } else {
-                    const extractedData = {};
-                    let allFieldsPresent = true;
-
-                    for (const field of config.requiredFields) {
-                        const value = detail.data[field];
-                        if ((config.checkUndefined && typeof value === 'undefined') || (!config.checkUndefined && !value && !(field === 'spriteName' && value === ''))) {
-                            allFieldsPresent = false;
-                            break;
-                        }
-                        extractedData[field] = value;
-                    }
-
-                    if (!allFieldsPresent) {
-                        const missingFields = config.requiredFields.filter(f =>
-                            (config.checkUndefined && typeof detail.data[f] === 'undefined') ||
-                            (!config.checkUndefined && !detail.data[f] && !(f === 'spriteName' && detail.data[f] === ''))
-                        ).join(', ');
-                        CollaborationConsole.error(`Collab Send [${config.consoleKey}]: Missing ${missingFields} in detail data.`, detail.data);
-                        return;
-                    }
-
-                    payloadData = {};
-                    config.payloadKeys.forEach(key => {
-                        payloadData[key] = extractedData[key];
-                    });
-                }
-
-                if (payloadData === null) { 
-                    return;
-                }
-
-                const projectEventData = {
-                    type: config.eventType,
-                    data: payloadData
-                };
-
-                constants.mutableRefs.ydoc.transact(() => {
-                    projectEventData.timestamp = Date.now();
-                    constants.mutableRefs.yProjectEvents.push([projectEventData]);
-                    // Record TX event
-                    recorder.recordYjsEvent('SEND', 'yProjectEvents', projectEventData);
-                    if (constants.debugging) CollaborationConsole.log(`Collab Send [${config.eventType}]: Pushed event to yProjectEvents`, projectEventData.data);
-                }, constants.LOCAL_EVENT_SYNC_ORIGIN);
-            }
-            // --- 'savedProject' Trigger (for project save operations) ---
-            else if (detail.triggerId === 'savedProject') {
-                let corruptionDetails = null;
-                for (const target of constants.mutableRefs.vm.runtime.targets) {
-                    const blocksToValidate = target.blocks._blocks;
-                    const cycleCheckResult = helper.findCircularDependency(blocksToValidate, target.getName());
-                    if (cycleCheckResult.hasCycle) {
-                        CollaborationConsole.error(`Collab FATAL: Circular dependency detected in target "${target.getName()}". Aborting sync.`);
-                        corruptionDetails = cycleCheckResult;
-                        break;
-                    }
-                }
-
-                if (corruptionDetails) {
-                    const popup = document.createElement('div');
-                    popup.className = 'collab-popup';
-                    popup.innerHTML = `
-                        <div class="collab-popup-content">
-                            <h2>Project Sync Error</h2>
-                            <p>An invalid block connection (a loop) was detected in your project. This can sometimes happen after complex block movements.</p>
-                            <p>To fix this, the page needs to be reloaded. Your work should be saved up to this point.</p>
-                            <p>Please send the debug log to @CodeTorch.</p>
-                            <button id="collab-reload-button">Reload Project</button>
-                        </div>
-                    `;
-                    
-                    const popupContent = popup.querySelector('.collab-popup-content');
-
-                    const downloadProjectButton = document.createElement('button');
-                    downloadProjectButton.innerText = 'Download Project';
-                    downloadProjectButton.addEventListener('click', () => {
-                        document.querySelectorAll('[class*="menu-bar_menu-bar-item_"]')[1].click();
-                        setTimeout(() => {
-                            document.querySelectorAll('li[class*="menu_menu-item_"]')[3].click();
-                        }, 500);
-                    });
-                    popupContent.appendChild(downloadProjectButton);
-
-                    // --- NEW: Download Debug Log Button ---
-                    const downloadLogButton = document.createElement('button');
-                    downloadLogButton.innerText = 'Download Debug Log';
-                    downloadLogButton.addEventListener('click', async () => {
-                        downloadLogButton.innerText = "Generating...";
-                        downloadLogButton.disabled = true;
-
-                        const mapToObject = (map) => {
-                            const obj = {};
-                            if (!map || !(map instanceof Map)) return {};
-                            map.forEach((value, key) => {
-                                obj[String(key)] = value;
-                            });
-                            return obj;
-                        };
-
-                        let sessionInfo, yjsState, localCollabState, vmProjectJSON, yEventsData, yProjectEventsData, corruptionLog;
-
-                        try {
-                            if (corruptionDetails) {
-                                const blockTypes = {};
-                                const targetName = corruptionDetails.targetName;
-                                const target = targetName === 'Stage' ?
-                                    constants.mutableRefs.vm.runtime.getTargetForStage() :
-                                    constants.mutableRefs.vm.runtime.getSpriteTargetByName(targetName);
-
-                                if (target && corruptionDetails.path) {
-                                    corruptionDetails.path.forEach(blockId => {
-                                        const block = target.blocks.getBlock(blockId);
-                                        blockTypes[blockId] = block ? block.opcode : 'Not Found';
-                                    });
-                                }
-                                corruptionLog = JSON.stringify({ ...corruptionDetails, blockTypes }, null, 2);
-                            } else {
-                                corruptionLog = '"No corruption details available."';
-                            }
-                        } catch (e) {
-                            corruptionLog = `"Error generating Corruption Details: ${e.message}"`;
-                        }
-
-                        try {
-                            sessionInfo = JSON.stringify({
-                                timestamp: new Date().toISOString(),
-                                url: window.location.href,
-                                userAgent: navigator.userAgent,
-                            }, null, 2);
-                        } catch (e) {
-                            sessionInfo = `"Error generating Session Info: ${e.message}"`;
-                        }
-
-                        try {
-                            yjsState = JSON.stringify({
-                                localClientID: constants.mutableRefs.ydoc?.clientID || 'N/A',
-                                provider: {
-                                    connected: constants.mutableRefs.provider?.wsconnected || false,
-                                    synced: constants.mutableRefs.provider?.synced || false,
-                                    url: constants.mutableRefs.provider?.url || 'N/A',
-                                },
-                                awareness: mapToObject(constants.mutableRefs.yjsAwarenessInstance?.getStates()),
-                            }, null, 2);
-                        } catch (e) {
-                            yjsState = `"Error generating Yjs & Provider State: ${e.message}"`;
-                        }
-
-                        try {
-                            localCollabState = JSON.stringify({
-                                localUserInfo: constants.localUserInfo,
-                                syncFlags: {
-                                    hasProcessedInitialProjectEvents: constants.mutableRefs.hasProcessedInitialProjectEvents,
-                                    hasProcessedInitialBlockEvents: constants.mutableRefs.hasProcessedInitialBlockEvents,
-                                    alreadyRanSetup: constants.mutableRefs.alreadyRanSetup,
-                                },
-                                eventTransactionBuffer: mapToObject(constants.mutableRefs.eventTransactionBuffer),
-                            }, null, 2);
-                        } catch (e) {
-                            localCollabState = `"Error generating Local Collaboration State: ${e.message}"`;
-                        }
-
-                        try {
-                            vmProjectJSON = constants.mutableRefs.vm ? constants.mutableRefs.vm.toJSON() : '{"error": "VM instance not found."}';
-                        } catch (e) {
-                            vmProjectJSON = `{"error": "Failed to serialize project from VM", "message": "${e.message}"}`;
-                        }
-
-                        try {
-                            yEventsData = JSON.stringify(constants.mutableRefs.yEvents?.toArray() || [], null, 2);
-                        } catch (e) {
-                            yEventsData = `"Error generating YEvents History: ${e.message}"`;
-                        }
-
-                        try {
-                            yProjectEventsData = JSON.stringify(constants.mutableRefs.yProjectEvents?.toArray() || [], null, 2);
-                        } catch (e) {
-                            yProjectEventsData = `"Error generating YProjectEvents History: ${e.message}"`;
-                        }
-
-                        // --- EXPORT INDEXEDDB HISTORY (FIXED) ---
-                        // We now request a Blob directly to avoid crashing the browser with a huge string
-                        let dbBlob = null;
-                        try {
-                            dbBlob = await recorder.exportCurrentSessionAsBlob();
-                        } catch (e) {
-                            CollaborationConsole.error("Failed to export DB", e);
-                            dbBlob = new Blob([JSON.stringify({ error: "Failed to export IndexedDB", details: e.message })], { type: 'text/plain' });
-                        }
-                        
-                        // We need to combine the in-memory strings with the DB blob.
-                        // We will use a Blob array to construct the final file.
-                        
-                        const headerContent = `Collaboration Addon Debug Log\n\n` +
-                            `==================== CORRUPTION DETAILS ====================\n${corruptionLog}\n\n` +
-                            `==================== Session Info ====================\n${sessionInfo}\n\n` +
-                            `==================== Yjs & Provider State ====================\n${yjsState}\n\n` +
-                            `==================== Local Collaboration State ====================\n${localCollabState}\n\n` +
-                            `==================== Full Project State (from vm.toJSON()) ====================\n${vmProjectJSON}\n\n` +
-                            `==================== YEvents History (In-Memory Current) ====================\n${yEventsData}\n\n` +
-                            `==================== YProjectEvents History (In-Memory Current) ====================\n${yProjectEventsData}\n\n` +
-                            `==================== FLIGHT RECORDER (INDEXED DB EXPORT) ====================\n`;
-
-                        const footerContent = `\n\n==================== END OF LOG ====================`;
-
-                        try {
-                            // Combine strings and the DB Blob
-                            const finalBlob = new Blob([headerContent, dbBlob, footerContent], { type: 'text/plain;charset=utf-8' });
-                            const url = URL.createObjectURL(finalBlob);
-                            
-                            const a = document.createElement('a');
-                            a.style.display = 'none';
-                            a.href = url;
-                            const timestampForFile = new Date().toISOString().replace(/[:.]/g, '-');
-                            a.download = `collaboration_debug_log_${timestampForFile}.txt`;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                            
-                            downloadLogButton.innerText = "Download Debug Log";
-                            downloadLogButton.disabled = false;
-                        } catch (downloadError) {
-                            CollaborationConsole.error("Collab: Failed to trigger debug log download.", downloadError);
-                            alert("Sorry, the debug log could not be downloaded.");
-                            downloadLogButton.innerText = "Error";
-                        }
-                    });
-                    popupContent.appendChild(downloadLogButton);
-                    
-                    document.body.appendChild(popup);
-                    
-                    document.getElementById('collab-reload-button').addEventListener('click', () => {
-                        window.location.reload();
-                    });
-
-                    return; 
-                }
-
-                const projectDataSync = {
-                    type: 'projectDataSync',
-                    data: constants.mutableRefs.vm.runtime.targets.map(target => ({
-                        targetId: target.id,
-                        targetName: target.getName(),
-                        blockData: JSON.stringify(target.blocks._blocks || {}),
-                        commentData: JSON.stringify(target.comments || {})
-                    }))
-                };
-
-                if (window.collaborationLocked === false) {
-                    if (constants.debugging) CollaborationConsole.log('Collab Send [savedProject]: User is alone. Wiping Yjs state.');
-                    constants.mutableRefs.ydoc.transact(() => {
-                        if (constants.mutableRefs.yProjectEvents && typeof constants.mutableRefs.yProjectEvents.delete === 'function' && constants.mutableRefs.yProjectEvents.length > 0) {
-                            constants.mutableRefs.yProjectEvents.delete(0, constants.mutableRefs.yProjectEvents.length);
-                            if (constants.debugging) CollaborationConsole.log('Collab Send [savedProject]: Wiped yProjectEvents.');
-                        }
-                        if (constants.mutableRefs.yEvents && typeof constants.mutableRefs.yEvents.delete === 'function' && constants.mutableRefs.yEvents.length > 0) {
-                            constants.mutableRefs.yEvents.delete(0, constants.mutableRefs.yEvents.length);
-                            if (constants.debugging) CollaborationConsole.log('Collab Send [savedProject]: Wiped yEvents.');
-                        }
-
-                        const savedProjectEvent = {
-                            type: 'savedProject',
-                            timestamp: Date.now(),
-                            data: {}
-                        };
-                        constants.mutableRefs.yProjectEvents.push([savedProjectEvent]);
-                        constants.mutableRefs.yEvents.push([savedProjectEvent]);
-                        
-                        // Record YJS send events
-                        recorder.recordYjsEvent('SEND', 'yProjectEvents', savedProjectEvent);
-                        recorder.recordYjsEvent('SEND', 'yEvents', savedProjectEvent);
-
-                        if (constants.debugging) CollaborationConsole.log('Collab Send [savedProject]: Wiped Yjs state and pushed new savedProject event markers.');
-                    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
-                } else {
-                    constants.mutableRefs.ydoc.transact(() => {
-                        const savedProjectEvent = {
-                            type: 'savedProject',
-                            timestamp: Date.now(),
-                            data: {}
-                        };
-                        constants.mutableRefs.yProjectEvents.push([savedProjectEvent]);
-                        constants.mutableRefs.yEvents.push([savedProjectEvent]);
-
-                        // Record YJS send events
-                        recorder.recordYjsEvent('SEND', 'yProjectEvents', savedProjectEvent);
-                        recorder.recordYjsEvent('SEND', 'yEvents', savedProjectEvent);
-
-                        if (constants.debugging) CollaborationConsole.log('Collab Send [savedProject]: Pushed event to yEvents and yProjectEvents (multiple collaborators present).');
-                    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
-                }
-                constants.mutableRefs.yProjectDataSync.set('sync', projectDataSync);
-            }
-            else {
-                CollaborationConsole.warn('Collab: Unhandled custom trigger:', detail.triggerId);
-            }
+        const onLocalDrag = (data) => {
+            const currentTargetId = helper.getCurrentEditingTargetId();
+            constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('dragging', {
+                blockId: data.blockId,
+                x: data.x,
+                y: data.y,
+                targetId: currentTargetId
+            });
         };
-        
-        window.removeEventListener('collaboration_addon_trigger', handleCustomTrigger);
-        window.addEventListener('collaboration_addon_trigger', handleCustomTrigger);
 
-        // --- Awareness Changes Handler ---
+        const onLocalDragEnd = () => {
+            constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('dragging', null);
+        };
+
+        constants.mutableRefs.BlocklyInstance.CollaborationEmitter.on('blockDrag', onLocalDrag);
+        constants.mutableRefs.BlocklyInstance.CollaborationEmitter.on('blockDragEnd', onLocalDragEnd);
+
         constants.mutableRefs.yjsAwarenessInstance.on('change', changes => {
             if (constants.mutableRefs.collaborationLayerGroup && constants.mutableRefs.currentWorkspaceSvg) {
-                const { added, updated, removed } = changes;
+                const { removed } = changes;
                 const states = constants.mutableRefs.yjsAwarenessInstance.getStates();
                 const localClientID = constants.mutableRefs.yjsAwarenessInstance.clientID;
-                const localTargetName = constants.localUserInfo.currentTargetName;
-
-                function collaborationLocked() {
-                    if (constants.mutableRefs.yjsAwarenessInstance) {
-                        const allStates = constants.mutableRefs.yjsAwarenessInstance.getStates();
-                        let validCollaboratorCount = 0;
-
-                        allStates.forEach((state, clientID) => {
-                            if (state && (Object.keys(state).length > 0) && state.user && state.user.name) {
-                                if (clientID !== localClientID) {
-                                    validCollaboratorCount++;
-                                }
-                            }
-                        });
-                        const newLockedState = validCollaboratorCount > 0;
-                        if (window.collaborationLocked !== newLockedState) {
-                            window.collaborationLocked = newLockedState;
-                            if (constants.debugging) {
-                                CollaborationConsole.log(`Collab: collaborationLocked set to ${window.collaborationLocked} (Valid Remote Collaborators: ${validCollaboratorCount}, Total States (incl. empty/local): ${allStates.size})`);
-                            }
-                        }
-                    }
-                }
+                const localTargetId = constants.localUserInfo.currentTargetId;
+                const lockedCostumes = {};
+                const lockedSounds = {};
+                
+                const assetClaims = {};
 
                 states.forEach((state, clientID) => {
-                    if (clientID === localClientID) return; 
+                    if (state.editingAsset && state.user) {
+                        const { type, index, targetId, timestamp } = state.editingAsset;
+                        const key = `${type}:${targetId}:${index}`;
+                        if (!assetClaims[key]) assetClaims[key] = [];
+                        assetClaims[key].push({
+                            clientID,
+                            timestamp: timestamp || 0,
+                            user: state.user,
+                            type,
+                            targetId,
+                            index
+                        });
+                    }
 
-                    const remoteTargetName = state.currentTargetName;
-                    const remoteDraggingTargetName = state.dragging?.targetName;
+                    if (clientID === localClientID) return;
+
+                    const remoteTargetId = state.currentTargetId;
+                    const remoteDraggingTargetId = state.dragging?.targetId;
                     const user = state.user;
 
-                    const showRemoteUserInWorkspace = localTargetName && remoteTargetName === localTargetName;
+                    const showRemoteUserInWorkspace = localTargetId && remoteTargetId === localTargetId;
 
                     if (showRemoteUserInWorkspace && user) {
                         collabUI.createOrUpdateRemoteCursor(clientID, state, constants.mutableRefs.collaborationLayerGroup, constants.debugging);
@@ -942,28 +832,27 @@ function attachYjsProvider() {
 
                     const dragInfo = state.dragging;
                     const existingDrag = constants.remoteDraggingBlocks.get(clientID);
-                    const showRemoteDragGhost = localTargetName && remoteDraggingTargetName === localTargetName;
+                    const showRemoteDragGhost = localTargetId && remoteDraggingTargetId === localTargetId;
 
                     if (showRemoteDragGhost && dragInfo?.blockId) {
                         let remoteDragData = existingDrag;
                         if (!remoteDragData || remoteDragData.blockId !== dragInfo.blockId) {
-                            if (remoteDragData) remoteDragData.ghostSvg?.remove(); 
+                            if (remoteDragData) remoteDragData.ghostSvg?.remove();
 
                             const workspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
                             const realBlock = workspace?.getBlockById(dragInfo.blockId);
                             if (realBlock?.getSvgRoot) {
-                                const ghostSvg = realBlock.getSvgRoot().cloneNode(true); 
+                                const ghostSvg = realBlock.getSvgRoot().cloneNode(true);
                                 ghostSvg.setAttribute('class', 'collaboration-ghost-block');
                                 ghostSvg.style.opacity = '0.5';
                                 ghostSvg.style.pointerEvents = 'none';
                                 ghostSvg.removeAttribute('data-id');
-                                constants.mutableRefs.collaborationLayerGroup.appendChild(ghostSvg); 
-                                remoteDragData = { blockId: dragInfo.blockId, ghostSvg: ghostSvg, targetName: remoteDraggingTargetName };
+                                constants.mutableRefs.collaborationLayerGroup.appendChild(ghostSvg);
+                                remoteDragData = { blockId: dragInfo.blockId, ghostSvg: ghostSvg, targetId: remoteDraggingTargetId };
                                 constants.remoteDraggingBlocks.set(clientID, remoteDragData);
-                                if (constants.debugging) CollaborationConsole.log(`Collab UI: Created ghost for client ${clientID} dragging block ${dragInfo.blockId} on target ${remoteDraggingTargetName}`);
                             }
                         } else {
-                            remoteDragData.targetName = remoteDraggingTargetName; 
+                            remoteDragData.targetId = remoteDraggingTargetId;
                         }
                         if (remoteDragData?.ghostSvg) {
                             remoteDragData.ghostSvg.setAttribute('transform', `translate(${dragInfo.x},${dragInfo.y})`);
@@ -971,14 +860,34 @@ function attachYjsProvider() {
                                 constants.mutableRefs.collaborationLayerGroup.appendChild(remoteDragData.ghostSvg);
                             }
                         }
-                    } else { 
-                        if (existingDrag) { 
+                    } else {
+                        if (existingDrag) {
                             existingDrag.ghostSvg?.remove();
                             constants.remoteDraggingBlocks.delete(clientID);
-                            if (constants.debugging) CollaborationConsole.log(`Collab UI: Removed ghost for client ${clientID} (no longer dragging or target mismatch)`);
                         }
                     }
-                    collaborationLocked(); 
+                });
+
+                Object.values(assetClaims).forEach(claims => {
+                    if (claims.length === 0) return;
+                    claims.sort((a, b) => {
+                        if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+                        return a.clientID - b.clientID;
+                    });
+                    
+                    const winner = claims[0];
+                    if (winner.clientID !== localClientID) {
+                        const lockKey = `${winner.targetId}:${winner.index}`;
+                        const lockInfo = { name: winner.user.name, color: winner.user.color };
+                        if (winner.type === 'costume') lockedCostumes[lockKey] = lockInfo;
+                        if (winner.type === 'sound') lockedSounds[lockKey] = lockInfo;
+                    }
+                });
+
+                constants.mutableRefs.addon.tab.redux.dispatch({
+                    type: 'scratch-gui/collaboration/SET_ASSET_LOCKS',
+                    lockedCostumes,
+                    lockedSounds
                 });
 
                 removed.forEach(clientID => {
@@ -989,36 +898,20 @@ function attachYjsProvider() {
                         existingDrag.ghostSvg?.remove();
                         constants.remoteDraggingBlocks.delete(clientID);
                     }
-                    collaborationLocked(); 
                 });
-                collabUI.ensureCollaborationLayerOnTop(); 
-            } 
+                collabUI.ensureCollaborationLayerOnTop();
+            }
 
             collabUI.updateUserMenuBarIcons();
             collabUI.updateSpriteUserIcons();
             collabUI.updateTabUserIcons();
+        });
 
-        }); 
-
-        // --- Global Listeners (Visibility Change, Keydown) ---
         const handleWindowBlur = async () => {
             constants.mutableRefs.yjsAwarenessInstance?.setLocalStateField('cursor', null);
             constants.mutableRefs.yjsAwarenessInstance?.setLocalStateField('dragging', null);
             collabUI.clearLocalChatMessage();
-
-            assetSync.detachDebouncedCostumeEditorChangeListener();
-            assetSync.detachDebouncedSoundEditorChangeListener();
-
-            if (constants.localUserInfo.editingCostumeInfo) {
-                if (constants.debugging) CollaborationConsole.log('Collab: Window blurred, attempting costume sync.');
-                await assetSync.syncCurrentCostumeData(true); 
-                timeout.handleInactivityX(); 
-            }
-            if (constants.localUserInfo.editingSoundInfo) {
-                if (constants.debugging) CollaborationConsole.log('Collab: Window blurred, attempting sound sync.');
-                await assetSync.syncCurrentSoundData(true); 
-                timeout.handleInactivityX(); 
-            }
+            timeout.handleInactivityX();
         };
 
         const handleWindowFocus = async () => {
@@ -1026,34 +919,8 @@ function attachYjsProvider() {
                 if (constants.localUserInfo.isInactive) {
                     constants.localUserInfo.isInactive = false;
                     constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('isInactive', false);
-                    if (constants.debugging) CollaborationConsole.log('Collab: Window focused, user explicitly marked active if was inactive.');
                 }
-                timeout.resetInactivityTimers(); 
-
-                if (constants.localUserInfo.editingCostumeInfo) {
-                    if (constants.debugging) CollaborationConsole.log('Collab: Window focused, attempting costume sync.');
-                    await assetSync.syncCurrentCostumeData();
-
-                    if (constants.localUserInfo.activeTabIndex === 1) { 
-                        if (constants.debugging) CollaborationConsole.log('Collab: Costume tab active on focus, reattaching listener.');
-                        assetSync.attachDebouncedCostumeEditorChangeListener();
-                    } else {
-                        if (constants.debugging) CollaborationConsole.log('Collab: Costume tab NOT active on focus. Listener remains detached.');
-                        assetSync.detachDebouncedCostumeEditorChangeListener();
-                    }
-                }
-                if (constants.localUserInfo.editingSoundInfo) {
-                    if (constants.debugging) CollaborationConsole.log('Collab: Window focused, attempting sound sync.');
-                    await assetSync.syncCurrentSoundData();
-
-                    if (constants.localUserInfo.activeTabIndex === 2) { 
-                        if (constants.debugging) CollaborationConsole.log('Collab: Sound tab active on focus, reattaching listener.');
-                        assetSync.attachDebouncedSoundEditorChangeListener();
-                    } else {
-                        if (constants.debugging) CollaborationConsole.log('Collab: Sound tab NOT active on focus. Listener remains detached.');
-                        assetSync.detachDebouncedSoundEditorChangeListener();
-                    }
-                }
+                timeout.resetInactivityTimers();
             }
         };
 
@@ -1069,15 +936,41 @@ function attachYjsProvider() {
         window.removeEventListener('keydown', collabUI.handleGlobalKeyDown);
         window.addEventListener('keydown', collabUI.handleGlobalKeyDown);
 
-        CollaborationConsole.log('Collab: WebsocketProvider connection sequence initiated...');
-
-        // --- Cleanup Function ---
         const cleanup = () => {
-            CollaborationConsole.log('Collab: Running Yjs cleanup...');
-            recorder.stop();
-            collabUI.clearLocalChatMessage(); 
-            timeout.clearInactivityTimers(); 
-            collabUI.hideSyncingPopup(); 
+            
+
+            constants.mutableRefs.BlocklyInstance.CollaborationEmitter.off('blockDrag', onLocalDrag);
+            constants.mutableRefs.BlocklyInstance.CollaborationEmitter.off('blockDragEnd', onLocalDragEnd);
+
+            constants.mutableRefs.vm.removeListener('TARGET_BLOCKS_CHANGED', handleTargetBlocksChanged);
+            constants.mutableRefs.vm.removeListener('TARGET_VARIABLES_CHANGED', handleTargetVariablesChanged);
+            constants.mutableRefs.vm.removeListener('MONITORS_UPDATE', handleMonitorsUpdate);
+            constants.mutableRefs.vm.removeListener('TARGET_COMMENTS_CHANGED', handleTargetCommentsChanged);
+            constants.mutableRefs.vm.removeListener('TARGET_COSTUME_CHANGED', handleTargetCostumeChanged);
+            constants.mutableRefs.vm.removeListener('SOUNDS_CHANGED', handleTargetSoundsChanged);
+            constants.mutableRefs.vm.removeListener('TARGET_SIMPLE_PROPERTY_CHANGED', handleTargetSimplePropertyChanged);
+            constants.mutableRefs.vm.removeListener('TARGET_RENAMED', handleTargetRenamed);
+            constants.mutableRefs.vm.removeListener('TARGETS_INDEX_CHANGED', handleTargetsIndexChanged);
+            constants.mutableRefs.vm.removeListener('ADD_SPRITE', handleAddSprite);
+            constants.mutableRefs.vm.removeListener('DELETE_SPRITE', handleDeleteSprite);
+            constants.mutableRefs.vm.removeListener('EXTENSION_ADDED', handleExtensionAdded);
+
+            collabUI.clearLocalChatMessage();
+            timeout.clearInactivityTimers();
+            collabUI.hideSyncingPopup();
+
+            if (constants.mutableRefs.addon?.tab?.redux?.dispatch) {
+                constants.mutableRefs.addon.tab.redux.dispatch({
+                    type: 'scratch-gui/collaboration/SET_COLLAB_ACTIVE',
+                    payload: false
+                });
+            }
+            if (constants.mutableRefs.addon?.tab?.redux?.dispatch) {
+                constants.mutableRefs.addon.tab.redux.dispatch({
+                    type: 'scratch-gui/collaboration/SET_DISCONNECTED',
+                    payload: true
+                });
+            }
 
             if (constants.mutableRefs.provider) {
                 constants.mutableRefs.provider.off('synced');
@@ -1092,137 +985,101 @@ function attachYjsProvider() {
 
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('keydown', collabUI.handleGlobalKeyDown);
-            window.removeEventListener('collaboration_addon_trigger', handleCustomTrigger);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
 
-            const ws = constants.mutableRefs.BlocklyInstance?.getMainWorkspace();
-            if (ws && constants.mutableRefs.workspaceChangeListener) ws.removeChangeListener(constants.mutableRefs.workspaceChangeListener);
             if (constants.mutableRefs.currentWorkspaceSvg) {
                 if (constants.mutableRefs.throttledMouseMoveHandler) constants.mutableRefs.currentWorkspaceSvg.removeEventListener('pointermove', constants.mutableRefs.throttledMouseMoveHandler);
                 if (constants.mutableRefs.pointerLeaveHandler) constants.mutableRefs.currentWorkspaceSvg.removeEventListener('pointerleave', constants.mutableRefs.pointerLeaveHandler);
             }
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-
             constants.mutableRefs.blocklyCanvasObserver?.disconnect();
 
             collabUI.removeAllUI();
-            constants.remoteDraggingBlocks.forEach(dragData => dragData.ghostSvg?.remove()); 
+            constants.remoteDraggingBlocks.forEach(dragData => dragData.ghostSvg?.remove());
             constants.remoteDraggingBlocks.clear();
-            constants.mutableRefs.collaborationLayerGroup?.remove(); 
-            constants.remoteUserIcons.forEach(icon => icon.remove()); 
+            constants.mutableRefs.collaborationLayerGroup?.remove();
+            constants.remoteUserIcons.forEach(icon => icon.remove());
             constants.remoteUserIcons.clear();
-            constants.mutableRefs.userIconContainer?.remove(); 
-            constants.spriteIconContainers.forEach(({ container }) => container?.remove()); 
+            constants.mutableRefs.userIconContainer?.remove();
+            constants.spriteIconContainers.forEach(({ container }) => container?.remove());
             constants.spriteIconContainers.clear();
-            constants.tabIconContainers.forEach(({ container }) => container?.remove()); 
+            constants.tabIconContainers.forEach(({ container }) => container?.remove());
             constants.tabIconContainers.clear();
 
-            constants.mutableRefs.workspaceChangeListener = null;
             constants.mutableRefs.blocklyCanvasObserver = null;
             constants.mutableRefs.localChatElementsRef = null;
             constants.mutableRefs.currentWorkspaceSvg = null;
             constants.mutableRefs.throttledMouseMoveHandler = null;
             constants.mutableRefs.pointerLeaveHandler = null;
             constants.mutableRefs.yjsAwarenessInstance = null;
-            constants.mutableRefs.yEvents = null;
-            constants.mutableRefs.yProjectEvents = null;
             constants.mutableRefs.ydoc = null;
             constants.mutableRefs.provider = null;
             constants.mutableRefs.userIconContainer = null;
-            
-            window.collaborationLocked = false;
-            window.collaborationDisableSave = true; 
-            constants.mutableRefs.workspaceChangeListener = null;
+            constants.mutableRefs.sharedBlocks = null;
+            constants.mutableRefs.sharedVariables = null;
+            constants.mutableRefs.sharedMonitors = null;
+            constants.mutableRefs.sharedComments = null;
+            constants.mutableRefs.sharedCostumes = null;
+            constants.mutableRefs.sharedSounds = null;
+            constants.mutableRefs.sharedSprites = null;
+            constants.mutableRefs.sharedExtensions = null;
+            constants.mutableRefs.isInitialSync = false;
+            constants.mutableRefs.roomUUID = null;
 
             if (window.collab) delete window.collab;
-            CollaborationConsole.log('Collab: Cleanup finished.');
-
-            const popup = document.createElement('div');
-            popup.className = 'collab-popup';
-            popup.innerHTML = `
-                <div class="collab-popup-content">
-                    <h2>Collaboration Ended</h2>
-                    <p>The collaboration session has ended. Please refresh the page to start a new session.</p>
-                    <p style="font-size: 11px;margin-top: 1.5rem;">It's recommended to download your project before refreshing (just in case something goes wrong).</p>
-                </div>
-            `;
-            const button = document.createElement('button');
-            button.innerText = 'Download Project';
-            button.addEventListener('click', () => {
-                document.querySelectorAll('[class*="menu-bar_menu-bar-item_"]')[1].click(); 
-                setTimeout(() => {
-                    document.querySelectorAll('li[class*="menu_menu-item_"]')[3].click(); 
-                }, 500);
-            });
-            popup.children[0].appendChild(button);
-            document.body.appendChild(popup);
+            
         };
-
-        constants.mutableRefs.provider.on('destroy', () => {
-            CollaborationConsole.log("Collab: constants.mutableRefs.provider emitted 'destroy'. Manual cleanup should handle listeners etc.");
-        });
 
         const handleBeforeUnload = () => {
             if (constants.mutableRefs.currentCleanupFunction) {
-                CollaborationConsole.log('Collab: Running cleanup on beforeunload.');
                 constants.mutableRefs.currentCleanupFunction();
-                constants.mutableRefs.currentCleanupFunction = null; 
+                constants.mutableRefs.currentCleanupFunction = null;
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
 
-        return cleanup; 
+        return cleanup;
 
     } catch (error) {
-        CollaborationConsole.error('Collab: Failed to initialize Yjs/WebRTC constants.mutableRefs.provider:', error);
+        
         collabUI.hideSyncingPopup();
-
-        window.collaborationLocked = false; 
-        constants.mutableRefs.blocklyCanvasObserver?.disconnect();
         collabUI.removeAllUI();
-        constants.mutableRefs.collaborationLayerGroup?.remove();
-        constants.remoteDraggingBlocks.forEach(dragData => dragData.ghostSvg?.remove());
-        constants.remoteDraggingBlocks.clear();
-        constants.mutableRefs.userIconContainer?.remove();
-        constants.spriteIconContainers.forEach(({ container }) => container?.remove());
-        constants.spriteIconContainers.clear();
-        constants.mutableRefs.provider?.destroy(); 
-        constants.mutableRefs.provider = null; constants.mutableRefs.ydoc = null; constants.mutableRefs.yjsAwarenessInstance = null; constants.mutableRefs.yEvents = null; constants.mutableRefs.yProjectEvents = null;
-
-        const popup = document.createElement('div');
-        popup.className = 'collab-popup';
-        popup.innerHTML = `
-            <div class="collab-popup-content">
-                <h2>Collaboration Failed to Start</h2>
-                <p>Could not connect to the collaboration server.</p>
-                <p style="font-size: 11px;">Please refresh the page and try again.</p>
-            </div>
-        `;
-        document.body.appendChild(popup);
-
-        return null; 
+        constants.mutableRefs.provider?.destroy();
+        constants.mutableRefs.provider = null;
+        constants.mutableRefs.ydoc = null;
+        constants.mutableRefs.yjsAwarenessInstance = null;
+        return null;
     }
 }
 
 let shouldRunCollaborationAddon = constants.devMode ? true : "waiting";
-
-/**
- * Sets the global flag to activate or deactivate the collaboration addon.
- * This function is called by the Scratch GUI's `project-fetcher-hoc`.
- * @param {boolean} action True to enable collaboration, false to disable.
- */
 window.StartCollaborator = function (action = true) {
     shouldRunCollaborationAddon = action;
 }
 
-// --- Main Addon Export ---
 export default async function ({ addon, console: addonConsole }) {
-    CollaborationConsole.log('Collaboration Addon Initializing...', document.querySelectorAll('[class*="loader_background_"]').length);
+    
 
-    recorder.processOldSessions();
     try {
         constants.mutableRefs.addon = addon;
         constants.mutableRefs.BlocklyInstance = await addon.tab.traps.getBlockly();
         constants.mutableRefs.vm = addon.tab.traps.vm;
+
+        window.collab = {
+            addon: addon,
+            BlocklyInstance: constants.mutableRefs.BlocklyInstance,
+            vm: constants.mutableRefs.vm,
+            constants: constants,
+            getYjsProvider: () => constants.mutableRefs.provider,
+            getYjsAwareness: () => constants.mutableRefs.yjsAwarenessInstance,
+            getSharedBlocks: () => constants.mutableRefs.sharedBlocks,
+            getSharedVariables: () => constants.mutableRefs.sharedVariables,
+            getSharedMonitors: () => constants.mutableRefs.sharedMonitors,
+            getSharedComments: () => constants.mutableRefs.sharedComments,
+            getSharedCostumes: () => constants.mutableRefs.sharedCostumes,
+            getSharedSounds: () => constants.mutableRefs.sharedSounds,
+            getSharedSprites: () => constants.mutableRefs.sharedSprites,
+            getSharedExtensions: () => constants.mutableRefs.sharedExtensions,
+        };
 
         if (!constants.mutableRefs.BlocklyInstance) throw new Error('Failed to trap Blockly instance.');
         if (!constants.mutableRefs.vm) throw new Error('Failed to trap constants.mutableRefs.vm instance.');
@@ -1231,23 +1088,16 @@ export default async function ({ addon, console: addonConsole }) {
 
         const menuBar = await addon.tab.waitForElement('[class*="menu-bar_main-menu"]', {
             markAsSeen: true,
-            reduxCondition: state => state.scratchGui.mode.isPlayerOnly !== true 
+            reduxCondition: state => state.scratchGui.mode.isPlayerOnly !== true
         });
         if (menuBar && !document.getElementById(constants.COLLABORATION_USER_ICON_CONTAINER_ID)) {
             constants.mutableRefs.userIconContainer = document.createElement('div');
             constants.mutableRefs.userIconContainer.id = constants.COLLABORATION_USER_ICON_CONTAINER_ID;
             constants.mutableRefs.userIconContainer.classList.add('collaboration-user-icon-container');
             menuBar.parentNode.insertBefore(constants.mutableRefs.userIconContainer, menuBar.nextSibling);
-            CollaborationConsole.log('Collab UI: User icon container added to menu bar.');
+            
         } else if (document.getElementById(constants.COLLABORATION_USER_ICON_CONTAINER_ID)) {
             constants.mutableRefs.userIconContainer = document.getElementById(constants.COLLABORATION_USER_ICON_CONTAINER_ID);
-            CollaborationConsole.log('Collab UI: Re-using existing user icon container.');
-        } else {
-            CollaborationConsole.warn('Collab UI: Could not find menu bar element to attach user icon container.');
-        }
-
-        if (constants.debugging) {
-            window.addon = addon; window.Blockly = constants.mutableRefs.BlocklyInstance; window.vm = constants.mutableRefs.vm;
         }
 
         function startCollaboratorOffically() {
@@ -1258,31 +1108,32 @@ export default async function ({ addon, console: addonConsole }) {
                     }, 100);
                 } else {
                     if (shouldRunCollaborationAddon) {
-                        CollaborationConsole.log('Collab: Project loaded, attaching Yjs constants.mutableRefs.provider...');
-                        if (constants.debugging) window.collab = constants; 
+                        
                         setTimeout(() => {
                             if (!constants.mutableRefs.provider) {
-                                const undoInternal = constants.mutableRefs.BlocklyInstance.mainWorkspace.undo;
-                                constants.mutableRefs.BlocklyInstance.mainWorkspace.undo = function (...args) {
-                                    collabUI.setUndoRedoOverride(); 
-                                    undoInternal.apply(this, args);
-                                }
-                                constants.mutableRefs.currentCleanupFunction = attachYjsProvider(); 
-                            } else {
-                                CollaborationConsole.log('Collab: Yjs provider already attached after load, skipping.');
+                                constants.mutableRefs.currentCleanupFunction = attachYjsProvider();
                             }
                         }, 800);
                     }
                 }
-            } else {
-                CollaborationConsole.log('Collab: Project loaded, but collaboration addon is disabled. Skipping Yjs provider attachment.');
             }
         }
-        
+
         if (document.querySelectorAll('[class*="loader_background_"]').length === 0) {
-            if (constants.debugging) CollaborationConsole.log('Collab: No loader background detected, starting collaborator immediately.');
             startCollaboratorOffically();
         }
+
+
+        const triggerSilence = () => {
+            constants.mutableRefs.isWorkspaceLoading = true;
+            if (constants.mutableRefs.loadingCooldownTimer) clearTimeout(constants.mutableRefs.loadingCooldownTimer);
+            constants.mutableRefs.loadingCooldownTimer = setTimeout(() => {
+                if (constants.mutableRefs.isInitialSync) return;
+                
+                constants.mutableRefs.isWorkspaceLoading = false;
+                constants.mutableRefs.loadingCooldownTimer = null;
+            }, 500); // 500ms total fallback to ensure we don't stay silent forever if no events fire.
+        };
 
         const handleStateChange = ({ detail } = {}) => {
             const action = detail?.action || addon.tab.redux?.lastAction;
@@ -1296,95 +1147,106 @@ export default async function ({ addon, console: addonConsole }) {
                 startCollaboratorOffically();
             }
 
-            if (actionType === 'scratch-gui/targets/UPDATE_TARGET_LIST') {
-                const newTargetId = action.editingTarget;
-                let newTargetName = null;
-                if (newTargetId) {
-                    newTargetName = constants.mutableRefs.vm.runtime.getTargetById(newTargetId)?.getName();
-                } else {
-                    const stageTarget = constants.mutableRefs.vm.runtime.getTargetForStage();
-                    if (stageTarget) newTargetName = stageTarget.getName();
-                }
+            if (actionType === 'scratch-gui/collaboration/SET_SELECTED_ASSET') {
+                const { assetType, index, targetId } = action;
 
-                if (typeof newTargetName === 'string' && newTargetName !== constants.localUserInfo.currentTargetName) {
-                    CollaborationConsole.log(`Collab: Editing target changed to: ${newTargetName} (ID: ${newTargetId || 'Stage'})`);
-                    constants.localUserInfo.currentTargetName = newTargetName; 
-                    assetSync.clearLocalEditingCostume();
-                    assetSync.clearLocalEditingSound();
+                if (constants.mutableRefs.yjsAwarenessInstance && targetId) {
+                    const currentLocalState = constants.mutableRefs.yjsAwarenessInstance.getLocalState();
+                    const currentAsset = currentLocalState?.editingAsset;
+                    let newTimestamp = Date.now();
+                    if (currentAsset && 
+                        currentAsset.type === assetType && 
+                        currentAsset.index === index && 
+                        currentAsset.targetId === targetId) {
+                        newTimestamp = currentAsset.timestamp;
+                    }
+
+                    constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', {
+                        type: assetType,
+                        index: index,
+                        targetId: targetId,
+                        timestamp: newTimestamp
+                    });
+                }
+            }
+
+            if (actionType === 'scratch-gui/targets/UPDATE_TARGET_LIST') {
+                triggerSilence();
+
+                const newTargetId = action.editingTarget;
+
+                if (newTargetId && newTargetId !== constants.localUserInfo.currentTargetId) {
+                    
+                    constants.localUserInfo.currentTargetId = newTargetId;
                     if (constants.mutableRefs.yjsAwarenessInstance) {
-                        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('currentTargetName', newTargetName);
+                        constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('currentTargetId', newTargetId);
                         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('dragging', null);
+
+                        const currentTab = constants.localUserInfo.activeTabIndex;
+                        if (currentTab === 1 || currentTab === 2) {
+                            const target = constants.mutableRefs.vm.runtime.getTargetById(newTargetId);
+                            const editingAssetType = currentTab === 1 ? 'costume' : 'sound';
+                            const editingAssetIndex = currentTab === 1 ? (target?.currentCostume || 0) : 0; 
+                            constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', {
+                                type: editingAssetType,
+                                index: editingAssetIndex,
+                                targetId: newTargetId,
+                                timestamp: Date.now()
+                            });
+                        }
                     }
                     setTimeout(() => {
                         collabUI.setupCollaborationLayer();
                     }, 100);
-                } else if (typeof newTargetName !== 'string') {
-                    CollaborationConsole.warn(`Collab: Could not definitively get target name during target change. Action:`, action);
                 }
             }
 
             if (actionType === 'scratch-gui/navigation/ACTIVATE_TAB') {
                 const newActiveTabIndex = detail.action.activeTabIndex;
-                const oldActiveTabIndex = constants.localUserInfo.activeTabIndex;
-
-                if (constants.debugging) CollaborationConsole.log(`Collab: ACTIVATE_TAB triggered. New tab: ${newActiveTabIndex}, Previous tab: ${oldActiveTabIndex}`);
-
-                if (oldActiveTabIndex === 1 && newActiveTabIndex !== 1) {
-                    if (constants.debugging) CollaborationConsole.log('Collab: Navigating away from Costumes tab. Clearing costume editing state.');
-                    assetSync.detachDebouncedCostumeEditorChangeListener();
-                    if (constants.localUserInfo.editingCostumeInfo) {
-                        assetSync.clearLocalEditingCostume(); 
-                    }
-                }
-                else if (newActiveTabIndex === 1) {
-                    if (constants.localUserInfo.editingCostumeInfo) {
-                        if (constants.debugging) CollaborationConsole.log('Collab: Navigated to Costumes tab while a costume might be edited. Ensuring listener is attached.');
-                        assetSync.attachDebouncedCostumeEditorChangeListener(); 
-                    } else {
-                        assetSync.detachDebouncedCostumeEditorChangeListener(); 
-                    }
-                } else {
-                    assetSync.detachDebouncedCostumeEditorChangeListener();
-                }
-
-                if (oldActiveTabIndex === 2 && newActiveTabIndex !== 2) {
-                    if (constants.debugging) CollaborationConsole.log('Collab: Navigating away from Sounds tab. Clearing sound editing state.');
-                    assetSync.detachDebouncedSoundEditorChangeListener();
-                    if (constants.localUserInfo.editingSoundInfo) {
-                        assetSync.clearLocalEditingSound();
-                    }
-                }
-                else if (newActiveTabIndex === 2) {
-                    if (constants.localUserInfo.editingSoundInfo) {
-                        if (constants.debugging) CollaborationConsole.log('Collab: Navigated to Sounds tab while a sound might be edited. Ensuring listener is attached.');
-                        assetSync.attachDebouncedSoundEditorChangeListener();
-                    } else {
-                        assetSync.detachDebouncedSoundEditorChangeListener();
-                    }
-                } else {
-                    assetSync.detachDebouncedSoundEditorChangeListener();
-                }
-
                 if (typeof newActiveTabIndex === 'number' && constants.localUserInfo.activeTabIndex !== newActiveTabIndex) {
-                    if (constants.debugging) CollaborationConsole.log(`Collab: Local tab activated. From: ${oldActiveTabIndex} To: ${newActiveTabIndex}`);
+                    if (newActiveTabIndex === 0) {
+                        triggerSilence();
+                    }
+
                     constants.localUserInfo.activeTabIndex = newActiveTabIndex;
                     if (constants.mutableRefs.yjsAwarenessInstance) {
                         constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('activeTabIndex', newActiveTabIndex);
+                        
+                        if (newActiveTabIndex === 0) {
+                            constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', null);
+                        } else if (newActiveTabIndex === 1) {
+                            const target = constants.mutableRefs.vm.runtime.getEditingTarget();
+                            if (target) {
+                                constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', {
+                                    type: 'costume',
+                                    index: target.currentCostume,
+                                    targetId: target.id,
+                                    timestamp: Date.now()
+                                });
+                            }
+                        } else if (newActiveTabIndex === 2) {
+                            const target = constants.mutableRefs.vm.runtime.getEditingTarget();
+                            if (target) {
+                                constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', {
+                                    type: 'sound',
+                                    index: 0,
+                                    targetId: target.id,
+                                    timestamp: Date.now()
+                                });
+                            }
+                        }
                     }
                 }
             }
 
             if (actionType === 'scratch-gui/theme/SET_THEME') {
                 setTimeout(async () => {
-                    constants.mutableRefs.BlocklyInstance = await addon.tab.traps.getBlockly(); 
+                    constants.mutableRefs.BlocklyInstance = await addon.tab.traps.getBlockly();
                     collabUI.setupCollaborationLayer();
                 }, 100);
             }
 
-            const spriteListChangingActions = [
-                'scratch-gui/targets/UPDATE_TARGET_LIST',
-            ];
-            if (spriteListChangingActions.includes(actionType)) {
+            if (actionType === 'scratch-gui/targets/UPDATE_TARGET_LIST') {
                 setTimeout(() => {
                     if (constants.mutableRefs.yjsAwarenessInstance) {
                         collabUI.updateSpriteUserIcons();
@@ -1396,24 +1258,19 @@ export default async function ({ addon, console: addonConsole }) {
         if (addon.tab.redux) {
             addon.tab.redux.removeEventListener('statechanged', handleStateChange);
             addon.tab.redux.addEventListener('statechanged', handleStateChange);
-            CollaborationConsole.log('Collab: Redux state listener attached.');
-            handleStateChange(); 
+            
+            handleStateChange();
         } else {
-            CollaborationConsole.warn('Collab: Redux listener not available. Automatic attach/cleanup might fail.');
+            
             setTimeout(() => {
                 if (!constants.mutableRefs.provider) constants.mutableRefs.currentCleanupFunction = attachYjsProvider();
             }, 1500);
         }
 
     } catch (error) {
-        CollaborationConsole.error('Collab: Fatal error during initialization:', error);
+        
         if (constants.mutableRefs.currentCleanupFunction) constants.mutableRefs.currentCleanupFunction();
-        else {
-            constants.remoteUserIcons.forEach(icon => icon.remove()); constants.remoteUserIcons.clear();
-            constants.mutableRefs.userIconContainer?.remove();
-            constants.spriteIconContainers.forEach(({ container }) => container?.remove()); constants.spriteIconContainers.clear();
-        }
     }
 
-    CollaborationConsole.log('Collaboration Addon Initialized.');
+    
 }

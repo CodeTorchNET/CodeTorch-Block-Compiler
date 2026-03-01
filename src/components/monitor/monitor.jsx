@@ -52,6 +52,8 @@ const MonitorComponent = props => (
             cancel=".no-drag" // Class used for slider input to prevent drag
             defaultClassNameDragging={styles.dragging}
             disabled={!props.draggable}
+            position={props.isDragging ? null : {x: 0, y: 0}}
+            onStart={props.onDragStart}
             onStop={props.onDragEnd}
 
             // https://github.com/TurboWarp/scratch-gui/issues/950
@@ -149,6 +151,8 @@ MonitorComponent.propTypes = {
     mode: PropTypes.oneOf(monitorModes),
     opcode: PropTypes.string.isRequired,
     onDragEnd: PropTypes.func.isRequired,
+    onDragStart: PropTypes.func,
+    isDragging: PropTypes.bool,
     onExport: PropTypes.func,
     onImport: PropTypes.func,
     onHide: PropTypes.func,

@@ -62,7 +62,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         // step 1: this is where the upload process begins
         handleStartSelectingFileUpload () {
             this.expectingFileUploadFinish = true;
-            if (window.collaborationLocked) {
+            if (this.props.isCollabActive) {
                 this.props.onShowCollaborationLock();
             } else {
                 this.createFileObjects(); // go to step 2
@@ -253,6 +253,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                 projectChanged,
                 requestProjectUpload: requestProjectUploadProp,
                 userOwnsProject,
+                isCollabActive,
                 /* eslint-enable no-unused-vars */
                 ...componentProps
             } = this.props;
@@ -292,7 +293,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             })
         }),
         onSetFileHandle: PropTypes.func,
-        onShowCollaborationLock: PropTypes.func
+        onShowCollaborationLock: PropTypes.func,
+        isCollabActive: PropTypes.bool
     };
     SBFileUploaderComponent.defaultProps = {
         showOpenFilePicker: typeof showOpenFilePicker === 'function' && !navigator.userAgent.includes('Android') ?
@@ -310,7 +312,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             projectChanged: state.scratchGui.projectChanged,
             userOwnsProject: ownProps.authorUsername && user &&
                 (ownProps.authorUsername === user.username),
-            vm: state.scratchGui.vm
+            vm: state.scratchGui.vm,
+            isCollabActive: state.scratchGui.collaboration.isCollabActive
         };
     };
     const mapDispatchToProps = (dispatch, ownProps) => ({

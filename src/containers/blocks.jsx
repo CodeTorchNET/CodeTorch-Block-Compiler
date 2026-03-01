@@ -462,12 +462,21 @@ class Blocks extends React.Component {
                 this.props.vm.runtime.getBlocksXML(target),
                 this.props.theme
             );
-            return makeToolboxXML(false, target.isStage, target.id, dynamicBlocksXML,
+            const xml = makeToolboxXML(false, target.isStage, target.id, dynamicBlocksXML,
                 targetCostumes[targetCostumes.length - 1].name,
                 stageCostumes[stageCostumes.length - 1].name,
                 targetSounds.length > 0 ? targetSounds[targetSounds.length - 1].name : '',
                 this.props.theme.getBlockColors()
             );
+            if (xml) {
+                const allVariables = Object.assign({}, stage.variables, target.variables);
+                const variables = Object.values(allVariables)
+                    .map(v => v.name + v.type + v.id)
+                    .sort()
+                    .join(',');
+                return xml.replace('</xml>', `<!-- ${variables} --></xml>`);
+            }
+            return xml;
         } catch {
             return null;
         }

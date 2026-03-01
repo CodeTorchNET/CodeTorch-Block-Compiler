@@ -1,0 +1,61 @@
+@import "../../css/colors.css";
+@import "../../css/units.css";
+
+.modal-content {
+    background-color: $ui-secondary;
+}
+
+.body {
+    background: $ui-secondary;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
+
+.content-container {
+    text-align: center;
+    max-width: 500px;
+    padding: 2rem;
+}
+
+.title {
+    color: $text-primary;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.message {
+    color: $text-primary;
+    font-size: 1.25rem;
+    line-height: 1.5;
+    margin-bottom: 2rem;
+}
+
+.button-row {
+    display: flex;
+    justify-content: center;
+}
+
+.reload-button {
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    background: $looks-secondary;
+    color: white;
+    border: 1px solid $ui-black-transparent;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.reload-button:hover {
+    box-shadow: 0 0 0 6px $looks-transparent;
+    transform: scale(1.05);
+}
+
+.reload-button:active {
+    transform: scale(0.95);
+}

@@ -143,6 +143,7 @@ class ListMonitor extends React.Component {
     }
 
     handleResizeMouseDown (e) {
+        this.isResizing = true;
         this.initialPosition = getEventXY(e);
         this.initialWidth = this.state.width;
         this.initialHeight = this.state.height;
@@ -159,6 +160,7 @@ class ListMonitor extends React.Component {
 
         const onMouseUp = ev => {
             onMouseMove(ev); // Make sure width/height are up-to-date
+            this.isResizing = false;
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
             this.props.vm.runtime.requestUpdateMonitor(Map({
@@ -175,6 +177,15 @@ class ListMonitor extends React.Component {
 
     wrapListIndex (index, length) {
         return (index + length) % length;
+    }
+
+    componentDidUpdate (prevProps) {
+        if (!this.isResizing && (prevProps.width !== this.props.width || prevProps.height !== this.props.height)) {
+            this.setState({
+                width: this.props.width,
+                height: this.props.height
+            });
+        }
     }
 
     render () {

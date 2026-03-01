@@ -66,21 +66,6 @@ export default function (projectId, vmState, params) {
                     // eslint-disable-next-line max-len
                         window.parent.postMessage({type: 'block-compiler-action', action: 'createdRemix', remixId: body['content-name'], remixTitle: body['content-title'], originalId: queryParams.original_id}, '*');
                     }
-                    if (!(
-                        queryParams.is_remix ||
-                        queryParams.is_copy ||
-                        queryParams.isRemix ||
-                        queryParams.isCopy ||
-                        creatingProject
-                    )){ // if not of these things then its just a normal save
-                        if (body.status === 'ok'){
-                            const triggerData = {
-                                triggerId: 'savedProject'
-                            };
-                            // Dispatch the custom event for the addon to pick up
-                            window.dispatchEvent(new CustomEvent('collaboration_addon_trigger', {detail: triggerData}));
-                        }
-                    }
                 } catch (e) {
                     return reject(e);
                 }

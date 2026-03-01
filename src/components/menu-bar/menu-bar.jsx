@@ -223,7 +223,7 @@ class MenuBar extends React.Component {
         document.removeEventListener('keydown', this.handleKeyPress);
     }
     handleClickNew () {
-        if (window.collaborationLocked) {
+        if (this.props.isCollabActive) {
             this.props.onShowCollaborationLock();
         } else {
             // if the project is dirty, and user owns the project, we will autosave.
@@ -960,6 +960,7 @@ MenuBar.propTypes = {
     isShowingProject: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
     isUpdating: PropTypes.bool,
+    isCollabActive: PropTypes.bool,
     locale: PropTypes.string.isRequired,
     mode2020: PropTypes.bool,
 
@@ -1032,6 +1033,7 @@ const mapStateToProps = (state, ownProps) => {
         isRtl: state.locales.isRtl,
         isUpdating: getIsUpdating(loadingState),
         isShowingProject: getIsShowingProject(loadingState),
+        isCollabActive: state.scratchGui.collaboration.isCollabActive,
         locale: state.locales.locale,
         loginMenuOpen: loginMenuOpen(state),
         modeMenuOpen: modeMenuOpen(state),

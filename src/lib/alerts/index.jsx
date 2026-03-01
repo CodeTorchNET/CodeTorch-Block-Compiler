@@ -312,7 +312,7 @@ const alerts = [
         content: (
             <FormattedMessage
                 // eslint-disable-next-line max-len
-                defaultMessage="You cannot load projects from computer while collaborating. To load a project, you must be the only user currently collaborating on this project."
+                defaultMessage="Importing projects from your computer is not currently supported for collaboratory projects."
                 description="Message indicating that the project is locked for collaboration."
                 id="gui.alerts.CollaborationLockedNotice"
             />
@@ -329,20 +329,6 @@ const alerts = [
                 defaultMessage="You cannot clear a project while collaborating. To wipe a project, you must be the only user currently collaborating on this project."
                 description="Message indicating that the project is locked for collaboration."
                 id="gui.alerts.CollaborationLockedNoticeWipeProject"
-            />
-        ),
-        closeButton: true,
-        level: AlertLevels.WARN
-    }, {
-        alertId: 'CollaborationLockedNoticeSaveProject',
-        alertType: AlertTypes.STANDARD,
-        clearList: [],
-        content: (
-            <FormattedMessage
-                // eslint-disable-next-line max-len
-                defaultMessage="To prevent losing your changes, be sure to manually save your projects, Collaborator Mode DOES NOT automatically save your work permanently."
-                description="Message indicating that the project is locked for collaboration."
-                id="gui.alerts.CollaborationLockedNoticeSaveProject"
             />
         ),
         closeButton: true,

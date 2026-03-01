@@ -40,6 +40,7 @@ class Monitor extends React.Component {
         super(props);
         bindAll(this, [
             'handleDragEnd',
+            'handleDragStart',
             'handleHide',
             'handleNextMode',
             'handleSetModeToDefault',
@@ -53,7 +54,8 @@ class Monitor extends React.Component {
             'setElement'
         ]);
         this.state = {
-            sliderPrompt: false
+            sliderPrompt: false,
+            isDragging: false
         };
     }
     componentDidMount () {
@@ -97,7 +99,14 @@ class Monitor extends React.Component {
         }
         return false;
     }
-    componentDidUpdate () {
+    componentDidUpdate (prevProps) {
+        if (!this.state.isDragging && (prevProps.x !== this.props.x || prevProps.y !== this.props.y)) {
+            const top = `${this.props.y}px`;
+            const left = `${this.props.x}px`;
+            if (this.element.style.top !== top) this.element.style.top = top;
+            if (this.element.style.left !== left) this.element.style.left = left;
+            this.element.style.transform = '';
+        }
         // tw: if monitor is not draggable (ie. not in editor), do not calculate size of monitor for performance
         if (!this.props.draggable) {
             return;
@@ -107,9 +116,29 @@ class Monitor extends React.Component {
     componentWillUnmount () {
         this.props.removeMonitorRect(this.props.id);
     }
+    handleDragStart () {
+        this.setState({isDragging: true});
+    }
     handleDragEnd (e, {x, y}) {
-        const newX = parseInt(this.element.style.left, 10) + x;
-        const newY = parseInt(this.element.style.top, 10) + y;
+        let newX = this.props.x;
+        let newY = this.props.y;
+
+        // Fallback to DOM if props are not numbers (e.g. freshly created monitor before VM sync)
+        if (typeof newX !== 'number' || isNaN(newX)) {
+            newX = parseInt(this.element.style.left, 10) || 0;
+        }
+        if (typeof newY !== 'number' || isNaN(newY)) {
+            newY = parseInt(this.element.style.top, 10) || 0;
+        }
+
+        newX += x;
+        newY += y;
+
+        this.element.style.top = `${newY}px`;
+        this.element.style.left = `${newX}px`;
+        this.element.style.transform = '';
+
+        this.setState({isDragging: false});
         this.props.onDragEnd(
             this.props.id,
             newX,
@@ -228,6 +257,8 @@ class Monitor extends React.Component {
                     theme={this.props.theme}
                     width={this.props.width}
                     onDragEnd={this.handleDragEnd}
+                    onDragStart={this.handleDragStart}
+                    isDragging={this.state.isDragging}
                     onExport={isList ? this.handleExport : null}
                     onImport={isList ? this.handleImport : null}
                     onHide={this.handleHide}

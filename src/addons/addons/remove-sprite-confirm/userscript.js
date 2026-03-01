@@ -21,4 +21,5 @@ export default async ({ addon, console, msg }) => {
     return Promise.resolve();
   };
   vm.deleteSprite = newDeleteSprite;
+  vm.deleteSpriteNoWarning = oldDeleteSprite;
 };

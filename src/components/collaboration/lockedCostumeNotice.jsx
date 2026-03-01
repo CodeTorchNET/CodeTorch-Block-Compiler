@@ -1,6 +1,7 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
-const LockedCostumeNotice = () => {
+const LockedCostumeNotice = ({user, color}) => {
     const containerStyle = {
         width: '100%',
         height: '100%',
@@ -12,12 +13,15 @@ const LockedCostumeNotice = () => {
 
     const svgStyle = {
         width: '50px',
-        margin: '0 auto'
+        margin: '0 auto',
+        color: color || 'currentColor'
     };
 
     const paragraphStyle = {
         textAlign: 'center',
-        verticalAlign: 'middle'
+        verticalAlign: 'middle',
+        fontWeight: 'bold',
+        marginTop: '1rem'
     };
 
     return (
@@ -38,10 +42,15 @@ const LockedCostumeNotice = () => {
                 />
             </svg>
             <p style={paragraphStyle}>
-                {'This costume is currently locked as another collaborator is editing it.'}
+                {user ? `${user} is currently editing this costume.` : 'This costume is currently locked as another collaborator is editing it.'}
             </p>
         </div>
     );
+};
+
+LockedCostumeNotice.propTypes = {
+    user: PropTypes.string,
+    color: PropTypes.string
 };
 
 export default LockedCostumeNotice;

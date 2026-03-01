@@ -27,6 +27,7 @@ import {
 
 import {setRestore} from '../reducers/restore-deletion';
 import {showStandardAlert, closeAlertWithId} from '../reducers/alerts';
+import {selectIsAssetLocked, setSelectedAsset} from '../reducers/collaboration';
 
 import addLibraryBackdropIcon from '../components/asset-panel/icon--add-backdrop-lib.svg';
 import addLibraryCostumeIcon from '../components/asset-panel/icon--add-costume-lib.svg';
@@ -135,11 +136,14 @@ class CostumeTab extends React.Component {
         } else {
             // If switching editing targets, update the costume index
             this.setState({selectedCostumeIndex: target.currentCostume});
+            // Update collaboration lock when target switches
+            this.props.onSetSelectedAsset('costume', target.currentCostume, editingTarget);
         }
     }
     handleSelectCostume (costumeIndex) {
         this.props.vm.editingTarget.setCostume(costumeIndex);
         this.setState({selectedCostumeIndex: costumeIndex});
+        this.props.onSetSelectedAsset('costume', costumeIndex, this.props.editingTarget);
     }
     handleDeleteCostume (costumeIndex) {
         const restoreCostumeFun = this.props.vm.deleteCostume(costumeIndex);
@@ -282,6 +286,9 @@ class CostumeTab extends React.Component {
             details: costume.size ? this.formatCostumeDetails(costume.size, costume.bitmapResolution) : null,
             dragPayload: costume
         })) : [];
+
+        const lock = this.props.isAssetLocked(this.props.editingTarget, this.state.selectedCostumeIndex, 'costume');
+
         return (
             <AssetPanel
                 buttons={[
@@ -337,8 +344,11 @@ class CostumeTab extends React.Component {
                 onItemClick={this.handleSelectCostume}
             >
                 {target.costumes ? (
-                    (window.collaborationLocked && window.assetLocked(this.state.selectedCostumeIndex, 1)) ? (
-                        <LockedCostumeNotice />
+                    lock ? (
+                        <LockedCostumeNotice
+                            user={lock.name}
+                            color={lock.color}
+                        />
                     ) : (
                         <PaintEditorWrapper
                             selectedCostumeIndex={this.state.selectedCostumeIndex}
@@ -360,6 +370,8 @@ CostumeTab.propTypes = {
     onNewLibraryBackdropClick: PropTypes.func.isRequired,
     onNewLibraryCostumeClick: PropTypes.func.isRequired,
     onShowImporting: PropTypes.func.isRequired,
+    isAssetLocked: PropTypes.func.isRequired,
+    onSetSelectedAsset: PropTypes.func.isRequired,
     sprites: PropTypes.shape({
         id: PropTypes.shape({
             costumes: PropTypes.arrayOf(PropTypes.shape({
@@ -382,7 +394,8 @@ const mapStateToProps = state => ({
     isRtl: state.locales.isRtl,
     sprites: state.scratchGui.targets.sprites,
     stage: state.scratchGui.targets.stage,
-    dragging: state.scratchGui.assetDrag.dragging
+    dragging: state.scratchGui.assetDrag.dragging,
+    isAssetLocked: (targetId, index, type) => selectIsAssetLocked(state, targetId, index, type)
 });
 
 const mapDispatchToProps = dispatch => ({
@@ -399,7 +412,8 @@ const mapDispatchToProps = dispatch => ({
         dispatch(setRestore(restoreState));
     },
     onCloseImporting: () => dispatch(closeAlertWithId('importingAsset')),
-    onShowImporting: () => dispatch(showStandardAlert('importingAsset'))
+    onShowImporting: () => dispatch(showStandardAlert('importingAsset')),
+    onSetSelectedAsset: (type, index, targetId) => dispatch(setSelectedAsset(type, index, targetId))
 });
 
 export default errorBoundaryHOC('Costume Tab')(

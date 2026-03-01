@@ -1,6 +1,7 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
-const LockedSoundNotice = () => {
+const LockedSoundNotice = ({user, color}) => {
     const containerStyle = {
         width: '100%',
         height: '100%',
@@ -12,12 +13,15 @@ const LockedSoundNotice = () => {
 
     const svgStyle = {
         width: '50px',
-        margin: '0 auto'
+        margin: '0 auto',
+        color: color || 'currentColor'
     };
 
     const paragraphStyle = {
         textAlign: 'center',
-        verticalAlign: 'middle'
+        verticalAlign: 'middle',
+        fontWeight: 'bold',
+        marginTop: '1rem'
     };
 
     return (
@@ -38,10 +42,15 @@ const LockedSoundNotice = () => {
                 />
             </svg>
             <p style={paragraphStyle}>
-                {'This sound is currently locked as another collaborator is editing it.'}
+                {user ? `${user} is currently editing this sound.` : 'This sound is currently locked as another collaborator is editing it.'}
             </p>
         </div>
     );
+};
+
+LockedSoundNotice.propTypes = {
+    user: PropTypes.string,
+    color: PropTypes.string
 };
 
 export default LockedSoundNotice;

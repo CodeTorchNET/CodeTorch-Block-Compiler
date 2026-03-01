@@ -47,6 +47,7 @@ import addExtensionIcon from './icon--extensions.svg';
 import codeIcon from '!../../lib/tw-recolor/build!./icon--code.svg';
 import costumesIcon from '!../../lib/tw-recolor/build!./icon--costumes.svg';
 import soundsIcon from '!../../lib/tw-recolor/build!./icon--sounds.svg';
+import DisconnectedModal from '../collaboration/disconnected-modal.jsx';
 
 const messages = defineMessages({
     addExtension: {
@@ -102,6 +103,7 @@ const GUIComponent = props => {
         enableCommunity,
         intl,
         isCreating,
+        isCollabDisconnected,
         isEmbedded,
         isFullScreen,
         isPlayerOnly,
@@ -182,6 +184,7 @@ const GUIComponent = props => {
 
         const alwaysEnabledModals = (
             <React.Fragment>
+                {isCollabDisconnected && <DisconnectedModal />}
                 <TWSecurityManager securityManager={securityManager} />
                 {settingsModalVisible && <TWSettingsModal canSave={canSave} />}
                 {customExtensionModalVisible && <TWCustomExtensionModal />}
@@ -577,7 +580,8 @@ const mapStateToProps = state => ({
     blocksId: state.scratchGui.timeTravel.year.toString(),
     stageSizeMode: state.scratchGui.stageSize.stageSize,
     theme: state.scratchGui.theme.theme,
-    isCollabSyncing: state.scratchGui.collaboration.isCollabSyncing
+    isCollabSyncing: state.scratchGui.collaboration.isCollabSyncing,
+    isCollabDisconnected: state.scratchGui.collaboration.isDisconnected
 });
 
 export default injectIntl(connect(
