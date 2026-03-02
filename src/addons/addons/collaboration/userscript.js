@@ -515,15 +515,18 @@ function attachYjsProvider() {
             if (constants.mutableRefs.isWorkspaceLoading) return;
 
             constants.mutableRefs.ydoc.transact(() => {
-                monitorList.forEach((monitor, id) => {
+                const monitors = (monitorList && monitorList.map instanceof Map) ? monitorList.map : monitorList;
+
+                monitors.forEach((monitor, id) => {
                     const existingYMonitor = constants.mutableRefs.sharedMonitors.get(id);
+                    const monitorData = monitor.toJS ? monitor.toJS() : monitor;
 
                     if (!existingYMonitor) {
                         const yMonitor = helper.serializeMonitorForYjs(monitor);
                         constants.mutableRefs.sharedMonitors.set(id, yMonitor);
                     } else {
                         const existingMonitor = helper.deserializeMonitorFromYjs(existingYMonitor);
-                        if (!helper.compareMonitorData(existingMonitor, monitor.toJS())) {
+                        if (!helper.compareMonitorData(existingMonitor, monitorData)) {
                             const yMonitor = helper.serializeMonitorForYjs(monitor);
                             constants.mutableRefs.sharedMonitors.set(id, yMonitor);
                         }
