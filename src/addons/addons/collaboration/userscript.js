@@ -180,9 +180,10 @@ function attachYjsProvider() {
             if (event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN) return;
             
             const remoteExtensions = constants.mutableRefs.sharedExtensions.toArray();
-            remoteExtensions.forEach(urlOrId => {
-                if (!constants.mutableRefs.vm.extensionManager.isExtensionLoaded(urlOrId)) {
-                    constants.mutableRefs.vm.extensionManager.loadExtensionURL(urlOrId, false);
+            remoteExtensions.forEach(ext => {
+                const extURL = ext.URL || ext;
+                if (!constants.mutableRefs.vm.extensionManager.isExtensionLoaded(extURL)) {
+                    constants.mutableRefs.vm.extensionManager.loadExtensionURL(extURL, false);
                 }
             });
         });
@@ -702,7 +703,11 @@ function attachYjsProvider() {
 
             constants.mutableRefs.ydoc.transact(() => {
                 const currentExts = constants.mutableRefs.sharedExtensions.toArray();
-                if (!currentExts.includes(extension)) {
+                const alreadyExists = currentExts.some(ext => {
+                    if (typeof ext === 'string') return ext === extension.URL || ext === extension.name;
+                    return ext.URL === extension.URL && ext.name === extension.name;
+                });
+                if (!alreadyExists) {
                     constants.mutableRefs.sharedExtensions.push([extension]);
                 }
             }, constants.LOCAL_EVENT_SYNC_ORIGIN);

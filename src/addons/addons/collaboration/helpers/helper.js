@@ -491,7 +491,7 @@ export function pushLocalStateToYjs() {
             const extensionManager = vm.extensionManager;
             const extensionURLs = extensionManager.getExtensionURLs();
             const loadedExtensions = Array.from(extensionManager._loadedExtensions.keys()).map(id => {
-                return extensionURLs[id] || id;
+                return { URL: extensionURLs[id] || id, name: id };
             });
             if (loadedExtensions.length > 0) {
                 sharedExtensions.insert(0, loadedExtensions);
@@ -725,10 +725,11 @@ export function performInitialSync() {
         });
 
         const remoteExtensions = sharedExtensions.toArray();
-        remoteExtensions.forEach(urlOrId => {
-            if (!vm.extensionManager.isExtensionLoaded(urlOrId)) {
+        remoteExtensions.forEach(ext => {
+            const extURL = ext.URL || ext;
+            if (!vm.extensionManager.isExtensionLoaded(extURL)) {
                 
-                vm.extensionManager.loadExtensionURL(urlOrId, false);
+                vm.extensionManager.loadExtensionURL(extURL, false);
             }
         });
 
