@@ -132,7 +132,6 @@ stage doesn't "spill" out from under its rounded corners. instead, shift these o
     pointer-events: all;
     cursor: pointer;
 }
-
 .green-flag-overlay {
     padding: 1rem;
     border-radius: 100%;
@@ -144,6 +143,35 @@ stage doesn't "spill" out from under its rounded corners. instead, shift these o
     box-sizing: border-box;
     width: 5rem;
     height: 5rem;
+}
+
+.green-flag-overlay-with-warning {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.cloud-warning-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    color: $text-primary-default;
+
+    position: absolute;
+    top: 0px;
+    padding: 20px;
+    background-color: $ui-white-default;
+    margin: 20px;
+    border-radius: 0.5rem;
+}
+
+.cloud-warning-text {
+    font-size: 0.85rem;
+    font-weight: normal;
+}
+.cloud-warning-text .cloud-warning-text-red{
+    color: $looks-secondary;
+    font-weight: bold;
 }
 
 .green-flag-overlay > img {

@@ -84,7 +84,7 @@ class CloudProvider {
         // Reset connection attempts to 1 to make sure any subsequent reconnects
         // use connectionAttempts=1 to calculate timeout
         this.connectionAttempts = 1;
-        this.writeToServer('handshake');
+        // this.writeToServer('handshake'); // we no longer need to handshake
         log.info(`Successfully connected to clouddata server.`);
 
         // Go through the queued data and send off messages that we weren't
@@ -113,7 +113,7 @@ class CloudProvider {
             log.info('Cloud variables are disabled for this project. Not reconnecting.');
             return;
         }
-        log.info(`Closed connection to websocket`);
+        log.info(`WebSocket connection closed with code ${e && e.code}`);
         const randomizedTimeout = this.randomizeDuration(this.exponentialTimeout());
         this.setTimeout(this.openConnection.bind(this), randomizedTimeout);
     }
@@ -158,8 +158,8 @@ class CloudProvider {
     writeToServer (methodName, dataName, dataValue, dataNewName) {
         const msg = {};
         msg.method = methodName;
-        msg.user = this.username;
-        msg.project_id = this.projectId;
+        // msg.user = this.username;
+        // msg.project_id = this.projectId;
 
         // Optional string params can use simple falsey undefined check
         if (dataName) msg.name = dataName;

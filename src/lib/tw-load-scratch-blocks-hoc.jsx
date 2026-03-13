@@ -28,7 +28,11 @@ const LoadScratchBlocksHOC = function (WrappedComponent) {
             }
         }
         handleReload () {
-            location.reload();
+            if (window.top === window.self) { // if not in iframe
+                location.reload();
+            } else {
+                window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
+            }
         }
         render () {
             if (this.state.error !== null) {

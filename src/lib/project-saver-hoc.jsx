@@ -196,11 +196,24 @@ const ProjectSaverHOC = function (WrappedComponent) {
         }
         createRemixToStorage () {
             this.props.onShowCreatingRemixAlert();
-            return this.storeProject(null, {
+            const requestParams = {
                 originalId: this.props.reduxProjectId,
                 isRemix: 1,
                 title: this.props.reduxProjectTitle
-            })
+            };
+            if (this.props.isScratchProject) {
+                requestParams.source = 'scratch';
+                
+                // Mark all assets as dirty so storeProject() will upload them
+                // to the CodeTorch S3/Backend instead of relying on Scratch CDNs
+                // originally we were going to optimize and load from Scratch CDN until user modifies
+                // but with how bad Scratch has been this is safer
+                this.props.vm.assets.forEach(asset => {
+                    asset.clean = false;
+                });
+            }
+
+            return this.storeProject(null, requestParams)
                 .then(response => {
                     this.props.onCreatedProject(response.id.toString(), this.props.loadingState);
                     this.props.onShowRemixSuccessAlert();
@@ -367,6 +380,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
         isRemixing: PropTypes.bool,
         isShared: PropTypes.bool,
         isShowingSaveable: PropTypes.bool,
+        isScratchProject: PropTypes.bool,
         isShowingWithId: PropTypes.bool,
         isShowingWithoutId: PropTypes.bool,
         isUpdating: PropTypes.bool,
@@ -398,7 +412,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
         vm: PropTypes.instanceOf(VM).isRequired
     };
     ProjectSaverComponent.defaultProps = {
-        autoSaveIntervalSecs: 600, // 10 minutes = 600 seconds
+        autoSaveIntervalSecs: 120, // 2 minutes = 120 seconds
         onRemixing: () => {},
         onSetProjectThumbnailer: () => {},
         onSetProjectSaver: () => {},
@@ -424,7 +438,8 @@ const ProjectSaverHOC = function (WrappedComponent) {
             projectChanged: state.scratchGui.projectChanged,
             reduxProjectId: state.scratchGui.projectState.projectId,
             reduxProjectTitle: state.scratchGui.projectTitle,
-            vm: state.scratchGui.vm
+            vm: state.scratchGui.vm,
+            isScratchProject: state.scratchGui.projectState.isScratchProject
         };
     };
     const mapDispatchToProps = dispatch => ({

@@ -4,16 +4,26 @@ const matchMedia = query => (window.matchMedia ? window.matchMedia(query) : null
 const PREFERS_HIGH_CONTRAST_QUERY = matchMedia('(prefers-contrast: more)');
 const PREFERS_DARK_QUERY = matchMedia('(prefers-color-scheme: dark)');
 
-const STORAGE_KEY = 'tw:theme';
-
 /**
  * @returns {Theme} detected theme
  */
 const systemPreferencesTheme = () => {
-    // @OVERRIDE if is on home page, return light theme
+    // Check for URL search parameters first (highest priority)
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    
+    // Check for mode parameter on any page
+    if (modeParam === 'dark') {
+        return Theme.dark;
+    } else if (modeParam === 'light') {
+        return Theme.light;
+    }
+    
+    // If on home page, default to light theme
     if (window.location.pathname === "/" || window.location.pathname.includes("/index.html") || window.location.pathname === "/build/") {
         return Theme.light;
     }
+    
     if (PREFERS_HIGH_CONTRAST_QUERY && PREFERS_HIGH_CONTRAST_QUERY.matches) {
         return Theme.highContrast;
     }
@@ -52,29 +62,6 @@ const onSystemPreferenceChange = onChange => {
  */
 const detectTheme = () => {
     const systemPreferences = systemPreferencesTheme();
-
-    try {
-        const local = localStorage.getItem(STORAGE_KEY);
-
-        // Migrate legacy preferences
-        if (local === 'dark') {
-            return Theme.dark;
-        }
-        if (local === 'light') {
-            return Theme.light;
-        }
-
-        const parsed = JSON.parse(local);
-        // Any invalid values in storage will be handled by Theme itself
-        return new Theme(
-            parsed.accent || systemPreferences.accent,
-            parsed.gui || systemPreferences.gui,
-            parsed.blocks || systemPreferences.blocks
-        );
-    } catch (e) {
-        // ignore
-    }
-
     return systemPreferences;
 };
 

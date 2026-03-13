@@ -3,9 +3,11 @@ import PropTypes from 'prop-types';
 import {intlShape, injectIntl} from 'react-intl';
 import bindAll from 'lodash.bindall';
 import {connect} from 'react-redux';
-const {API_HOST} = require('./brand');
+// eslint-disable-next-line import/no-commonjs
+const {API_HOST, ASSET_HOST} = require('./brand');
 
 import {setProjectUnchanged} from '../reducers/project-changed';
+import {fetchProjectMetaWithCache} from './tw-project-meta-fetcher-hoc.jsx';
 import {
     LoadingStates,
     getIsCreatingNew,
@@ -25,47 +27,14 @@ import log from './log';
 import storage from './storage';
 
 import VM from 'scratch-vm';
-import {fetchProjectMeta} from './tw-project-meta-fetcher-hoc.jsx';
 
 // TW: Temporary hack for project tokens
 const fetchProjectToken = async projectId => {
     if (projectId === '0') {
         return null;
     }
-    // Parse ?token=abcdef
-    const searchParams = new URLSearchParams(location.search);
-    if (searchParams.has('token')) {
-        const token = searchParams.get('token');
-        // for security reasons, remove token from URL without reloading and without history
-        searchParams.delete('token');
-        const newUrl = `${location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}${location.hash}`;
-        window.history.replaceState({}, document.title, newUrl);
-        storage.setProjectToken(token);
-        return token;
-    }
-    // Parse #1?token=abcdef
-    const hashParams = new URLSearchParams(location.hash.split('?')[1]);
-    if (hashParams && hashParams.has('token')) {
-        const token = hashParams.get('token');
-        // for security reasons, remove token from URL without reloading and without history
-        hashParams.delete('token');
-        const newHash = hashParams.toString() ? `?${hashParams.toString()}` : '';
-        const newUrl = `${location.pathname}${location.search}${location.hash.split('?')[0]}${newHash}`;
-        window.history.replaceState({}, document.title, newUrl);
-        storage.setProjectToken(token);
-        return token;
-    }
-    try {
-        const metadata = await fetchProjectMeta(projectId);
-        return metadata.project_token;
-    } catch (e) {
-        console.error(e); // Use console.error instead of log.error for browser compatibility.
-        if (e.message && e.message.includes('429')) {
-            throw new Error('You sent too many requests in a short amount of time. Please wait 1 minute and try again.');
-        } else{
-        throw new Error('Cannot access project token. Project is probably unshared. See https://docs.turbowarp.org/unshared-projects');
-        }
-    }
+    await storage.loadAccessToken();
+    return storage.getProjectToken();
 };
 
 /* Higher Order Component to provide behavior for loading projects by id. If
@@ -81,8 +50,10 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 'fetchProject'
             ]);
             storage.setProjectHost(props.projectHost);
+            storage.setCTProjectHost(props.projectHost);
             storage.setProjectToken(props.projectToken);
             storage.setAssetHost(props.assetHost);
+            storage.setAssetLoadHost(props.assetLoadHost);
             storage.setTranslatorFunction(props.intl.formatMessage);
             // props.projectId might be unset, in which case we use our default;
             // or it may be set by an even higher HOC, and passed to us.
@@ -106,8 +77,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
             if (prevProps.assetHost !== this.props.assetHost) {
                 storage.setAssetHost(this.props.assetHost);
             }
+            if (prevProps.assetLoadHost !== this.props.assetLoadHost) {
+                storage.setAssetLoadHost(this.props.assetLoadHost);
+            }
             if (this.props.isFetchingWithId && !prevProps.isFetchingWithId) {
-                this.fetchProject(this.props.reduxProjectId, this.props.loadingState);
+                this.fetchProject(this.props.reduxProjectId, this.props.loadingState, this.props.isScratchProject);
             }
             if (this.props.isShowingProject && !prevProps.isShowingProject) {
                 this.props.onProjectUnchanged();
@@ -116,7 +90,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 this.props.onActivateTab(BLOCKS_TAB_INDEX);
             }
         }
-        fetchProject (projectId, loadingState) {
+        fetchProject (projectId, loadingState, isScratchProject) {
+            if (isScratchProject){
+                storage.setProjectHost(this.props.scratchProjectHost);
+                storage.setAssetLoadHost(this.props.scratchTrampolineHost);
+            }
             // tw: clear and stop the VM before fetching
             // these will also happen later after the project is fetched, but fetching may take a while and
             // the project shouldn't be running while fetching the new project
@@ -125,9 +103,10 @@ const ProjectFetcherHOC = function (WrappedComponent) {
 
             let assetPromise;
             // In case running in node...
-            let projectUrl = typeof URLSearchParams === 'undefined' ?
-                null :
-                new URLSearchParams(location.search).get('project_url');
+            // let projectUrl = typeof URLSearchParams === 'undefined' ?
+            //    null :
+            //    new URLSearchParams(location.search).get('project_url');
+            let projectUrl = null;
             if (projectUrl) {
                 if (
                     !projectUrl.startsWith('http:') &&
@@ -144,19 +123,49 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                         return r.arrayBuffer();
                     })
                     .then(buffer => ({data: buffer}));
+            } else if (isScratchProject) {
+                assetPromise = fetchProjectMetaWithCache(projectId, true)
+                    .then(() =>
+                        storage.load(
+                            storage.AssetType.Project,
+                            projectId,
+                            storage.DataFormat.JSON
+                        )
+                    );
             } else {
-                // TW: Temporary hack for project tokens
                 assetPromise = fetchProjectToken(projectId)
                     .then(token => {
                         storage.setProjectToken(token);
-                        return storage.load(storage.AssetType.Project, projectId, storage.DataFormat.JSON);
+                        return storage.load(
+                            storage.AssetType.Project,
+                            projectId,
+                            storage.DataFormat.JSON,
+                            token
+                        );
                     });
             }
 
             return assetPromise
                 .then(projectAsset => {
                     if (projectAsset) {
+                        let collaboratorStatus = false;
+                        // eslint-disable-next-line func-style, require-jsdoc, no-inner-declarations
+                        function startCollaborator (){
+                            if (typeof window.StartCollaborator === 'function'){
+                                window.StartCollaborator(collaboratorStatus);
+                            } else {
+                                setTimeout(startCollaborator, 100);
+                            }
+                        }
                         this.props.onFetchedProjectData(projectAsset.data, loadingState);
+                        if (
+                            window.CollaborationRoom &&
+                            typeof window.CollaborationRoom === 'string' &&
+                            window.CollaborationRoom !== 'false'
+                        ) {
+                            collaboratorStatus = true;
+                        }
+                        startCollaborator();
                     } else {
                         // Treat failure to load as an error
                         // Throw to be caught by catch later on
@@ -172,6 +181,7 @@ const ProjectFetcherHOC = function (WrappedComponent) {
             const {
                 /* eslint-disable no-unused-vars */
                 assetHost,
+                assetLoadHost,
                 intl,
                 isLoadingProject: isLoadingProjectProp,
                 loadingState,
@@ -197,12 +207,16 @@ const ProjectFetcherHOC = function (WrappedComponent) {
     }
     ProjectFetcherComponent.propTypes = {
         assetHost: PropTypes.string,
+        assetLoadHost: PropTypes.string,
+        scratchProjectHost: PropTypes.string,
+        scratchTrampolineHost: PropTypes.string,
         canSave: PropTypes.bool,
         intl: intlShape.isRequired,
         isCreatingNew: PropTypes.bool,
         isFetchingWithId: PropTypes.bool,
         isLoadingProject: PropTypes.bool,
         isShowingProject: PropTypes.bool,
+        isScratchProject: PropTypes.bool,
         loadingState: PropTypes.oneOf(LoadingStates),
         onActivateTab: PropTypes.func,
         onError: PropTypes.func,
@@ -216,8 +230,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         vm: PropTypes.instanceOf(VM)
     };
     ProjectFetcherComponent.defaultProps = {
-        assetHost: API_HOST + '/assets',
-        projectHost: API_HOST + '/projects',
+        assetHost: `${API_HOST}/v1/projects/blocks/assets`, // used to upload assets
+        assetLoadHost: `${ASSET_HOST}/block_project_assets`, // used to load assets
+        scratchTrampolineHost: `${ASSET_HOST}/scratch_project_assets`, // used to load Scratch projects
+        projectHost: `${API_HOST}/v1/projects/blocks`,
+        scratchProjectHost: `${ASSET_HOST}/scratch_project_json` // used to load Scratch projects
     };
 
     const mapStateToProps = state => ({
@@ -227,6 +244,7 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         isShowingProject: getIsShowingProject(state.scratchGui.projectState.loadingState),
         loadingState: state.scratchGui.projectState.loadingState,
         reduxProjectId: state.scratchGui.projectState.projectId,
+        isScratchProject: state.scratchGui.projectState.isScratchProject,
         vm: state.scratchGui.vm
     });
     const mapDispatchToProps = dispatch => ({

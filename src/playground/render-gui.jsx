@@ -11,13 +11,13 @@ const restrictedMode = searchParams.get('onlyEditor') === '1';
 
 const RenderGUI = props => (
     <GUI
-        cloudHost={cloudHost} 
+        cloudHost={cloudHost}
         hasCloudPermission
         canCreateNew={creatingNewProject}
         isShared={!restrictedMode}
-        canShare={false} //just do it from project page
-        basePath={process.env.ROOT} 
-        canEditTitle={false} //just do it from project page
+        canShare={false} // just do it from project page
+        basePath={process.env.ROOT}
+        canEditTitle={false} // just do it from project page
         enableCommunity={!restrictedMode}
         {...props}
     />

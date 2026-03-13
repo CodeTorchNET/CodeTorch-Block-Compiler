@@ -49,6 +49,7 @@ const addons = [
     'block-switching',
     'load-extensions',
     'ai-integration',
+    'collaboration',
     'custom-zoom',
     'copy-reporter',
     'initialise-sprite-position',
@@ -78,6 +79,7 @@ const addons = [
     'hide-stage',
     'tw-straighten-comments',
     'tw-remove-backpack',
+    'tw-disable-vibration',
     'tw-disable-cloud-variables',
     'tw-disable-compiler',
     'editor-stepping'

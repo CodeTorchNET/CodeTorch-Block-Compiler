@@ -13,7 +13,6 @@ import {Theme} from '../lib/themes';
 import SliderPrompt from './slider-prompt.jsx';
 
 import {connect} from 'react-redux';
-import {Map} from 'immutable';
 import VM from 'scratch-vm';
 
 const availableModes = opcode => (
@@ -40,6 +39,7 @@ class Monitor extends React.Component {
         super(props);
         bindAll(this, [
             'handleDragEnd',
+            'handleDragStart',
             'handleHide',
             'handleNextMode',
             'handleSetModeToDefault',
@@ -53,7 +53,8 @@ class Monitor extends React.Component {
             'setElement'
         ]);
         this.state = {
-            sliderPrompt: false
+            sliderPrompt: false,
+            isDragging: false
         };
     }
     componentDidMount () {
@@ -75,11 +76,11 @@ class Monitor extends React.Component {
             rect = getInitialPosition(
                 this.props.monitorLayout, this.props.id, this.element.offsetWidth, this.element.offsetHeight);
             this.props.addMonitorRect(this.props.id, rect);
-            this.props.vm.runtime.requestUpdateMonitor(Map({
+            this.props.vm.runtime.requestUpdateMonitor({
                 id: this.props.id,
                 x: rect.upperStart.x,
                 y: rect.upperStart.y
-            }));
+            });
         }
         this.element.style.top = `${rect.upperStart.y}px`;
         this.element.style.left = `${rect.upperStart.x}px`;
@@ -91,13 +92,21 @@ class Monitor extends React.Component {
         for (const key of Object.getOwnPropertyNames(nextProps)) {
             // Don't need to rerender when other monitors are moved.
             // monitorLayout is only used during initial layout.
-            if (key !== 'monitorLayout' && nextProps[key] !== this.props[key]) {
+            // Using Object.is to tell apart 0 and -0 and avoid unnecessary re-renders for NaN
+            if (key !== 'monitorLayout' && !Object.is(nextProps[key], this.props[key])) {
                 return true;
             }
         }
         return false;
     }
-    componentDidUpdate () {
+    componentDidUpdate (prevProps) {
+        if (!this.state.isDragging && (prevProps.x !== this.props.x || prevProps.y !== this.props.y)) {
+            const top = `${this.props.y}px`;
+            const left = `${this.props.x}px`;
+            if (this.element.style.top !== top) this.element.style.top = top;
+            if (this.element.style.left !== left) this.element.style.left = left;
+            this.element.style.transform = '';
+        }
         // tw: if monitor is not draggable (ie. not in editor), do not calculate size of monitor for performance
         if (!this.props.draggable) {
             return;
@@ -107,52 +116,72 @@ class Monitor extends React.Component {
     componentWillUnmount () {
         this.props.removeMonitorRect(this.props.id);
     }
+    handleDragStart () {
+        this.setState({isDragging: true});
+    }
     handleDragEnd (e, {x, y}) {
-        const newX = parseInt(this.element.style.left, 10) + x;
-        const newY = parseInt(this.element.style.top, 10) + y;
+        let newX = this.props.x;
+        let newY = this.props.y;
+
+        // Fallback to DOM if props are not numbers (e.g. freshly created monitor before VM sync)
+        if (typeof newX !== 'number' || isNaN(newX)) {
+            newX = parseInt(this.element.style.left, 10) || 0;
+        }
+        if (typeof newY !== 'number' || isNaN(newY)) {
+            newY = parseInt(this.element.style.top, 10) || 0;
+        }
+
+        newX += x;
+        newY += y;
+
+        this.element.style.top = `${newY}px`;
+        this.element.style.left = `${newX}px`;
+        this.element.style.transform = '';
+
+        this.setState({isDragging: false});
         this.props.onDragEnd(
             this.props.id,
             newX,
             newY
         );
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             x: newX,
             y: newY
-        }));
+        });
     }
     handleHide () {
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             visible: false
-        }));
+        });
     }
     handleNextMode () {
         const modes = availableModes(this.props.opcode);
         const modeIndex = modes.indexOf(this.props.mode);
         const newMode = modes[(modeIndex + 1) % modes.length];
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             mode: newMode
-        }));
+        });
     }
     handleSetModeToDefault () {
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             mode: 'default'
-        }));
+        });
     }
     handleSetModeToLarge () {
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             mode: 'large'
-        }));
+        });
     }
     handleSetModeToSlider () {
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             mode: 'slider'
-        }));
+        });
     }
     handleSliderPromptClose () {
         this.setState({sliderPrompt: false});
@@ -163,12 +192,12 @@ class Monitor extends React.Component {
     handleSliderPromptOk (min, max, isDiscrete) {
         const realMin = Math.min(min, max);
         const realMax = Math.max(min, max);
-        this.props.vm.runtime.requestUpdateMonitor(Map({
+        this.props.vm.runtime.requestUpdateMonitor({
             id: this.props.id,
             sliderMin: realMin,
             sliderMax: realMax,
             isDiscrete: isDiscrete
-        }));
+        });
         this.handleSliderPromptClose();
     }
     setElement (monitorElt) {
@@ -228,6 +257,8 @@ class Monitor extends React.Component {
                     theme={this.props.theme}
                     width={this.props.width}
                     onDragEnd={this.handleDragEnd}
+                    onDragStart={this.handleDragStart}
+                    isDragging={this.state.isDragging}
                     onExport={isList ? this.handleExport : null}
                     onImport={isList ? this.handleImport : null}
                     onHide={this.handleHide}

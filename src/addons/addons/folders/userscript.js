@@ -903,9 +903,14 @@ export default async function ({ addon, console, msg }) {
             const currentOffset = addon.tab.redux.state.scratchGui.assetDrag.currentOffset;
             const sortableHOCInstance = getSortableHOCFromElement(this.ref);
             if (currentOffset && sortableHOCInstance && sortableHOCInstance.getMouseOverIndex() === null) {
-              this.props.index = realIndex;
-              this.handleDrag(currentOffset);
-              this.props.index = originalIndex;
+              const originalProps = this.props;
+              this.props = { ...originalProps, index: realIndex };
+              
+              try {
+                this.handleDrag(currentOffset);
+              } finally {
+                this.props = originalProps;
+              }
             }
           }
         }
@@ -1150,7 +1155,32 @@ export default async function ({ addon, console, msg }) {
             return this.runtime.targets;
           },
           set: (targets) => {
+            const guiItem = currentSpriteItems[targetIndex - 1];
+            const movedSprites = [];
+
+            if (guiItem) {
+              const data = getItemData(guiItem);
+              if (data && data.folder) {
+                guiItem.items.forEach(item => {
+                  const sprite = targets.find(t => t.id === item.id);
+                  if (sprite) movedSprites.push(sprite);
+                });
+              } else {
+                const sprite = targets.find(t => t.id === guiItem.id);
+                if (sprite) movedSprites.push(sprite);
+              }
+            }
+
             this.runtime.targets = targets;
+
+            const indexChanges = movedSprites.map(sprite => ({
+              id: sprite.id,
+              currentIndex: targets.indexOf(sprite)
+            }));
+
+            if (indexChanges.length > 0) {
+              this.runtime.emitTargetsIndexChanged(indexChanges);
+            }
             this.emitTargetsUpdate();
           },
           rename: (item, name) => {

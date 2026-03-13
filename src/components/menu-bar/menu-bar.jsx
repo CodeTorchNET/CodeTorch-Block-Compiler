@@ -1,7 +1,7 @@
 import classNames from 'classnames';
-import { connect } from 'react-redux';
-import { compose } from 'redux';
-import { defineMessages, FormattedMessage, injectIntl, intlShape } from 'react-intl';
+import {connect} from 'react-redux';
+import {compose} from 'redux';
+import {defineMessages, FormattedMessage, injectIntl, intlShape} from 'react-intl';
 import PropTypes from 'prop-types';
 import bindAll from 'lodash.bindall';
 import bowser from 'bowser';
@@ -13,13 +13,13 @@ import Box from '../box/box.jsx';
 import Button from '../button/button.jsx';
 import CommunityButton from './community-button.jsx';
 import ShareButton from './share-button.jsx';
-import { ComingSoonTooltip } from '../coming-soon/coming-soon.jsx';
+import {ComingSoonTooltip} from '../coming-soon/coming-soon.jsx';
 import Divider from '../divider/divider.jsx';
 import SaveStatus from './save-status.jsx';
 import ProjectWatcher from '../../containers/project-watcher.jsx';
 import MenuBarMenu from './menu-bar-menu.jsx';
 import MenuLabel from './tw-menu-label.jsx';
-import { MenuItem, MenuSection } from '../menu/menu.jsx';
+import {MenuItem, MenuSection} from '../menu/menu.jsx';
 import ProjectTitleInput from './project-title-input.jsx';
 import AuthorInfo from './author-info.jsx';
 import SB3Downloader from '../../containers/sb3-downloader.jsx';
@@ -29,12 +29,9 @@ import MenuBarHOC from '../../containers/menu-bar-hoc.jsx';
 import SettingsMenu from './settings-menu.jsx';
 
 import FramerateChanger from '../../containers/tw-framerate-changer.jsx';
-import ChangeUsername from '../../containers/tw-change-username.jsx';
-import CloudVariablesToggler from '../../containers/tw-cloud-toggler.jsx';
-import TWSaveStatus from './tw-save-status.jsx';
 
-import { openTipsLibrary, openSettingsModal, openRestorePointModal } from '../../reducers/modals';
-import { setPlayer } from '../../reducers/mode';
+import {openTipsLibrary, openSettingsModal, openRestorePointModal} from '../../reducers/modals';
+import {setPlayer} from '../../reducers/mode';
 import {
     isTimeTravel220022BC,
     isTimeTravel1920,
@@ -78,15 +75,12 @@ import {
     openErrorsMenu,
     closeErrorsMenu
 } from '../../reducers/menus';
-import { setFileHandle } from '../../reducers/tw.js';
+import {setFileHandle} from '../../reducers/tw.js';
 
 import collectMetadata from '../../lib/collect-metadata';
 
 import styles from './menu-bar.css';
 
-import helpIcon from '../../lib/assets/icon--tutorials.svg';
-import mystuffIcon from './icon--mystuff.png';
-import profileIcon from './icon--profile.png';
 import remixIcon from './icon--remix.svg';
 import dropdownCaret from './dropdown-caret.svg';
 import aboutIcon from './icon--about.svg';
@@ -94,7 +88,7 @@ import fileIcon from './icon--file.svg';
 import editIcon from './icon--edit.svg';
 import addonsIcon from './addons.svg';
 import errorIcon from './tw-error.svg';
-import advancedIcon from './tw-advanced.svg';
+import aiIcon from './ai-icon.svg';
 
 import ninetiesLogo from './nineties_logo.svg';
 import catLogo from './cat_logo.svg';
@@ -104,16 +98,8 @@ import oldtimeyLogo from './oldtimey-logo.svg';
 import sharedMessages from '../../lib/shared-messages';
 
 import SeeInsideButton from './tw-see-inside.jsx';
-import { notScratchDesktop } from '../../lib/isScratchDesktop.js';
-import { APP_NAME } from '../../lib/brand.js';
-
-const ariaMessages = defineMessages({
-    tutorials: {
-        id: 'gui.menuBar.tutorialsLibrary',
-        defaultMessage: 'Tutorials',
-        description: 'accessibility text for the tutorials button'
-    }
-});
+import {APP_NAME} from '../../lib/brand.js';
+import {showStandardAlert} from '../../reducers/alerts';
 
 const twMessages = defineMessages({
     compileError: {
@@ -158,7 +144,7 @@ MenuBarItemTooltip.propTypes = {
     place: PropTypes.oneOf(['top', 'bottom', 'left', 'right'])
 };
 
-const MenuItemTooltip = ({ id, isRtl, children, className }) => (
+const MenuItemTooltip = ({id, isRtl, children, className}) => (
     <ComingSoonTooltip
         className={classNames(styles.comingSoon, className)}
         isRtl={isRtl}
@@ -208,7 +194,7 @@ MenuItemLink.propTypes = {
 };
 
 class MenuBar extends React.Component {
-    constructor(props) {
+    constructor (props) {
         super(props);
         bindAll(this, [
             'handleClickSeeInside',
@@ -222,6 +208,7 @@ class MenuBar extends React.Component {
             'handleClickRestorePoints',
             'handleClickSeeCommunity',
             'handleClickShare',
+            'handleClickTorchy',
             'handleSetMode',
             'handleKeyPress',
             'handleRestoreOption',
@@ -229,56 +216,60 @@ class MenuBar extends React.Component {
             'restoreOptionMessage'
         ]);
     }
-    componentDidMount() {
+    componentDidMount () {
         document.addEventListener('keydown', this.handleKeyPress);
     }
-    componentWillUnmount() {
+    componentWillUnmount () {
         document.removeEventListener('keydown', this.handleKeyPress);
     }
-    handleClickNew() {
-        // if the project is dirty, and user owns the project, we will autosave.
-        // but if they are not logged in and can't save, user should consider
-        // downloading or logging in first.
-        // Note that if user is logged in and editing someone else's project,
-        // they'll lose their work.
-        const readyToReplaceProject = this.props.confirmReadyToReplaceProject(
-            this.props.intl.formatMessage(sharedMessages.replaceProjectWarning)
-        );
-        this.props.onRequestCloseFile();
-        if (readyToReplaceProject) {
-            this.props.onClickNew(this.props.canSave && this.props.canCreateNew);
+    handleClickNew () {
+        if (this.props.isCollabActive) {
+            this.props.onShowCollaborationLock();
+        } else {
+            // if the project is dirty, and user owns the project, we will autosave.
+            // but if they are not logged in and can't save, user should consider
+            // downloading or logging in first.
+            // Note that if user is logged in and editing someone else's project,
+            // they'll lose their work.
+            const readyToReplaceProject = this.props.confirmReadyToReplaceProject(
+                this.props.intl.formatMessage(sharedMessages.replaceProjectWarning)
+            );
+            this.props.onRequestCloseFile();
+            if (readyToReplaceProject) {
+                this.props.onClickNew(this.props.canSave && this.props.canCreateNew);
+            }
+            this.props.onRequestCloseFile();
         }
-        this.props.onRequestCloseFile();
     }
-    handleClickNewWindow() {
+    handleClickNewWindow () {
         this.props.onClickNewWindow();
         this.props.onRequestCloseFile();
     }
-    handleClickRemix() {
+    handleClickRemix () {
         this.props.onClickRemix();
         this.props.onRequestCloseFile();
     }
-    handleClickSave() {
+    handleClickSave () {
         this.props.onClickSave();
         this.props.onRequestCloseFile();
     }
-    handleClickSaveAsCopy() {
+    handleClickSaveAsCopy () {
         this.props.onClickSaveAsCopy();
         this.props.onRequestCloseFile();
     }
-    handleClickPackager() {
+    handleClickPackager () {
         this.props.onClickPackager();
         this.props.onRequestCloseFile();
     }
-    handleClickDesktopSettings() {
+    handleClickDesktopSettings () {
         this.props.onClickDesktopSettings();
         this.props.onRequestCloseSettings();
     }
-    handleClickRestorePoints() {
+    handleClickRestorePoints () {
         this.props.onClickRestorePoints();
         this.props.onRequestCloseFile();
     }
-    handleClickSeeCommunity(waitForUpdate) {
+    handleClickSeeCommunity (waitForUpdate) {
         if (this.props.shouldSaveBeforeTransition()) {
             this.props.autoUpdateProject(); // save before transitioning to project page
             waitForUpdate(true); // queue the transition to project page
@@ -286,7 +277,7 @@ class MenuBar extends React.Component {
             waitForUpdate(false); // immediately transition to project page
         }
     }
-    handleClickShare(waitForUpdate) {
+    handleClickShare (waitForUpdate) {
         if (!this.props.isShared) {
             if (this.props.canShare) { // save before transitioning to project page
                 this.props.onShare();
@@ -299,7 +290,11 @@ class MenuBar extends React.Component {
             }
         }
     }
-    handleSetMode(mode) {
+    handleClickTorchy () {
+        const event = new Event('ai-button-clicked');
+        window.dispatchEvent(event);
+    }
+    handleSetMode (mode) {
         return () => {
             // Turn on/off filters for modes.
             if (mode === '1920') {
@@ -323,28 +318,31 @@ class MenuBar extends React.Component {
             } else if (mode === '220022BC') {
                 document.getElementById('logo_img').src = prehistoricLogo;
             } else {
+                // eslint-disable-next-line react/prop-types
                 document.getElementById('logo_img').src = this.props.logo;
             }
 
             this.props.onSetTimeTravelMode(mode);
         };
     }
-    handleRestoreOption(restoreFun) {
+    handleRestoreOption (restoreFun) {
         return () => {
             restoreFun();
             this.props.onRequestCloseEdit();
         };
     }
-    handleKeyPress(event) {
+    handleKeyPress (event) {
         const modifier = bowser.mac ? event.metaKey : event.ctrlKey;
         if (modifier) {
             if (event.key.toLowerCase() === 's') {
-                if(this.props.canSave){
-                this.props.onClickSave();
-                    event.preventDefault();    
+                if (this.props.canSave){
+                    if (window.collaborationDisableSave !== true){
+                        this.props.onClickSave();
+                        event.preventDefault();
+                    }
                 }
             } else if (event.key.toLowerCase() === 'o') {
-                event.preventDefault();    
+                event.preventDefault();
                 this.props.onStartSelectingFileUpload();
             }
         }
@@ -359,39 +357,39 @@ class MenuBar extends React.Component {
             }
         };
     }
-    restoreOptionMessage(deletedItem) {
+    restoreOptionMessage (deletedItem) {
         switch (deletedItem) {
-            case 'Sprite':
-                return (<FormattedMessage
-                    defaultMessage="Restore Sprite"
-                    description="Menu bar item for restoring the last deleted sprite."
-                    id="gui.menuBar.restoreSprite"
-                />);
-            case 'Sound':
-                return (<FormattedMessage
-                    defaultMessage="Restore Sound"
-                    description="Menu bar item for restoring the last deleted sound."
-                    id="gui.menuBar.restoreSound"
-                />);
-            case 'Costume':
-                return (<FormattedMessage
-                    defaultMessage="Restore Costume"
-                    description="Menu bar item for restoring the last deleted costume."
-                    id="gui.menuBar.restoreCostume"
-                />);
-            default: {
-                return (<FormattedMessage
-                    defaultMessage="Restore"
-                    description="Menu bar item for restoring the last deleted item in its disabled state." /* eslint-disable-line max-len */
-                    id="gui.menuBar.restore"
-                />);
-            }
+        case 'Sprite':
+            return (<FormattedMessage
+                defaultMessage="Restore Sprite"
+                description="Menu bar item for restoring the last deleted sprite."
+                id="gui.menuBar.restoreSprite"
+            />);
+        case 'Sound':
+            return (<FormattedMessage
+                defaultMessage="Restore Sound"
+                description="Menu bar item for restoring the last deleted sound."
+                id="gui.menuBar.restoreSound"
+            />);
+        case 'Costume':
+            return (<FormattedMessage
+                defaultMessage="Restore Costume"
+                description="Menu bar item for restoring the last deleted costume."
+                id="gui.menuBar.restoreCostume"
+            />);
+        default: {
+            return (<FormattedMessage
+                defaultMessage="Restore"
+                description="Menu bar item for restoring the last deleted item in its disabled state." /* eslint-disable-line max-len */
+                id="gui.menuBar.restore"
+            />);
+        }
         }
     }
-    handleClickSeeInside() {
+    handleClickSeeInside () {
         this.props.onClickSeeInside();
     }
-    buildAboutMenu(onClickAbout) {
+    buildAboutMenu (onClickAbout) {
         if (!onClickAbout) {
             // hide the button
             return null;
@@ -434,13 +432,13 @@ class MenuBar extends React.Component {
             </MenuLabel>
         );
     }
-    wrapAboutMenuCallback(callback) {
+    wrapAboutMenuCallback (callback) {
         return () => {
             callback();
             this.props.onRequestCloseAbout();
         };
     }
-    render() {
+    render () {
         const saveNowMessage = (
             <FormattedMessage
                 defaultMessage="Save now"
@@ -517,14 +515,14 @@ class MenuBar extends React.Component {
                                     place={this.props.isRtl ? 'left' : 'right'}
                                 >
                                     <MenuSection>
-                                        <MenuItemLink href="https://scratch.mit.edu/users/GarboMuffin/#comments">
+                                        <MenuItemLink href="https://codetorch.net/users/CodeTorch/comments">
                                             <FormattedMessage
                                                 defaultMessage="Some scripts encountered errors."
                                                 description="Link in error menu"
                                                 id="tw.menuBar.reportError1"
                                             />
                                         </MenuItemLink>
-                                        <MenuItemLink href="https://scratch.mit.edu/users/GarboMuffin/#comments">
+                                        <MenuItemLink href="https://codetorch.net/users/CodeTorch/comments">
                                             <FormattedMessage
                                                 defaultMessage="This is a bug. Please report it."
                                                 description="Link in error menu"
@@ -533,7 +531,7 @@ class MenuBar extends React.Component {
                                         </MenuItemLink>
                                     </MenuSection>
                                     <MenuSection>
-                                        {this.props.errors.map(({ id, sprite, error }) => (
+                                        {this.props.errors.map(({id, sprite, error}) => (
                                             <MenuItem key={id}>
                                                 {this.props.intl.formatMessage(twMessages.compileError, {
                                                     sprite,
@@ -639,7 +637,7 @@ class MenuBar extends React.Component {
                                         <SB3Downloader
                                             showSaveFilePicker={this.props.showSaveFilePicker}
                                         >
-                                            {(_className, downloadProject, extended) => (
+                                            {(_className, downloadProject) => (
                                                 <React.Fragment>
                                                     <MenuItem
                                                         onClick={this.getSaveToComputerHandler(downloadProject)}
@@ -687,9 +685,9 @@ class MenuBar extends React.Component {
                                 place={this.props.isRtl ? 'left' : 'right'}
                             >
                                 {this.props.isPlayerOnly ? null : (
-                                    <DeletionRestorer>{(handleRestore, { restorable, deletedItem }) => (
+                                    <DeletionRestorer>{(handleRestore, {restorable, deletedItem}) => (
                                         <MenuItem
-                                            className={classNames({ [styles.disabled]: !restorable })}
+                                            className={classNames({[styles.disabled]: !restorable})}
                                             onClick={this.handleRestoreOption(handleRestore)}
                                         >
                                             {this.restoreOptionMessage(deletedItem)}
@@ -697,7 +695,7 @@ class MenuBar extends React.Component {
                                     )}</DeletionRestorer>
                                 )}
                                 <MenuSection>
-                                    <TurboMode>{(toggleTurboMode, { turboMode }) => (
+                                    <TurboMode>{(toggleTurboMode, {turboMode}) => (
                                         <MenuItem onClick={toggleTurboMode}>
                                             {turboMode ? (
                                                 <FormattedMessage
@@ -714,7 +712,7 @@ class MenuBar extends React.Component {
                                             )}
                                         </MenuItem>
                                     )}</TurboMode>
-                                    <FramerateChanger>{(changeFramerate, { framerate }) => (
+                                    <FramerateChanger>{(changeFramerate, {framerate}) => (
                                         <MenuItem onClick={changeFramerate}>
                                             {framerate === 60 ? (
                                                 <FormattedMessage
@@ -761,7 +759,7 @@ class MenuBar extends React.Component {
                                 >
                                     <MenuSection>
                                         <MenuItem onClick={this.handleSetMode('NOW')}>
-                                            <span className={classNames({ [styles.inactive]: !this.props.modeNow })}>
+                                            <span className={classNames({[styles.inactive]: !this.props.modeNow})}>
                                                 {'✓'}
                                             </span>
                                             {' '}
@@ -772,7 +770,7 @@ class MenuBar extends React.Component {
                                             />
                                         </MenuItem>
                                         <MenuItem onClick={this.handleSetMode('2020')}>
-                                            <span className={classNames({ [styles.inactive]: !this.props.mode2020 })}>
+                                            <span className={classNames({[styles.inactive]: !this.props.mode2020})}>
                                                 {'✓'}
                                             </span>
                                             {' '}
@@ -807,6 +805,24 @@ class MenuBar extends React.Component {
                                 </span>
                             </div>
                         )}
+                    </div>
+                    <Divider className={styles.divider} />
+
+                    <div className={styles.menuBarItem}>
+                        <Button
+                            className={classNames(styles.torchyButton, styles.feedbackLink)}
+                            iconSrc={aiIcon}
+                            onClick={this.handleClickTorchy}
+                        >
+                            <FormattedMessage
+                                defaultMessage="Torchy"
+                                description="Button to open the Torchy Popup"
+                                id="tw.topMenuTorchyButton"
+                                values={{
+                                    APP_NAME
+                                }}
+                            />
+                        </Button>
                     </div>
 
                     <Divider className={styles.divider} />
@@ -911,7 +927,6 @@ MenuBar.propTypes = {
     enableSeeInside: PropTypes.bool,
     onClickSeeInside: PropTypes.func,
     aboutMenuOpen: PropTypes.bool,
-    accountMenuOpen: PropTypes.bool,
     authorId: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
     authorThumbnailUrl: PropTypes.string,
     authorUsername: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
@@ -935,11 +950,9 @@ MenuBar.propTypes = {
     onClickErrors: PropTypes.func,
     onRequestCloseErrors: PropTypes.func,
     confirmReadyToReplaceProject: PropTypes.func,
-    currentLocale: PropTypes.string.isRequired,
     editMenuOpen: PropTypes.bool,
     enableCommunity: PropTypes.bool,
     fileMenuOpen: PropTypes.bool,
-    handleSaveProject: PropTypes.func,
     intl: intlShape,
     isPlayerOnly: PropTypes.bool,
     isRtl: PropTypes.bool,
@@ -947,12 +960,10 @@ MenuBar.propTypes = {
     isShowingProject: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
     isUpdating: PropTypes.bool,
+    isCollabActive: PropTypes.bool,
     locale: PropTypes.string.isRequired,
-    loginMenuOpen: PropTypes.bool,
-    mode1920: PropTypes.bool,
-    mode1990: PropTypes.bool,
     mode2020: PropTypes.bool,
-    mode220022BC: PropTypes.bool,
+
     modeMenuOpen: PropTypes.bool,
     modeNow: PropTypes.bool,
     onClickAbout: PropTypes.oneOfType([
@@ -964,14 +975,12 @@ MenuBar.propTypes = {
             })
         )
     ]),
-    onClickAccount: PropTypes.func,
     onClickAddonSettings: PropTypes.func,
     onClickDesktopSettings: PropTypes.func,
     onClickPackager: PropTypes.func,
     onClickRestorePoints: PropTypes.func,
     onClickEdit: PropTypes.func,
     onClickFile: PropTypes.func,
-    onClickLogin: PropTypes.func,
     onClickMode: PropTypes.func,
     onClickNew: PropTypes.func,
     onClickNewWindow: PropTypes.func,
@@ -980,15 +989,10 @@ MenuBar.propTypes = {
     onClickSaveAsCopy: PropTypes.func,
     onClickSettings: PropTypes.func,
     onClickSettingsModal: PropTypes.func,
-    onLogOut: PropTypes.func,
-    onOpenRegistration: PropTypes.func,
-    onOpenTipLibrary: PropTypes.func,
     onProjectTelemetryEvent: PropTypes.func,
     onRequestCloseAbout: PropTypes.func,
-    onRequestCloseAccount: PropTypes.func,
     onRequestCloseEdit: PropTypes.func,
     onRequestCloseFile: PropTypes.func,
-    onRequestCloseLogin: PropTypes.func,
     onRequestCloseMode: PropTypes.func,
     onRequestCloseSettings: PropTypes.func,
     onRequestOpenAbout: PropTypes.func,
@@ -996,18 +1000,15 @@ MenuBar.propTypes = {
     onSetTimeTravelMode: PropTypes.func,
     onShare: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
-    onToggleLoginOpen: PropTypes.func,
     projectId: PropTypes.string,
     projectTitle: PropTypes.string,
-    renderLogin: PropTypes.func,
-    sessionExists: PropTypes.bool,
     settingsMenuOpen: PropTypes.bool,
     shouldSaveBeforeTransition: PropTypes.func,
     showSaveFilePicker: PropTypes.func,
     showComingSoon: PropTypes.bool,
     username: PropTypes.string,
-    userOwnsProject: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM).isRequired
+    vm: PropTypes.instanceOf(VM).isRequired,
+    onShowCollaborationLock: PropTypes.func
 };
 
 MenuBar.defaultProps = {
@@ -1032,6 +1033,7 @@ const mapStateToProps = (state, ownProps) => {
         isRtl: state.locales.isRtl,
         isUpdating: getIsUpdating(loadingState),
         isShowingProject: getIsShowingProject(loadingState),
+        isCollabActive: state.scratchGui.collaboration.isCollabActive,
         locale: state.locales.locale,
         loginMenuOpen: loginMenuOpen(state),
         modeMenuOpen: modeMenuOpen(state),
@@ -1083,7 +1085,8 @@ const mapDispatchToProps = dispatch => ({
     onClickSave: () => dispatch(manualUpdateProject()),
     onClickSaveAsCopy: () => dispatch(saveProjectAsCopy()),
     onSeeCommunity: () => dispatch(setPlayer(true)),
-    onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode))
+    onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode)),
+    onShowCollaborationLock: () => dispatch(showStandardAlert('CollaborationLockedNoticeWipeProject'))
 });
 
 export default compose(

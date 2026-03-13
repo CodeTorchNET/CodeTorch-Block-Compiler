@@ -7,8 +7,14 @@ import musicInsetIconURL from './music/music-small.svg';
 import penIconURL from './pen/pen.png';
 import penInsetIconURL from './pen/pen-small.svg';
 
+import customAchievementsURL from './customAchievements/achievements.png';
+import customAchievementsIconURL from './customAchievements/achievements-small.svg';
+
 import videoSensingIconURL from './videoSensing/video-sensing.png';
 import videoSensingInsetIconURL from './videoSensing/video-sensing-small.svg';
+
+import faceSensingIconURL from './faceSensing/face-sensing.svg';
+import faceSensingInsetIconURL from './faceSensing/face-sensing-small.svg';
 
 import text2speechIconURL from './text2speech/text2speech.png';
 import text2speechInsetIconURL from './text2speech/text2speech-small.svg';
@@ -98,6 +104,27 @@ export default [
     {
         name: (
             <FormattedMessage
+                defaultMessage="Achievements"
+                description="Name for the 'Custom Achievements' extension"
+                id="gui.extension.customAchievement.name"
+            />
+        ),
+        extensionId: 'customAchievements',
+        iconURL: customAchievementsURL,
+        insetIconURL: customAchievementsIconURL,
+        description: (
+            <FormattedMessage
+                defaultMessage="Add custom permanently unlockable achievements to your projects."
+                description="Description for the 'Custom Achievements' extension"
+                id="gui.extension.customAchievement.description"
+            />
+        ),
+        tags: ['scratch'],
+        featured: true
+    },
+    {
+        name: (
+            <FormattedMessage
                 defaultMessage="Video Sensing"
                 description="Name for the 'Video Sensing' extension"
                 id="gui.extension.videosensing.name"
@@ -111,6 +138,28 @@ export default [
                 defaultMessage="Sense motion with the camera."
                 description="Description for the 'Video Sensing' extension"
                 id="gui.extension.videosensing.description"
+            />
+        ),
+        tags: ['scratch'],
+        featured: true
+    },
+    {
+        name: (
+            <FormattedMessage
+                defaultMessage="Face Sensing"
+                description="Name for the 'Face Sensing' extension"
+                id="tw.extension.faceSensing.name"
+            />
+        ),
+        extensionId: 'faceSensing',
+        extensionURL: 'https://blockextensions.codetorch.net/extensions/lab/face-sensing.js',
+        iconURL: faceSensingIconURL,
+        insetIconURL: faceSensingInsetIconURL,
+        description: (
+            <FormattedMessage
+                defaultMessage="Sense faces with the camera."
+                description="Description for the 'Face Sensing' extension"
+                id="tw.extension.faceSensing.description"
             />
         ),
         tags: ['scratch'],
@@ -414,36 +463,13 @@ export const galleryLoading = {
     ),
     href: 'https://extensions.turbowarp.org/',
     extensionId: 'gallery',
-    iconURL: galleryIcon,  // Ensure galleryIcon is valid
+    iconURL: galleryIcon, // Ensure galleryIcon is valid
     description: (
         <FormattedMessage
             // eslint-disable-next-line max-len
             defaultMessage="Loading extension gallery..."
             description="Appears while loading extension list from the custom extension gallery"
             id="tw.extensionGallery.loading"
-        />
-    ),
-    tags: ['tw'],
-    featured: true
-};
-
-export const galleryMore = {
-    name: (
-        <FormattedMessage
-            defaultMessage="Turbowarp Extension Gallery"
-            description="Name of extensions.turbowarp.org in extension library"
-            id="tw.extensionGallery.name"
-        />
-    ),
-    href: 'https://extensions.turbowarp.org/',
-    extensionId: 'gallery',
-    iconURL: galleryIcon,
-    description: (
-        <FormattedMessage
-            // eslint-disable-next-line max-len
-            defaultMessage="Learn more about extensions at extensions.turbowarp.org."
-            description="Appears after the extension list from the gallery was loaded successfully"
-            id="tw.extensionGallery.more"
         />
     ),
     tags: ['tw'],

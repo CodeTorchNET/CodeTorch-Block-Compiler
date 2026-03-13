@@ -31,7 +31,7 @@ const guiColors = {
     'fullscreen-background': '#111111',
     'fullscreen-accent': '#111111',
 
-    'page-background': '#111111',
+    'page-background': '#121212',
     'page-foreground': '#eeeeee',
 
     'project-title-inactive': 'var(--ui-secondary)',

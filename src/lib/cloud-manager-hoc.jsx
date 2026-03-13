@@ -15,6 +15,7 @@ import {
 } from '../reducers/alerts';
 import {openUsernameModal} from '../reducers/modals';
 import {setUsernameInvalid, setCloudHost} from '../reducers/tw';
+import storage from './storage';
 
 /**
  * TW: Our scratch-vm has an alternative fix to the cloud variable and video sensing privacy concerns.
@@ -82,7 +83,8 @@ const cloudManagerHOC = function (WrappedComponent) {
                 props.vm &&
                 props.projectId &&
                 props.hasCloudPermission &&
-                !props.cloudVariablesDisabledByUser
+                !props.cloudVariablesDisabledByUser &&
+                !props.isScratchProject // disable for scratch preview projects
             );
         }
         shouldConnect (props) {
@@ -112,8 +114,10 @@ const cloudManagerHOC = function (WrappedComponent) {
             return this.cloudProvider && !!this.cloudProvider.connection;
         }
         connectToCloud () {
+            const ott = storage.getCloudOTT();
+            const cloudHost = `${this.props.reduxCloudHost}?projectID=${this.props.projectId}&ott=${ott}`;
             this.cloudProvider = new CloudProvider(
-                this.props.reduxCloudHost,
+                cloudHost,
                 this.props.vm,
                 this.props.username,
                 this.props.projectId);
@@ -198,6 +202,7 @@ const cloudManagerHOC = function (WrappedComponent) {
             cloudVariablesDisabledByUser: !state.scratchGui.tw.cloud,
             isShowingWithId: getIsShowingWithId(loadingState),
             projectId: state.scratchGui.projectState.projectId,
+            isScratchProject: state.scratchGui.projectState.isScratchProject,
             // if you're editing someone else's project, you can't modify cloud data
             canModifyCloudData: (!state.scratchGui.mode.hasEverEnteredEditor || ownProps.canSave) &&
                 // possible security concern if the program attempts to encode webcam data over cloud variables

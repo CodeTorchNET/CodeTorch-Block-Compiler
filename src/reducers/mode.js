@@ -1,5 +1,6 @@
 const SET_FULL_SCREEN = 'scratch-gui/mode/SET_FULL_SCREEN';
 const SET_PLAYER = 'scratch-gui/mode/SET_PLAYER';
+const EXTERNAL_NAVIGATION = 'scratch-gui/mode/EXTERNAL_NAVIGATION';
 
 const initialState = {
     isEmbedded: false,
@@ -31,11 +32,15 @@ const setFullScreen = function (isFullScreen) {
         isFullScreen: isFullScreen
     };
 };
-const setPlayer = function (isPlayerOnly) {
-    //reload page (ASSUMES HASH MODE)
-    //window.location.href = window.location.origin + "/" + window.location.hash;
-    window.parent.postMessage({ type: "block-compiler-action", action: "communityPage", projectID: window.location.hash.replace("#","")}, "*");
-    return {};
+const setPlayer = function () {
+    window.parent.postMessage({
+        type: 'block-compiler-action',
+        action: 'communityPage',
+        projectID: window.location.hash.replace('#', '')
+    }, '*');
+    return {
+        type: EXTERNAL_NAVIGATION
+    };
 };
 
 export {

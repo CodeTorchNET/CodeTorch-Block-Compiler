@@ -36,6 +36,9 @@ import {setConnectionModalExtensionId} from '../reducers/connection-modal';
 import {updateMetrics} from '../reducers/workspace-metrics';
 import {isTimeTravel2020} from '../reducers/time-travel';
 
+// eslint-disable-next-line import/no-commonjs
+const {TRUSTED_IFRAME_HOST} = require('../lib/brand.js');
+
 import {
     activateTab,
     SOUNDS_TAB_INDEX
@@ -191,6 +194,13 @@ class Blocks extends React.Component {
                 window.open(docsURI, '_blank');
             }
         });
+        toolboxWorkspace.registerButtonCallback('OPEN_ACHIEVEMENT_POPUP', () => {
+            const trustedOrigin = TRUSTED_IFRAME_HOST;
+            window.parent.postMessage(
+                {type: 'block-compiler-action', action: 'show_achievement_setup_popup', canSave: this.props.canSave}
+                , trustedOrigin);
+        });
+
         toolboxWorkspace.registerButtonCallback('OPEN_RETURN_DOCS', () => {
             window.open('https://docs.turbowarp.org/return', '_blank');
         });
@@ -452,12 +462,21 @@ class Blocks extends React.Component {
                 this.props.vm.runtime.getBlocksXML(target),
                 this.props.theme
             );
-            return makeToolboxXML(false, target.isStage, target.id, dynamicBlocksXML,
+            const xml = makeToolboxXML(false, target.isStage, target.id, dynamicBlocksXML,
                 targetCostumes[targetCostumes.length - 1].name,
                 stageCostumes[stageCostumes.length - 1].name,
                 targetSounds.length > 0 ? targetSounds[targetSounds.length - 1].name : '',
                 this.props.theme.getBlockColors()
             );
+            if (xml) {
+                const allVariables = Object.assign({}, stage.variables, target.variables);
+                const variables = Object.values(allVariables)
+                    .map(v => v.name + v.type + v.id)
+                    .sort()
+                    .join(',');
+                return xml.replace('</xml>', `<!-- ${variables} --></xml>`);
+            }
+            return xml;
         } catch {
             return null;
         }
@@ -589,7 +608,7 @@ class Blocks extends React.Component {
     setBlocks (blocks) {
         this.blocks = blocks;
     }
-    handlePromptStart (message, defaultValue = "", callback, optTitle, optVarType,noInput=false) {
+    handlePromptStart (message, defaultValue = '', callback, optTitle, optVarType, noInput = false) {
         const p = {prompt: {callback, message, defaultValue: defaultValue}}; // Set defaultValue to empty string or null
         p.prompt.title = optTitle ? optTitle :
             this.ScratchBlocks.Msg.VARIABLE_MODAL_TITLE;
@@ -672,6 +691,7 @@ class Blocks extends React.Component {
         const {
             anyModalVisible,
             canUseCloud,
+            canSave,
             customStageSize,
             customProceduresVisible,
             extensionLibraryVisible,
@@ -726,6 +746,7 @@ class Blocks extends React.Component {
                         onEnableProcedureReturns={this.handleEnableProcedureReturns}
                         onRequestClose={onRequestCloseExtensionLibrary}
                         onOpenCustomExtensionModal={onOpenCustomExtensionModal || reduxOnOpenCustomExtensionModal}
+                        canSave={canSave}
                     />
                 ) : null}
                 {customProceduresVisible ? (
@@ -745,6 +766,7 @@ Blocks.propTypes = {
     intl: intlShape,
     anyModalVisible: PropTypes.bool,
     canUseCloud: PropTypes.bool,
+    canSave: PropTypes.bool,
     customStageSize: PropTypes.shape({
         width: PropTypes.number,
         height: PropTypes.number

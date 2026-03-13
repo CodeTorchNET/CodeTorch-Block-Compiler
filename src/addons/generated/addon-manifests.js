@@ -75,10 +75,12 @@ import _fullscreen from "../addons/fullscreen/_manifest_entry.js";
 import _hide_stage from "../addons/hide-stage/_manifest_entry.js";
 import _tw_straighten_comments from "../addons/tw-straighten-comments/_manifest_entry.js";
 import _tw_remove_backpack from "../addons/tw-remove-backpack/_manifest_entry.js";
+import _tw_disable_vibration from "../addons/tw-disable-vibration/_manifest_entry.js";
 import _tw_disable_cloud_variables from "../addons/tw-disable-cloud-variables/_manifest_entry.js";
 import _tw_disable_compiler from "../addons/tw-disable-compiler/_manifest_entry.js";
 import _editor_stepping from "../addons/editor-stepping/_manifest_entry.js";
 import _ai_integration from "../addons/ai-integration/_manifest_entry.js";
+import _collaboration from "../addons/collaboration/_manifest_entry.js";
 export default {
   "cat-blocks": _cat_blocks,
   "editor-devtools": _editor_devtools,
@@ -129,6 +131,7 @@ export default {
   "load-extensions": _load_extensions,
   "ai-integration": _ai_integration,
   "custom-zoom": _custom_zoom,
+  "collaboration": _collaboration,
   "copy-reporter": _copy_reporter,
   "initialise-sprite-position": _initialise_sprite_position,
   "blocks2image": _blocks2image,
@@ -157,6 +160,7 @@ export default {
   "hide-stage": _hide_stage,
   "tw-straighten-comments": _tw_straighten_comments,
   "tw-remove-backpack": _tw_remove_backpack,
+  "tw-disable-vibration": _tw_disable_vibration,
   "tw-disable-cloud-variables": _tw_disable_cloud_variables,
   "tw-disable-compiler": _tw_disable_compiler,
   "editor-stepping": _editor_stepping,

@@ -30,6 +30,7 @@ import customStageSizeReducer, {customStageSizeInitialState} from './custom-stag
 import vmReducer, {vmInitialState} from './vm';
 import vmStatusReducer, {vmStatusInitialState} from './vm-status';
 import workspaceMetricsReducer, {workspaceMetricsInitialState} from './workspace-metrics';
+import collaborationReducer, {collaborationInitialState} from './collaboration';
 import throttle from 'redux-throttle';
 
 import decks from '../lib/libraries/decks/index.jsx';
@@ -67,7 +68,8 @@ const guiInitialState = {
     tw: twInitialState,
     vm: vmInitialState,
     vmStatus: vmStatusInitialState,
-    workspaceMetrics: workspaceMetricsInitialState
+    workspaceMetrics: workspaceMetricsInitialState,
+    collaboration: collaborationInitialState
 };
 
 const initPlayer = function (currentState) {
@@ -172,6 +174,7 @@ const guiReducer = combineReducers({
     toolbox: toolboxReducer,
     tw: twReducer,
     vm: vmReducer,
+    collaboration: collaborationReducer,
     vmStatus: vmStatusReducer,
     workspaceMetrics: workspaceMetricsReducer
 });

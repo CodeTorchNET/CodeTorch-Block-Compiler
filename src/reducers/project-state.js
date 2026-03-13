@@ -108,6 +108,7 @@ const initialState = {
     error: null,
     projectData: null,
     projectId: null,
+    isScratchProject: false,
     loadingState: LoadingState.NOT_LOADED
 };
 
@@ -217,47 +218,37 @@ const reducer = function (state, action) {
         return Object.assign({}, state, {
             loadingState: LoadingState.SHOWING_WITH_ID
         });
-    case SET_PROJECT_ID:
-        // if the projectId hasn't actually changed do nothing
-        if (state.projectId === action.projectId) {
+    case SET_PROJECT_ID: {
+        if (state.projectId === action.projectId && state.isScratchProject === action.isScratchProject) {
             return state;
         }
-        // if we were already showing a project, and a different projectId is set, only fetch that project if
-        // projectId has changed. This prevents re-fetching projects unnecessarily.
+
+        const nextProjectId = action.projectId;
+        const nextIsScratchProject = !!action.isScratchProject;
+        let nextLoadingState = state.loadingState;
+
         if (state.loadingState === LoadingState.SHOWING_WITH_ID) {
-            // if setting the default project id, specifically fetch that project
-            if (action.projectId === defaultProjectId || action.projectId === null) {
-                return Object.assign({}, state, {
-                    loadingState: LoadingState.FETCHING_NEW_DEFAULT,
-                    projectId: defaultProjectId
-                });
+            if (nextProjectId === defaultProjectId || nextProjectId === null) {
+                nextLoadingState = LoadingState.FETCHING_NEW_DEFAULT;
+            } else {
+                nextLoadingState = LoadingState.FETCHING_WITH_ID;
             }
-            return Object.assign({}, state, {
-                loadingState: LoadingState.FETCHING_WITH_ID,
-                projectId: action.projectId
-            });
         } else if (state.loadingState === LoadingState.SHOWING_WITHOUT_ID) {
-            // if we were showing a project already, don't transition to default project.
-            if (action.projectId !== defaultProjectId && action.projectId !== null) {
-                return Object.assign({}, state, {
-                    loadingState: LoadingState.FETCHING_WITH_ID,
-                    projectId: action.projectId
-                });
+            if (nextProjectId !== defaultProjectId && nextProjectId !== null) {
+                nextLoadingState = LoadingState.FETCHING_WITH_ID;
             }
-        } else { // allow any other states to transition to fetching project
-            // if setting the default project id, specifically fetch that project
-            if (action.projectId === defaultProjectId || action.projectId === null) {
-                return Object.assign({}, state, {
-                    loadingState: LoadingState.FETCHING_NEW_DEFAULT,
-                    projectId: defaultProjectId
-                });
-            }
-            return Object.assign({}, state, {
-                loadingState: LoadingState.FETCHING_WITH_ID,
-                projectId: action.projectId
-            });
+        } else if (nextProjectId === defaultProjectId || nextProjectId === null) {
+            nextLoadingState = LoadingState.FETCHING_NEW_DEFAULT;
+        } else {
+            nextLoadingState = LoadingState.FETCHING_WITH_ID;
         }
-        return state;
+
+        return Object.assign({}, state, {
+            projectId: nextProjectId,
+            isScratchProject: nextIsScratchProject,
+            loadingState: nextLoadingState
+        });
+    }
     case START_AUTO_UPDATING:
         if (state.loadingState === LoadingState.SHOWING_WITH_ID) {
             return Object.assign({}, state, {
@@ -374,13 +365,14 @@ const createProject = () => ({
 });
 
 const doneCreatingProject = (id, loadingState) => {
-    window.parent.postMessage({ type: "block-compiler-action", action: "doneCreatingProject", projectID: id}, "*");
+    window.parent.postMessage({type: 'block-compiler-action', action: 'doneCreatingProject', projectID: id}, '*');
 
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.has('new_project')) searchParams.delete('new_project');
-    if(searchParams.has('username')) searchParams.delete('username');
-    if(searchParams.has('token')) searchParams.delete('token');
-    const newUrl = `${location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}${location.hash}`;
+    if (searchParams.has('username')) searchParams.delete('username');
+    if (searchParams.has('token')) searchParams.delete('token');
+    // eslint-disable-next-line max-len
+    const newUrl = `${location.pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}${location.hash}`;
     window.history.replaceState({}, document.title, newUrl);
     
     switch (loadingState) {
@@ -474,9 +466,10 @@ const projectError = error => ({
     error: error
 });
 
-const setProjectId = id => ({
+const setProjectId = (id, isScratchProject = false) => ({
     type: SET_PROJECT_ID,
-    projectId: id
+    projectId: id,
+    isScratchProject: isScratchProject
 });
 
 const requestNewProject = needSave => {

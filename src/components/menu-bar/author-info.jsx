@@ -5,6 +5,7 @@ import {FormattedMessage} from 'react-intl';
 import UserAvatar from './user-avatar.jsx';
 
 import styles from './author-info.css';
+// eslint-disable-next-line import/no-commonjs
 const {APP_DOMAIN} = require('../../lib/brand');
 
 const ActualAuthorInfo = ({
@@ -21,6 +22,10 @@ const ActualAuthorInfo = ({
             styles.authorInfo
         )}
     >
+        <UserAvatar
+            className={styles.avatar}
+            imageUrl={imageUrl}
+        />
         <div className={styles.titleAuthor}>
             <h1 className={styles.projectTitle}>
                 {decodeURIComponent(projectTitle)}
@@ -50,7 +55,16 @@ ActualAuthorInfo.propTypes = {
 };
 
 const AuthorInfo = ({projectId, ...props}) => (
-<ActualAuthorInfo {...props} />
+    projectId ? (
+        <a
+            className={styles.link}
+            href={`${APP_DOMAIN}/projects/${projectId}`}
+            target="_blank"
+            rel="noreferrer"
+        >
+            <ActualAuthorInfo {...props} />
+        </a>
+    ) : <ActualAuthorInfo {...props} />
 );
 AuthorInfo.propTypes = {
     projectId: PropTypes.string

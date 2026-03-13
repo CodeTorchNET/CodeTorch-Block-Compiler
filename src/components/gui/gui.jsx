@@ -29,11 +29,9 @@ import Alerts from '../../containers/alerts.jsx';
 import DragLayer from '../../containers/drag-layer.jsx';
 import ConnectionModal from '../../containers/connection-modal.jsx';
 import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
-import TWUsernameModal from '../../containers/tw-username-modal.jsx';
 import TWSettingsModal from '../../containers/tw-settings-modal.jsx';
 import TWSecurityManager from '../../containers/tw-security-manager.jsx';
 import TWCustomExtensionModal from '../../containers/tw-custom-extension-modal.jsx';
-import TWRestorePointManager from '../../containers/tw-restore-point-manager.jsx';
 import TWFontsModal from '../../containers/tw-fonts-modal.jsx';
 import TWUnknownPlatformModal from '../../containers/tw-unknown-platform-modal.jsx';
 import TWInvalidProjectModal from '../../containers/tw-invalid-project-modal.jsx';
@@ -49,6 +47,7 @@ import addExtensionIcon from './icon--extensions.svg';
 import codeIcon from '!../../lib/tw-recolor/build!./icon--code.svg';
 import costumesIcon from '!../../lib/tw-recolor/build!./icon--costumes.svg';
 import soundsIcon from '!../../lib/tw-recolor/build!./icon--sounds.svg';
+import DisconnectedModal from '../collaboration/disconnected-modal.jsx';
 
 const messages = defineMessages({
     addExtension: {
@@ -104,6 +103,7 @@ const GUIComponent = props => {
         enableCommunity,
         intl,
         isCreating,
+        isCollabDisconnected,
         isEmbedded,
         isFullScreen,
         isPlayerOnly,
@@ -152,13 +152,13 @@ const GUIComponent = props => {
         telemetryModalVisible,
         theme,
         tipsLibraryVisible,
-        usernameModalVisible,
         settingsModalVisible,
         customExtensionModalVisible,
         fontsModalVisible,
         unknownPlatformModalVisible,
         invalidProjectModalVisible,
         vm,
+        isCollabSyncing,
         ...componentProps
     } = omit(props, 'dispatch');
     if (children) {
@@ -184,10 +184,9 @@ const GUIComponent = props => {
 
         const alwaysEnabledModals = (
             <React.Fragment>
+                {isCollabDisconnected && <DisconnectedModal />}
                 <TWSecurityManager securityManager={securityManager} />
-                <TWRestorePointManager />
-                {/*usernameModalVisible && <TWUsernameModal />*/}
-                {settingsModalVisible && <TWSettingsModal canSave={canSave}/>}
+                {settingsModalVisible && <TWSettingsModal canSave={canSave} />}
                 {customExtensionModalVisible && <TWCustomExtensionModal />}
                 {fontsModalVisible && <TWFontsModal />}
                 {unknownPlatformModalVisible && <TWUnknownPlatformModal />}
@@ -247,6 +246,12 @@ const GUIComponent = props => {
                 ) : null}
                 {loading ? (
                     <Loader isFullScreen />
+                ) : null}
+                {isCollabSyncing ? (
+                    <Loader
+                        isFullScreen
+                        messageId="gui.loader.syncing"
+                    />
                 ) : null}
                 {isCreating ? (
                     <Loader
@@ -399,6 +404,7 @@ const GUIComponent = props => {
                                             onOpenCustomExtensionModal={onOpenCustomExtensionModal}
                                             theme={theme}
                                             vm={vm}
+                                            canSave={canSave}
                                         />
                                     </Box>
                                     <Box className={styles.extensionButtonContainer}>
@@ -540,7 +546,8 @@ GUIComponent.propTypes = {
     fontsModalVisible: PropTypes.bool,
     unknownPlatformModalVisible: PropTypes.bool,
     invalidProjectModalVisible: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM).isRequired
+    vm: PropTypes.instanceOf(VM).isRequired,
+    isCollabSyncing: PropTypes.bool
 };
 GUIComponent.defaultProps = {
     backpackHost: null,
@@ -572,7 +579,9 @@ const mapStateToProps = state => ({
     // This is the button's mode, as opposed to the actual current state
     blocksId: state.scratchGui.timeTravel.year.toString(),
     stageSizeMode: state.scratchGui.stageSize.stageSize,
-    theme: state.scratchGui.theme.theme
+    theme: state.scratchGui.theme.theme,
+    isCollabSyncing: state.scratchGui.collaboration.isCollabSyncing,
+    isCollabDisconnected: state.scratchGui.collaboration.isDisconnected
 });
 
 export default injectIntl(connect(

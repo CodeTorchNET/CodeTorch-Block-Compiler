@@ -2,6 +2,8 @@ const defaultsDeep = require('lodash.defaultsdeep');
 const path = require('path');
 const webpack = require('webpack');
 
+require('dotenv').config({path: process.env.DOTENV_PATH || '.env'});
+
 // Plugins
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
@@ -59,6 +61,7 @@ const base = {
         publicPath: root
     },
     resolve: {
+        extensions: ['.js', '.mjs', '.jsx', '.json'],
         symlinks: false,
         alias: {
             'text-encoding$': path.resolve(__dirname, 'src/lib/tw-text-encoder'),
@@ -67,23 +70,25 @@ const base = {
     },
     module: {
         rules: [{
-            test: /\.jsx?$/,
+            test: /\.(m?js|jsx)$/,
             loader: 'babel-loader',
             include: [
                 path.resolve(__dirname, 'src'),
                 /node_modules[\\/]scratch-[^\\/]+[\\/]src/,
                 /node_modules[\\/]pify/,
                 /node_modules[\\/]@vernier[\\/]godirect/,
-                /node_modules[\\/]htmlparser2/
+                /node_modules[\\/]htmlparser2/,
+                path.resolve(__dirname, 'node_modules/lib0'),
+                path.resolve(__dirname, 'node_modules/yjs'),
+                path.resolve(__dirname, 'node_modules/y-webrtc')
             ],
             options: {
-                // Explicitly disable babelrc so we don't catch various config
-                // in much lower dependencies.
                 babelrc: false,
                 plugins: [
                     ['react-intl', {
                         messagesDir: './translations/messages/'
-                    }]],
+                    }]
+                ],
                 presets: ['@babel/preset-env', '@babel/preset-react']
             }
         },
@@ -156,7 +161,7 @@ module.exports = [
         module: {
             rules: base.module.rules.concat([
                 {
-                    test: /\.(svg|png|wav|mp3|gif|jpg|woff2|hex)$/,
+                    test: /\.(svg|png|wav|mp3|gif|jpg|woff2|hex|mp4)$/,
                     loader: 'url-loader',
                     options: {
                         limit: 2048,
@@ -180,7 +185,18 @@ module.exports = [
                 'process.env.DEBUG': Boolean(process.env.DEBUG),
                 'process.env.ENABLE_SERVICE_WORKER': JSON.stringify(process.env.ENABLE_SERVICE_WORKER || ''),
                 'process.env.ROOT': JSON.stringify(root),
-                'process.env.ROUTING_STYLE': JSON.stringify(process.env.ROUTING_STYLE || 'filehash')
+                'process.env.ROUTING_STYLE': JSON.stringify(process.env.ROUTING_STYLE || 'filehash'),
+                
+                'process.env.APP_NAME': JSON.stringify(process.env.APP_NAME || 'CodeTorch'),
+                'process.env.APP_DOMAIN': JSON.stringify(process.env.APP_NAME || 'https://codetorch.net'),
+                'process.env.API_HOST': JSON.stringify(process.env.API_HOST || 'https://api.codetorch.net'),
+                'process.env.ASSET_HOST': JSON.stringify(process.env.ASSET_HOST || 'https://assets.codetorch.net'),
+                'process.env.EXTENSION_HOST': JSON.stringify(process.env.EXTENSION_HOST || 'https://blockextensions.codetorch.net'),
+                'process.env.DEFAULT_CLOUD_HOST': JSON.stringify(process.env.DEFAULT_CLOUD_HOST || 'wss://cloudserver.codetorch.net'),
+                'process.env.TRUSTED_IFRAME_HOST': JSON.stringify(process.env.TRUSTED_IFRAME_HOST || 'https://codetorch.net'),
+                'process.env.FORCE_EMBED': JSON.stringify(process.env.FORCE_EMBED || 'true'),
+                'process.env.COLLABORATION_HOST': JSON.stringify(process.env.COLLABORATION_HOST || 'wss://collaborator.codetorch.net/'),
+                'process.env.COLLABORATION_DEV_MODE': JSON.stringify(process.env.COLLABORATION_DEV_MODE || 'false')
             }),
             new HtmlWebpackPlugin({
                 chunks: ['editor'],
@@ -266,7 +282,7 @@ module.exports = [
             module: {
                 rules: base.module.rules.concat([
                     {
-                        test: /\.(svg|png|wav|mp3|gif|jpg|woff2|hex)$/,
+                        test: /\.(svg|png|wav|mp3|gif|jpg|woff2|hex|mp4)$/,
                         loader: 'url-loader',
                         options: {
                             limit: 2048,

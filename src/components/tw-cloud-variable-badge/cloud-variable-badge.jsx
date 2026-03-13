@@ -55,7 +55,7 @@ const CloudVariableBadge = props => {
                 }}
             />
     
-            {selectedHost ? (
+            {selectedHost && hosts.length > 1 ? (
                 <div className={styles.servers}>
                     <FormattedMessage
                         defaultMessage="Pick a server near you:"
@@ -72,6 +72,9 @@ const CloudVariableBadge = props => {
                         />
                     ))}
                 </div>
+            ) : selectedHost ? (
+                // No options, so don't render anything
+                null
             ) : (
                 <FormattedMessage
                     defaultMessage="Using a custom cloud variable server: {server}"

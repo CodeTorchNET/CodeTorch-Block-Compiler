@@ -276,21 +276,8 @@ const alerts = [
         ),
         iconSpinner: true,
         level: AlertLevels.SUCCESS
-    },{
-        alertId: 'TorchyCustomBlockWarning',
-        alertType: AlertTypes.STANDARD,
-        clearList: [],
-        content: (
-            <FormattedMessage
-                defaultMessage="Enabling use of custom extensions blocks may cause Torchy to not generate functional code."
-                description="Warning message indicating that custom blocks may cause Torchy to not generate functional code"
-                id="gui.alerts.TorchyCustomBlockWarning"
-            />
-        ),
-        closeButton: true,
-        level: AlertLevels.WARN,
-        maxDisplaySecs: 15
-    },{
+    },
+    {
         alertId: 'TorchyWaitForAIToFinishWarning',
         alertType: AlertTypes.STANDARD,
         clearList: [],
@@ -304,12 +291,13 @@ const alerts = [
         closeButton: true,
         level: AlertLevels.WARN,
         maxDisplaySecs: 15
-    },{
+    }, {
         alertId: 'LiveReloadDisabledNotice',
         alertType: AlertTypes.STANDARD,
         clearList: [],
         content: (
             <FormattedMessage
+                // eslint-disable-next-line max-len
                 defaultMessage="Live code editing is disabled (changes take effect only after rerunning the project). To enable it, go to Edit → Advanced Settings → Use Scratch Interpreter."
                 description="Message indicating that Live Reload is disabled in this project."
                 id="gui.alerts.LiveReloadDisabledNotice"
@@ -317,6 +305,50 @@ const alerts = [
         ),
         closeButton: true,
         level: AlertLevels.WARN
+    }, {
+        alertId: 'CollaborationLockedNotice',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage="Importing projects from your computer is not currently supported for collaboratory projects."
+                description="Message indicating that the project is locked for collaboration."
+                id="gui.alerts.CollaborationLockedNotice"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    }, {
+        alertId: 'CollaborationLockedNoticeWipeProject',
+        alertType: AlertTypes.STANDARD,
+        clearList: [],
+        content: (
+            <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage="You cannot clear a project while collaborating. To wipe a project, you must be the only user currently collaborating on this project."
+                description="Message indicating that the project is locked for collaboration."
+                id="gui.alerts.CollaborationLockedNoticeWipeProject"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    },
+    {
+        alertId: 'TitleChanged',
+        alertType: AlertTypes.INLINE,
+        clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess',
+            'twCreatingRestorePoint', 'twRestorePointSuccess', 'twRestorePointError'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Project title changed."
+                description="Message indicating that project title was successfully changed"
+                id="gui.alerts.titleChanged"
+            />
+        ),
+        iconURL: successImage,
+        level: AlertLevels.SUCCESS,
+        maxDisplaySecs: 3
     }
 ];
 

@@ -24,6 +24,13 @@ const mainMessages = {
             description="Main creating message"
             id="gui.loader.creating"
         />
+    ),
+    'gui.loader.syncing': (
+        <FormattedMessage
+            defaultMessage="Syncing Project With Other Collaborators"
+            description="Main syncing message"
+            id="gui.loader.syncing"
+        />
     )
 };
 
@@ -106,6 +113,8 @@ class LoaderComponent extends React.Component {
         this.messageEl = message;
     }
     render () {
+        const showProgressDetails = this.props.messageId !== 'gui.loader.syncing';
+
         return (
             <div
                 className={classNames(styles.background, {
@@ -134,18 +143,24 @@ class LoaderComponent extends React.Component {
                     <div className={styles.title}>
                         {mainMessages[this.props.messageId]}
                     </div>
-
-                    <div
-                        className={styles.message}
-                        ref={this.messageRef}
-                    />
-
-                    <div className={styles.barOuter}>
+                    {showProgressDetails && (
                         <div
-                            className={styles.barInner}
-                            ref={this.barInnerRef}
+                            className={styles.message}
+                            ref={this.messageRef}
                         />
-                    </div>
+                    )}
+
+                    {showProgressDetails && (
+                        <div className={styles.barOuter}>
+                            <div
+                                className={styles.barInner}
+                                ref={this.barInnerRef}
+                            />
+                        </div>
+                    )}
+                    {!showProgressDetails && (
+                        <p style={{textAlign: 'center'}}> {'This may take a while, please be patient.'}</p>
+                    )}
                 </div>
             </div>
         );

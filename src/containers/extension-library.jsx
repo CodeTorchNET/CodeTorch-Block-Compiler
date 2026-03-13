@@ -4,12 +4,14 @@ import React from 'react';
 import VM from 'scratch-vm';
 import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import log from '../lib/log';
-const {API_HOST} = require('../lib/brand');
+import {connect} from 'react-redux'; // Import connect
+// eslint-disable-next-line import/no-commonjs
+const {EXTENSION_HOST, TRUSTED_IFRAME_HOST, API_HOST} = require('../lib/brand');
+import storage from '../lib/storage';
 
 import extensionLibraryContent, {
     galleryError,
-    galleryLoading,
-    galleryMore
+    galleryLoading
 } from '../lib/libraries/extensions/index.jsx';
 import extensionTags from '../lib/libraries/tw-extension-tags';
 
@@ -43,7 +45,7 @@ const translateGalleryItem = (extension, locale) => ({
 let cachedGallery = null;
 
 const fetchLibrary = async () => {
-    const res = await fetch(API_HOST+'/extensions/extensions.json');
+    const res = await fetch(`${EXTENSION_HOST}/extensions.json`);
     if (!res.ok) {
         throw new Error(`HTTP status ${res.status}`);
     }
@@ -54,8 +56,8 @@ const fetchLibrary = async () => {
         description: extension.description,
         descriptionTranslations: extension.descriptionTranslations || {},
         extensionId: extension.id,
-        extensionURL: API_HOST+ `/extensions/extensions/${extension.slug}.js`,
-        iconURL: API_HOST +`/extensions/${extension.image || 'images/unknown.svg'}`,
+        extensionURL: `${EXTENSION_HOST}/extensions/${extension.slug}.js`,
+        iconURL: `${EXTENSION_HOST}/${extension.image || 'images/unknown.svg'}`,
         tags: ['tw'],
         credits: [
             ...(extension.original || []),
@@ -77,7 +79,8 @@ const fetchLibrary = async () => {
         }),
         docsURI: extension.docs ? `https://extensions.turbowarp.org/${extension.slug}` : null,
         samples: extension.samples ? extension.samples.map(sample => ({
-            href: `https://turbowarp.org/editor?project_url=https://extensions.turbowarp.org/samples/${encodeURIComponent(sample)}.sb3`, //force to go to turbowarp as parent doesn't nessarily support ?project_url
+            // force to go to turbowarp as parent doesn't nessarily support ?project_url
+            href: `https://turbowarp.org/editor?project_url=https://extensions.turbowarp.org/samples/${encodeURIComponent(sample)}.sb3`,
             text: sample
         })) : null,
         incompatibleWithScratch: !extension.scratchCompatible,
@@ -122,7 +125,7 @@ class ExtensionLibrary extends React.PureComponent {
                 });
         }
     }
-    handleItemSelect (item) {
+    handleItemSelect = async item => {
         if (item.href) {
             return;
         }
@@ -139,13 +142,46 @@ class ExtensionLibrary extends React.PureComponent {
             this.props.onCategorySelected('myBlocks');
             return;
         }
+        
+        const additionalData = {};
+
+        // SPECIAL CHECK FOR CUSTOM ACHIEVEMENTS EXTENSION
+        if (extensionId === 'customAchievements') {
+            // Check if project ID exists and is not the default '0' (unsaved)
+            if (!this.props.projectId || this.props.projectId === '0') {
+                window.parent.postMessage({
+                    type: 'block-compiler-action',
+                    action: 'extension-error',
+                    error: 'login_required'
+                }, '*');
+                return;
+            }
+
+            // Check if user owns the project (canSave)
+            if (!this.props.canSave) {
+                window.parent.postMessage({
+                    type: 'block-compiler-action',
+                    action: 'extension-error',
+                    error: 'not_owner'
+                }, '*');
+                return;
+            }
+            const {accessToken, customAchievements} = await storage.loadCustomAchievementData();
+            additionalData.projectId = this.props.projectId;
+            additionalData.customAchievements = customAchievements;
+            additionalData.authToken = accessToken;
+            additionalData.API_HOST = API_HOST;
+            additionalData.TRUSTED_IFRAME_HOST = TRUSTED_IFRAME_HOST;
+            additionalData.canRecieveAchievement = false; // you are in editor without a doubt...
+            additionalData.canSave = this.props.canSave;
+        }
 
         const url = item.extensionURL ? item.extensionURL : extensionId;
         if (!item.disabled) {
             if (this.props.vm.extensionManager.isExtensionLoaded(extensionId)) {
                 this.props.onCategorySelected(extensionId);
             } else {
-                this.props.vm.extensionManager.loadExtensionURL(url)
+                this.props.vm.extensionManager.loadExtensionURL(url, true, additionalData)
                     .then(() => {
                         this.props.onCategorySelected(extensionId);
                     })
@@ -156,17 +192,18 @@ class ExtensionLibrary extends React.PureComponent {
                     });
             }
         }
-    }
+    };
+
     render () {
         let library = null;
         if (this.state.gallery || this.state.galleryError || this.state.galleryTimedOut) {
             library = extensionLibraryContent.map(toLibraryItem);
             library.push('---');
             if (this.state.gallery) {
-                library.push(toLibraryItem(galleryMore));
                 const locale = this.props.intl.locale;
                 library.push(
                     ...this.state.gallery
+                        .filter(i => i.extensionId !== 'faceSensing')
                         .map(i => translateGalleryItem(i, locale))
                         .map(toLibraryItem)
                 );
@@ -200,7 +237,15 @@ ExtensionLibrary.propTypes = {
     onOpenCustomExtensionModal: PropTypes.func,
     onRequestClose: PropTypes.func,
     visible: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM).isRequired // eslint-disable-line react/no-unused-prop-types
+    vm: PropTypes.instanceOf(VM).isRequired, // eslint-disable-line react/no-unused-prop-types
+    projectId: PropTypes.string,
+    canSave: PropTypes.bool
 };
 
-export default injectIntl(ExtensionLibrary);
+const mapStateToProps = state => ({
+    projectId: state.scratchGui.projectState.projectId
+});
+
+export default injectIntl(connect(
+    mapStateToProps
+)(ExtensionLibrary));

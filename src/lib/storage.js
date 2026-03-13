@@ -1,6 +1,9 @@
-import ScratchStorage from '@turbowarp/scratch-storage';
+import ScratchStorage from 'scratch-storage';
 
 import defaultProject from './default-project';
+
+// eslint-disable-next-line import/no-commonjs
+const {TRUSTED_IFRAME_HOST} = require('./brand.js');
 
 /**
  * Wrapper for ScratchStorage which adds default web sources.
@@ -28,19 +31,85 @@ class Storage extends ScratchStorage {
             this.getAssetCreateConfig.bind(this)
         );
     }
+    setCloudOTT (cloudOTT) {
+        this.cloudOTT = cloudOTT;
+    }
+    getCloudOTT () {
+        return this.cloudOTT;
+    }
     setProjectHost (projectHost) {
         this.projectHost = projectHost;
+    }
+    setCTProjectHost (projectHost) { // this is the same regardless of wether scratch project or not
+        this.CTprojectHost = projectHost;
     }
     setProjectToken (projectToken) {
         this.projectToken = projectToken;
     }
-    getProjectToken () {
+    setScratchProjectToken (projectToken) {
+        this.scratchProjectToken = projectToken;
+    }
+    getTrustedHost (inputUrl){
+        const url = new URL(inputUrl);
+        const parts = url.hostname.split('.');
+
+        // Keep only the last two parts (e.g., "b" and "com")
+        const baseDomain = parts.slice(-2).join('.');
+
+        // Build the new clean URL
+        return `${url.protocol}//${baseDomain}`;
+    }
+    setCustomAchievements (customAchievements) {
+        this.customAchievements = customAchievements;
+    }
+    async loadCustomAchievementData () {
+        const accessToken = (await this.loadAccessToken()).token;
+        const customAchievements = this.customAchievements ? this.customAchievements : {};
+        return {accessToken, customAchievements};
+    }
+    async loadAccessToken () {
+        const trustedOrigin = TRUSTED_IFRAME_HOST;
+
+        window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
+
+        const creds = await new Promise(resolve => {
+            // eslint-disable-next-line require-jsdoc, func-style
+            function handleMessage (event) {
+                if (event.origin !== trustedOrigin) {
+                    console.warn('Ignored message from untrusted origin:', event.origin);
+                    return;
+                }
+
+                if (event.data?.type === 'JWT_AUTH CREDS' && event.data?.token) {
+                    window.removeEventListener('message', handleMessage);
+                    resolve({
+                        token: event.data.token,
+                        username: event.data.username || ''
+                    });
+                }
+            }
+
+            window.addEventListener('message', handleMessage);
+        });
+
+        this.projectToken = creds.token;
+        this.username = creds.username;
+        // eslint-disable-next-line require-atomic-updates
+        window.CollaborationUsername = creds?.username;
+        return creds;
+    }
+    async getProjectToken () {
+        if (!this.projectToken) {
+            await this.loadAccessToken();
+        }
         return this.projectToken;
     }
     getProjectGetConfig (projectAsset) {
         const path = `${this.projectHost}/${projectAsset.assetId}`;
-        const qs = this.projectToken ? `?token=${this.projectToken}` : ''; 
-        return path + qs;
+        if (this.scratchProjectToken) {
+            return `${path}?token=${this.scratchProjectToken}`;
+        }
+        return path;
     }
     getProjectCreateConfig () {
         return {
@@ -57,8 +126,11 @@ class Storage extends ScratchStorage {
     setAssetHost (assetHost) {
         this.assetHost = assetHost;
     }
+    setAssetLoadHost (assetLoadHost) {
+        this.assetLoadHost = assetLoadHost;
+    }
     getAssetGetConfig (asset) {
-        return `${this.assetHost}/${asset.assetId}.${asset.dataFormat}`;
+        return `${this.assetLoadHost}/${asset.assetId}.${asset.dataFormat}`;
     }
     getAssetCreateConfig (asset) {
         return {
@@ -67,6 +139,9 @@ class Storage extends ScratchStorage {
             // assetId as part of the create URI. So, force the method to POST.
             // Then when storage finds this config to use for the "update", still POSTs
             method: 'post',
+            headers: {
+                Authorization: `Bearer ${this.projectToken}`
+            },
             url: `${this.assetHost}/${asset.assetId}.${asset.dataFormat}`,
             withCredentials: true
         };

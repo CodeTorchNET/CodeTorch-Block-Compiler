@@ -11,13 +11,13 @@ import {
 } from '../reducers/tw';
 import {
     defaultProjectId,
-    setProjectId
+    setProjectId,
+    remixProject
 } from '../reducers/project-state';
 import {
     setPlayer,
     setFullScreen
 } from '../reducers/mode';
-import {generateRandomUsername} from './tw-username';
 import {setSearchParams} from './tw-navigation-utils';
 import {defaultStageSize} from '../reducers/custom-stage-size';
 
@@ -50,27 +50,39 @@ const setLocalStorage = (key, value) => {
     }
 };
 
-const getLocalStorage = key => {
-    try {
-        return localStorage.getItem(key);
-    } catch (e) {
-        // ignore
+
+const readHashProjectId = () => {
+    if (location.pathname === '/projects/editor'){
+        return {id: '0', isScratch: false};
     }
+    try {
+        const pathId = location.pathname.split('/projects/')[1]
+            .split('/editor')[0]
+            .split('/fullscreen')[0]
+            .replaceAll('/', '');
+        if (pathId) return {id: pathId, isScratch: false};
+    } catch (e) {
+        // do nothing
+    }
+    
+    const scratchMatch = location.hash.match(/#scratch:(\d+)/);
+    if (scratchMatch) {
+        return {id: scratchMatch[1], isScratch: true};
+    }
+    
+    const normalMatch = location.hash.match(/#(\d+)/);
+    if (normalMatch) {
+        return {id: normalMatch[1], isScratch: false};
+    }
+    
     return null;
 };
 
-const readHashProjectId = () => {
-    if(location.pathname == '/projects/editor'){
-        return '0'
-    }else{
-        try{
-            return location.pathname.split('/projects/')[1].split('/editor')[0].split('/fullscreen')[0].replaceAll('/','');
-        }catch(e){
-            const match = location.hash.match(/#(\d+)/);
-            return match === null ? null : match[1];
-        }
-    }
+const shouldRemix = () => {
+    const urlParams = new URLSearchParams(location.search);
+    return urlParams.has('triggerRemix');
 };
+
 
 class Router {
     constructor ({onSetProjectId, onSetIsPlayerOnly, onSetIsFullScreen}) {
@@ -94,7 +106,12 @@ class Router {
 
 class HashRouter extends Router {
     onhashchange () {
-        this.onSetProjectId(readHashProjectId() || defaultProjectId);
+        const hashData = readHashProjectId();
+        if (hashData) {
+            this.onSetProjectId(hashData.id, hashData.isScratch);
+        } else {
+            this.onSetProjectId(defaultProjectId, false);
+        }
     }
 
     generateURL ({projectId}) {
@@ -366,6 +383,18 @@ const TWStateManager = function (WrappedComponent) {
             window.addEventListener('popstate', this.handlePopState);
         }
         componentDidUpdate (prevProps) {
+            // eslint-disable-next-line max-len
+            if (this.props.projectState.loadingState === 'SHOWING_WITH_ID' && prevProps.projectState.loadingState === 'SHOWING_WITH_ID'){
+                if (shouldRemix()){
+                    // remove triggerRemix from URL
+                    const searchParams = new URLSearchParams(location.search);
+                    searchParams.delete('triggerRemix');
+                    setSearchParams(searchParams);
+
+                    this.props.handleRemix();
+                }
+            }
+            
             if (this.props.username !== prevProps.username && this.props.username !== this.doNotPersistUsername) {
                 // TODO: this always restores the current username once at startup, which is unnecessary
                 setLocalStorage(USERNAME_KEY, this.props.username);
@@ -480,7 +509,7 @@ const TWStateManager = function (WrappedComponent) {
         handlePopState () {
             this.router.onpathchange();
         }
-        onSetProjectId (id) {
+        onSetProjectId (id, isScratch = false) {
             if (`${id}` === `${this.props.reduxProjectId}`) {
                 return true;
             }
@@ -489,7 +518,7 @@ const TWStateManager = function (WrappedComponent) {
                     return false;
                 }
             }
-            this.props.onSetProjectId(id);
+            this.props.onSetProjectId(id, isScratch);
             return true;
         }
         onSetIsPlayerOnly (isPlayerOnly) {
@@ -562,6 +591,10 @@ const TWStateManager = function (WrappedComponent) {
         reduxProjectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         routingStyle: PropTypes.oneOf(Object.keys(routers)),
         username: PropTypes.string,
+        projectState: PropTypes.shape({
+            loadingState: PropTypes.string
+        }),
+        handleRemix: PropTypes.func,
         vm: PropTypes.instanceOf(VM)
     };
     StateManagerComponent.defaultProps = {
@@ -581,13 +614,15 @@ const TWStateManager = function (WrappedComponent) {
         interpolation: state.scratchGui.tw.interpolation,
         turbo: state.scratchGui.vmStatus.turbo,
         username: state.scratchGui.tw.username,
+        projectState: state.scratchGui.projectState,
         vm: state.scratchGui.vm
     });
     const mapDispatchToProps = dispatch => ({
         onSetIsFullScreen: isFullScreen => dispatch(setFullScreen(isFullScreen)),
         onSetIsPlayerOnly: isPlayerOnly => dispatch(setPlayer(isPlayerOnly)),
-        onSetProjectId: projectId => dispatch(setProjectId(projectId)),
-        onSetUsername: username => dispatch(setUsername(username))
+        onSetProjectId: (projectId, isScratch) => dispatch(setProjectId(projectId, isScratch)),
+        onSetUsername: username => dispatch(setUsername(username)),
+        handleRemix: () => dispatch(remixProject())
     });
     return injectIntl(connect(
         mapStateToProps,

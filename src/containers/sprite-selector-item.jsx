@@ -51,6 +51,13 @@ class SpriteSelectorItem extends React.PureComponent {
     }
     handleDragEnd () {
         if (this.props.dragging) {
+            if (this.props.dragType === 'BACKPACK_CODE') {
+                // collaborator only sends events with requestUndo = true,
+                // backpack inserts are false, so we must specifically tell collaborator to send this event
+                if (typeof window !== 'undefined' && window.handleBackpackCollaboratorOverride) {
+                    window.handleBackpackCollaboratorOverride();
+                }
+            }
             this.props.onDrag({
                 img: null,
                 currentOffset: null,

@@ -112,7 +112,7 @@ export default class GetSVG {
     //let existingBlockIds = workspace.getAllBlocks().map(block => block.id);
 
 
-    var returnedData = "<div style=\"display: flex;flex-direction: column;\">";
+    var returnedData = "<div class=\"previewWrapper\"> ";
 
     for (const blockXml of Array.from(this.blockXml.children)) {
       let block = Blockly.Xml.domToBlock(blockXml, workspace,uniqueCommentID);
