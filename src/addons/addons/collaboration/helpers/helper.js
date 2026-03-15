@@ -726,8 +726,10 @@ export function performInitialSync() {
 
         const remoteExtensions = sharedExtensions.toArray();
         remoteExtensions.forEach(ext => {
-            const extURL = ext.URL || ext;
-            if (!vm.extensionManager.isExtensionLoaded(extURL)) {
+            const extObj = (typeof ext.toJSON === 'function') ? ext.toJSON() : ext;
+            const extURL = extObj.URL || extObj;
+            const extName = extObj.name || extObj;
+            if (typeof extURL === 'string' && !vm.extensionManager.isExtensionLoaded(extName)) {
                 
                 vm.extensionManager.loadExtensionURL(extURL, false);
             }

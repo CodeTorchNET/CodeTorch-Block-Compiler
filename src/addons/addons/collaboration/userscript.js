@@ -181,8 +181,10 @@ function attachYjsProvider() {
             
             const remoteExtensions = constants.mutableRefs.sharedExtensions.toArray();
             remoteExtensions.forEach(ext => {
-                const extURL = ext.URL || ext;
-                if (!constants.mutableRefs.vm.extensionManager.isExtensionLoaded(extURL)) {
+                const extObj = (typeof ext.toJSON === 'function') ? ext.toJSON() : ext;
+                const extURL = extObj.URL || extObj;
+                const extName = extObj.name || extObj;
+                if (typeof extURL === 'string' && !constants.mutableRefs.vm.extensionManager.isExtensionLoaded(extName)) {
                     constants.mutableRefs.vm.extensionManager.loadExtensionURL(extURL, false);
                 }
             });
@@ -704,8 +706,9 @@ function attachYjsProvider() {
             constants.mutableRefs.ydoc.transact(() => {
                 const currentExts = constants.mutableRefs.sharedExtensions.toArray();
                 const alreadyExists = currentExts.some(ext => {
-                    if (typeof ext === 'string') return ext === extension.URL || ext === extension.name;
-                    return ext.URL === extension.URL && ext.name === extension.name;
+                    const extObj = (typeof ext.toJSON === 'function') ? ext.toJSON() : ext;
+                    if (typeof extObj === 'string') return extObj === extension.URL || extObj === extension.name;
+                    return extObj.URL === extension.URL && extObj.name === extension.name;
                 });
                 if (!alreadyExists) {
                     constants.mutableRefs.sharedExtensions.push([extension]);
