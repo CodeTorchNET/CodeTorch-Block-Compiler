@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2021-2023 Thomas Weber
+ * Copyright (C) 2021-2026 Thomas Weber
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -428,23 +428,24 @@ const Setting = ({
                     />
                 </React.Fragment>
             )}
-            {(setting.type === 'string' || setting.type === 'long_string' || setting.type === 'untranslated') && (
+            {(setting.type === 'string' || setting.type === 'long_string' || setting.type === 'untranslated' ||
+              setting.type === 'password' || setting.type === 'long_password') && (
                 <React.Fragment>
                     {label}
                     <TextInput
                         id={uniqueId}
-                        type="text"
+                        type={setting.type === 'password' || setting.type === 'long_password' ? 'password' : 'text'}
                         value={value}
-                        className={setting.type === 'long_string' ? styles.longStringSetting : ''}
+                        className={setting.type === 'long_string' || setting.type === 'long_password' ? styles.longStringSetting : ''}
                         onChange={newValue => SettingsStore.setAddonSetting(addonId, settingId, newValue)}
                     />
-                    {setting.type !== 'long_string' && (
-                    <ResetButton
-                        addonId={addonId}
-                        settingId={settingId}
-                        forTextInput
-                    />
-        )}
+                    {setting.type !== 'long_string' && setting.type !== 'long_password' && (
+                        <ResetButton
+                            addonId={addonId}
+                            settingId={settingId}
+                            forTextInput
+                        />
+                    )}
                 </React.Fragment>
             )}
             {setting.type === 'color' && (
