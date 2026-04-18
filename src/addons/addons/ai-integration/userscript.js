@@ -5,24 +5,8 @@ import main from "./main.js";
 import { saveSession, deleteSession, loadSessionsForProject, saveMetadata, loadMetadata } from "./helpers/db.js";
 const {API_HOST} = require('../../../lib/brand.js');
 
-const AI_INTEGRATION = {
-  AI_currently_blabbering: false,
-  CodeChunks: [],
-  AllCodeChunksEverAdded: [],
-  processedCodeChunks: [],
-  errorsDetected: [],
-  
-  sessions: [],
-  activeSessionId: null,
-  nextSessionId: 1,
-  currentProjectId: '0',
-
-  popupOpen: false,
-  canUse: true,
-  AIModels: [],
-};
-
 let authToken = {};
+
 var mainWorkspace;
 
 class ChatSession {
@@ -59,13 +43,68 @@ window.addEventListener('blockError', (event) => {
   document.AI_INTEGRATION.errorsDetected.push(event.detail);
 });
 
-// TODO: possibly push this into the addons api?
-document.AI_INTEGRATION = AI_INTEGRATION;
+document.AI_INTEGRATION = { //probably the dumbest way to possibly do this, it just make debugging alot easier (will do it properly later)
+  CodeChunks: [],
+  AllCodeChunksEverAdded: [],
+  processedCodeChunks: [],
+  errorsDetected: [],
+  
+  sessions: [],
+  activeSessionId: null,
+  nextSessionId: 1,
+  currentProjectId: '0',
 
-// TODO: dont use global events
-window.addEventListener('blockError', (event) => {
-  AI_INTEGRATION.errorsDetected.push(event.detail);
-});
+  popupOpen: false,
+  canUse: true,
+  AIModels: [],
+};
+
+document.AI_INTEGRATION.createNewSession = function() {
+  const newId = this.nextSessionId++;
+  const newSession = new ChatSession(newId, this.currentProjectId);
+  this.sessions.push(newSession);
+  this.activeSessionId = newId;
+
+  saveSession(newSession.toJSON());
+  saveMetadata(`${this.currentProjectId}_nextSessionId`, this.nextSessionId);
+  saveMetadata(`${this.currentProjectId}_activeSessionId`, this.activeSessionId);
+
+  return newSession;
+};
+
+document.AI_INTEGRATION.getActiveSession = function() {
+    if (!this.activeSessionId) return null;
+    return this.sessions.find(s => s.id === this.activeSessionId);
+};
+
+document.AI_INTEGRATION.closeSession = function(sessionId) {
+  const sessionIndex = this.sessions.findIndex(s => s.id === sessionId);
+  if (sessionIndex === -1) return;
+
+  this.sessions.splice(sessionIndex, 1);
+  deleteSession(sessionId);
+
+  if (this.activeSessionId === sessionId) {
+    if (this.sessions.length > 0) {
+      const newActiveIndex = Math.max(0, sessionIndex - 1);
+      this.activeSessionId = this.sessions[newActiveIndex].id;
+    } else {
+      this.activeSessionId = null;
+    }
+    saveMetadata(`${this.currentProjectId}_activeSessionId`, this.activeSessionId);
+  }
+};
+
+document.AI_INTEGRATION.updateAndSaveSession = function(session) {
+    if (session) {
+        saveSession(session.toJSON());
+    }
+};
+
+document.AI_INTEGRATION.saveActiveSessionMetadata = function() {
+    saveMetadata(`${this.currentProjectId}_activeSessionId`, this.activeSessionId);
+};
+
 
 function workspaceOverride() {
   if (typeof Blockly !== 'undefined') {
@@ -80,10 +119,9 @@ function workspaceOverride() {
 }
 workspaceOverride();
 
-// TODO: this should use a global hook
 document.addEventListener("mousemove", (event) => {
-  AI_INTEGRATION.X_COORDINATE = event.clientX;
-  AI_INTEGRATION.Y_COORDINATE = event.clientY;
+  document.AI_INTEGRATION.X_COORDINATE = event.clientX;
+  document.AI_INTEGRATION.Y_COORDINATE = event.clientY;
 });
 
 export default async function ({ addon, console }) {
@@ -144,7 +182,7 @@ export default async function ({ addon, console }) {
   authToken.openrouter = addon.settings.get("OpenRouterAPIKey");
 
   if (authToken.gemini == "" && authToken.openrouter == "") {
-    AI_INTEGRATION.canUse = false;
+    document.AI_INTEGRATION.canUse = false;
     window.addEventListener('ai-button-clicked', function () {
       main.createBasePopup(2, "");
     });
@@ -165,7 +203,7 @@ export default async function ({ addon, console }) {
         }
       })
       .then(data => {
-        AI_INTEGRATION.AIModels = data;
+        document.AI_INTEGRATION.AIModels = data;
         helpers.updateAIModels(authToken.gemini, authToken.openrouter);
       })
       .catch(error => {
@@ -240,7 +278,6 @@ export default async function ({ addon, console }) {
     }
   });
 
-  // TODO: dont use global events
   window.addEventListener('ai-button-clicked', function () {
     main.startNewSessionWithPrompt(2, "");
   });
