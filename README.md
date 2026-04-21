@@ -2,6 +2,33 @@
 
 This repository contains a modified version of **TurboWarp** (itself a modified version of Scratch) adapted for the CodeTorch project.
 
+### Building
+```
+git clone https://github.com/CodeTorchNET/CodeTorch-Block-Compiler
+cd CodeTorch-Block-Compiler
+
+npm ci
+
+nano .env # modify/create .env files (read more below)
+
+npm start # starts it at localhost:8601
+```
+
+the .env accepts the following:
+```
+APP_NAME=CodeTorch
+FORCE_EMBED=false # you should probably leave this false
+COLLABORATION_DEV_MODE=false
+
+APP_DOMAIN=USELESS_FOR_MOST_DEV_CASES
+API_HOST=USELESS_FOR_MOST_DEV_CASES
+ASSET_HOST=USELESS_FOR_MOST_DEV_CASES
+EXTENSION_HOST=USELESS_FOR_MOST_DEV_CASES
+DEFAULT_CLOUD_HOST=USELESS_FOR_MOST_DEV_CASES
+TRUSTED_IFRAME_HOST=USELESS_FOR_MOST_DEV_CASES
+COLLABORATION_HOST=USELESS_FOR_MOST_DEV_CASES
+```
+
 ### Licensing
 
 * **GPLv3 Code**  

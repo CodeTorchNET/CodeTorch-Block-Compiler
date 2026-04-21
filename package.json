@@ -92,7 +92,7 @@
     "redux": "3.7.2",
     "redux-throttle": "0.1.1",
     "scratch-audio": "github:CodeTorchNET/scratch-audio#develop",
-    "scratch-blocks": "github:CodeTorchNET/scratch-blocks#develop",
+    "scratch-blocks": "github:CodeTorchNET/scratch-blocks#develop-builds",
     "scratch-paint": "github:CodeTorchNET/scratch-paint#develop",
     "scratch-render": "github:CodeTorchNET/scratch-render#develop",
     "scratch-storage": "github:CodeTorchNET/scratch-storage#develop",
