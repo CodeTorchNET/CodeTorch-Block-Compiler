@@ -572,7 +572,7 @@ const Addon = ({
                 <div className={styles.addonSwitch}>
                     <Switch
                         value={settings.enabled}
-                        disabled={id === 'ai-integration' || id === 'collaboration'}
+                        disabled={id === 'collaboration'}
                         onChange={value => {
                             if (
                                 !value ||

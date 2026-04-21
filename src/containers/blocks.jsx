@@ -47,6 +47,10 @@ import AddonHooks from '../addons/hooks.js';
 import LoadScratchBlocksHOC from '../lib/tw-load-scratch-blocks-hoc.jsx';
 import {findTopBlock} from '../lib/backpack/code-payload.js';
 import {gentlyRequestPersistentStorage} from '../lib/tw-persistent-storage.js';
+import SettingsStore from '../addons/settings-store-singleton';
+
+const showAI = SettingsStore.store['ai-integration'] &&
+               SettingsStore.store['ai-integration'].enabled;
 
 // TW: Strings we add to scratch-blocks are localized here
 const messages = defineMessages({
@@ -161,6 +165,7 @@ class Blocks extends React.Component {
                 rtl: this.props.isRtl,
                 toolbox: this.props.toolboxXML,
                 colours: this.props.theme.getBlockColors(),
+                showAIButton: showAI,
                 grid: {
                     colour: this.props.theme.getBlockColors().gridColor
                 }

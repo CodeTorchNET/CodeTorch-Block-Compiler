@@ -76,6 +76,7 @@ import {
     closeErrorsMenu
 } from '../../reducers/menus';
 import {setFileHandle} from '../../reducers/tw.js';
+import SettingsStore from '../../addons/settings-store-singleton';
 
 import collectMetadata from '../../lib/collect-metadata';
 
@@ -100,6 +101,9 @@ import sharedMessages from '../../lib/shared-messages';
 import SeeInsideButton from './tw-see-inside.jsx';
 import {APP_NAME} from '../../lib/brand.js';
 import {showStandardAlert} from '../../reducers/alerts';
+
+const isTorchyEnabled = SettingsStore.store['ai-integration'] &&
+                        SettingsStore.store['ai-integration'].enabled;
 
 const twMessages = defineMessages({
     compileError: {
@@ -806,25 +810,28 @@ class MenuBar extends React.Component {
                             </div>
                         )}
                     </div>
-                    <Divider className={styles.divider} />
+                    {isTorchyEnabled && (
+                        <React.Fragment>
 
-                    <div className={styles.menuBarItem}>
-                        <Button
-                            className={classNames(styles.torchyButton, styles.feedbackLink)}
-                            iconSrc={aiIcon}
-                            onClick={this.handleClickTorchy}
-                        >
-                            <FormattedMessage
-                                defaultMessage="Torchy"
-                                description="Button to open the Torchy Popup"
-                                id="tw.topMenuTorchyButton"
-                                values={{
-                                    APP_NAME
-                                }}
-                            />
-                        </Button>
-                    </div>
-
+                            <Divider className={styles.divider} />
+                            <div className={styles.menuBarItem}>
+                                <Button
+                                    className={classNames(styles.torchyButton, styles.feedbackLink)}
+                                    iconSrc={aiIcon}
+                                    onClick={this.handleClickTorchy}
+                                >
+                                    <FormattedMessage
+                                        defaultMessage="Torchy"
+                                        description="Button to open the Torchy Popup"
+                                        id="tw.topMenuTorchyButton"
+                                        values={{
+                                            APP_NAME
+                                        }}
+                                    />
+                                </Button>
+                            </div>
+                        </React.Fragment>
+                    )}
                     <Divider className={styles.divider} />
 
                     {this.props.canEditTitle ? (
