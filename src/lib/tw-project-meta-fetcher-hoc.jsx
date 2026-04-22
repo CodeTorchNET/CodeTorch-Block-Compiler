@@ -20,6 +20,7 @@ let activeFetchMetadataPromise = null;
 
 export const fetchProjectMeta = async (projectId, isScratch) => {
     const authToken = await storage.getProjectToken();
+    const accessKey = storage.accessKey;
     let urls = [
         `${API_HOST}/v1/projects/blocks/${projectId}/meta`,
         `${API_HOST}/v1/projects/blocks/${projectId}/meta`
@@ -29,6 +30,8 @@ export const fetchProjectMeta = async (projectId, isScratch) => {
             `${ASSET_HOST}/scratch_project_meta/${projectId}`,
             `${ASSET_HOST}/scratch_project_meta/${projectId}`
         ];
+    } else if (accessKey) {
+        urls = urls.map(url => `${url}?access_key=${accessKey}`);
     }
     let firstError;
     for (const url of urls) {

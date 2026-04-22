@@ -13,6 +13,7 @@ class Storage extends ScratchStorage {
     constructor () {
         super();
         this.cacheDefaultProject();
+        this.accessKey = null;
     }
     addOfficialScratchWebStores () {
         this.addWebStore(
@@ -84,7 +85,8 @@ class Storage extends ScratchStorage {
                     window.removeEventListener('message', handleMessage);
                     resolve({
                         token: event.data.token,
-                        username: event.data.username || ''
+                        username: event.data.username || '',
+                        accessKey: event.data.accessKey || null
                     });
                 }
             }
@@ -94,6 +96,7 @@ class Storage extends ScratchStorage {
 
         this.projectToken = creds.token;
         this.username = creds.username;
+        this.accessKey = creds.accessKey;
         // eslint-disable-next-line require-atomic-updates
         window.CollaborationUsername = creds?.username;
         return creds;
@@ -105,9 +108,21 @@ class Storage extends ScratchStorage {
         return this.projectToken;
     }
     getProjectGetConfig (projectAsset) {
-        const path = `${this.projectHost}/${projectAsset.assetId}`;
+        let path = `${this.projectHost}/${projectAsset.assetId}`;
+        const params = [];
+
+        // Scratch tokens
         if (this.scratchProjectToken) {
-            return `${path}?token=${this.scratchProjectToken}`;
+            params.push(`token=${this.scratchProjectToken}`);
+        }
+
+        // CodeTorch Access Keys (Unlisted projects)
+        if (this.accessKey) {
+            params.push(`access_key=${this.accessKey}`);
+        }
+
+        if (params.length > 0) {
+            path += `?${params.join('&')}`;
         }
         return path;
     }
