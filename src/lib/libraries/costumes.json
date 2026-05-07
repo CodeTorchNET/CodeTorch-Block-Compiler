@@ -9903,6 +9903,46 @@
         "rotationCenterY": 30
     },
     {
+        "name": "Torchy-a",
+        "tags": [
+            "torchy",
+            "fire"
+        ],
+        "assetId": "3ffb86585ebbb654fbc092ea9b0a41b3",
+        "bitmapResolution": 1,
+        "dataFormat": "svg",
+        "md5ext": "3ffb86585ebbb654fbc092ea9b0a41b3.svg",
+        "rotationCenterX": 30.74937882782359,
+        "rotationCenterY": 58.864768144346826
+    },
+    {
+        "name": "Torchy-b",
+        "tags": [
+            "torchy",
+            "fire"
+        ],
+        "assetId": "2e11410044fca296f1623ae28a7abff4",
+        "bitmapResolution": 1,
+        "dataFormat": "svg",
+        "md5ext": "2e11410044fca296f1623ae28a7abff4.svg",
+        "rotationCenterX": 30.74937882782359,
+        "rotationCenterY": 58.864768144346826
+    },
+    {
+        "name": "Cool-Torchy",
+        "tags": [
+            "cool",
+            "torchy",
+            "fire"
+        ],
+        "assetId": "5299500a0f09a347bbff1999324eb2a3",
+        "bitmapResolution": 1,
+        "dataFormat": "svg",
+        "md5ext": "5299500a0f09a347bbff1999324eb2a3.svg",
+        "rotationCenterX": 51.889722070327366,
+        "rotationCenterY": 61.2154
+    },
+    {
         "name": "Toucan-a",
         "tags": [
             "animals",
