@@ -289,7 +289,17 @@ class SettingsStore extends EventTargetShim {
                 if (typeof value !== 'number') {
                     throw new Error('Setting value is invalid.');
                 }
-            } else if (settingObject.type === 'string' || settingObject.type === 'long_string' || settingObject.type === 'untranslated') {
+            } else if (
+                settingObject.type === 'string' ||
+                settingObject.type === 'long_string' ||
+                settingObject.type === 'untranslated'
+            ) {
+                // always valid
+            } else if (
+                settingObject.type === 'password' ||
+                settingObject.type === 'long_password'
+            ) {
+                value = String(value);
                 // always valid
             } else if (settingObject.type === 'color') {
                 if (typeof value !== 'string') {
@@ -309,7 +319,7 @@ class SettingsStore extends EventTargetShim {
                     throw new Error('Setting value is invalid.');
                 }
             } else {
-                throw new Error('Setting object is of unknown type');
+                throw new Error(`Setting object is of unknown type: ${settingObject.type}`);
             }
             storage[settingId] = value;
         }
