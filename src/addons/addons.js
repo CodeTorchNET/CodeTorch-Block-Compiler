@@ -82,7 +82,8 @@ const addons = [
     'tw-disable-vibration',
     'tw-disable-cloud-variables',
     'tw-disable-compiler',
-    'editor-stepping'
+    'editor-stepping',
+    'paint-gradient-maker'
 ];
 
 const newAddons = [

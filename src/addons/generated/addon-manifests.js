@@ -81,6 +81,8 @@ import _tw_disable_compiler from "../addons/tw-disable-compiler/_manifest_entry.
 import _editor_stepping from "../addons/editor-stepping/_manifest_entry.js";
 import _ai_integration from "../addons/ai-integration/_manifest_entry.js";
 import _collaboration from "../addons/collaboration/_manifest_entry.js";
+import _paint_gradient_maker from "../addons/paint-gradient-maker/_manifest_entry.js";
+
 export default {
   "cat-blocks": _cat_blocks,
   "editor-devtools": _editor_devtools,
@@ -164,4 +166,5 @@ export default {
   "tw-disable-cloud-variables": _tw_disable_cloud_variables,
   "tw-disable-compiler": _tw_disable_compiler,
   "editor-stepping": _editor_stepping,
+  "paint-gradient-maker": _paint_gradient_maker,
 };
