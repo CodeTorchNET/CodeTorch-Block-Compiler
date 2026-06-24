@@ -196,7 +196,8 @@ module.exports = [
                 'process.env.TRUSTED_IFRAME_HOST': JSON.stringify(process.env.TRUSTED_IFRAME_HOST || 'https://codetorch.net'),
                 'process.env.FORCE_EMBED': JSON.stringify(process.env.FORCE_EMBED || 'true'),
                 'process.env.COLLABORATION_HOST': JSON.stringify(process.env.COLLABORATION_HOST || 'wss://collaborator.codetorch.net/'),
-                'process.env.COLLABORATION_DEV_MODE': JSON.stringify(process.env.COLLABORATION_DEV_MODE || 'false')
+                'process.env.COLLABORATION_DEV_MODE': JSON.stringify(process.env.COLLABORATION_DEV_MODE || 'false'),
+                'process.env.IS_STANDLALONE': JSON.stringify(process.env.IS_STANDLALONE || 'false')
             }),
             new HtmlWebpackPlugin({
                 chunks: ['editor'],
