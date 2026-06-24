@@ -4,6 +4,7 @@ import defaultProject from './default-project';
 
 // eslint-disable-next-line import/no-commonjs
 const {TRUSTED_IFRAME_HOST} = require('./brand.js');
+const isStandAlone = process.env.IS_STANDLALONE === 'true';
 
 /**
  * Wrapper for ScratchStorage which adds default web sources.
@@ -69,30 +70,40 @@ class Storage extends ScratchStorage {
         return {accessToken, customAchievements};
     }
     async loadAccessToken () {
-        const trustedOrigin = TRUSTED_IFRAME_HOST;
+        let creds = null;
+        // eslint-disable-next-line no-negated-condition
+        if (!isStandAlone) {
+            const trustedOrigin = TRUSTED_IFRAME_HOST;
 
-        window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
+            window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
 
-        const creds = await new Promise(resolve => {
+            creds = await new Promise(resolve => {
             // eslint-disable-next-line require-jsdoc, func-style
-            function handleMessage (event) {
-                if (event.origin !== trustedOrigin) {
-                    console.warn('Ignored message from untrusted origin:', event.origin);
-                    return;
+                function handleMessage (event) {
+                    if (event.origin !== trustedOrigin) {
+                        console.warn('Ignored message from untrusted origin:', event.origin);
+                        return;
+                    }
+
+                    if (event.data?.type === 'JWT_AUTH CREDS' && event.data?.token) {
+                        window.removeEventListener('message', handleMessage);
+                        resolve({
+                            token: event.data.token,
+                            username: event.data.username || '',
+                            accessKey: event.data.accessKey || null
+                        });
+                    }
                 }
 
-                if (event.data?.type === 'JWT_AUTH CREDS' && event.data?.token) {
-                    window.removeEventListener('message', handleMessage);
-                    resolve({
-                        token: event.data.token,
-                        username: event.data.username || '',
-                        accessKey: event.data.accessKey || null
-                    });
-                }
-            }
-
-            window.addEventListener('message', handleMessage);
-        });
+                window.addEventListener('message', handleMessage);
+            });
+        } else {
+            creds = {
+                token: 'token',
+                username: '',
+                accessKey: null
+            };
+        }
 
         this.projectToken = creds.token;
         this.username = creds.username;
