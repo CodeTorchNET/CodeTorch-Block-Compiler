@@ -4,7 +4,7 @@ import defaultProject from './default-project';
 
 // eslint-disable-next-line import/no-commonjs
 const {TRUSTED_IFRAME_HOST} = require('./brand.js');
-const isStandAlone = process.env.IS_STANDLALONE === 'true';
+const isStandAlone = process.env.IS_STANDALONE === 'true';
 
 /**
  * Wrapper for ScratchStorage which adds default web sources.
