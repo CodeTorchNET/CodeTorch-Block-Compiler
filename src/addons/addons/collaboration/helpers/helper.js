@@ -3,6 +3,7 @@ import * as Y from 'yjs';
 import * as OH from './observeHandlers.js';
 import * as costumeSync from './costumeSync.js';
 import * as soundSync from './soundSync.js';
+import * as transformSync from './transformSync.js';
 
 const targetNameIdCache = new Map();
 
@@ -226,6 +227,8 @@ export function serializeSpriteForYjs(target) {
     yMap.set('id', target.id);
     yMap.set('name', target.getName());
     yMap.set('isStage', !!target.isStage);
+    const transform = transformSync.serializeTransformFields(target);
+    Object.keys(transform).forEach(key => yMap.set(key, transform[key]));
     return yMap;
 }
 
@@ -606,8 +609,9 @@ export function performInitialSync() {
 
                 if (target) {
                     newTargetList.push(target);
-                    localTargetsMap.delete(id); 
+                    localTargetsMap.delete(id);
                     if (target.getName() !== name) target.sprite.name = name;
+                    transformSync.applyTransformFromYjs(target, ySpriteMap);
                 } else {
                     const newSprite = new constants.mutableRefs.vm.exports.Sprite(null, vm.runtime);
                     newSprite.name = name;
@@ -615,6 +619,7 @@ export function performInitialSync() {
                     target.id = id;
                     target.originalTargetId = id;
                     vm.runtime.addTarget(target);
+                    transformSync.applyTransformFromYjs(target, ySpriteMap);
                     newTargetList.push(target);
                 }
             });

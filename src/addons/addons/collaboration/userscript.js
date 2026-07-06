@@ -7,6 +7,7 @@ import * as timeout from './helpers/timeout.js';
 import * as helper from './helpers/helper.js';
 import * as costumeSync from './helpers/costumeSync.js';
 import * as soundSync from './helpers/soundSync.js';
+import * as transformSync from './helpers/transformSync.js';
 import * as OH from './helpers/observeHandlers.js';
 
 
@@ -127,21 +128,19 @@ function attachYjsProvider() {
                     const existingTarget = runtime.getTargetById(id);
 
                     if (!existingTarget) {
-                        
                         const newSprite = new constants.mutableRefs.vm.exports.Sprite(null, runtime);
                         newSprite.name = name;
-                        
                         const target = newSprite.createClone(isStage ? 'background' : 'sprite');
                         target.id = id;
                         target.originalTargetId = id;
-                        
                         runtime.addTarget(target);
-
-                        helper.applyQueuedEventsForTarget(id); 
+                        transformSync.applyTransformFromYjs(target, yMap);
+                        helper.applyQueuedEventsForTarget(id);
                     } else {
                         if (existingTarget.getName() !== name) {
                             vm.renameSprite(id, name, false);
                         }
+                        transformSync.applyTransformFromYjs(existingTarget, yMap);
                     }
                 });
                 const localTargets = runtime.targets.filter(t => t.isOriginal);
@@ -612,13 +611,23 @@ function attachYjsProvider() {
                         const newIndex = properties.currentCostume;
                         const currentLocalState = constants.mutableRefs.yjsAwarenessInstance.getLocalState();
                         const currentAsset = currentLocalState?.editingAsset;
-                        if (currentAsset && currentAsset.type === 'costume' && currentAsset.index !== newIndex) {           
+                        if (currentAsset && currentAsset.type === 'costume' && currentAsset.index !== newIndex) {
                             constants.mutableRefs.yjsAwarenessInstance.setLocalStateField('editingAsset', {
                                 ...currentAsset,
                                 index: newIndex
                             });
                         }
                     }
+                }
+                const hasTransformField = transformSync.TRANSFORM_FIELDS.some(
+                    key => Object.prototype.hasOwnProperty.call(properties, key));
+                if (hasTransformField) {
+                    if (constants.mutableRefs.isInitialRoomSync) {
+                        constants.mutableRefs.pendingLocalEvents.push(
+                            { kind: 'transform', targetId, eventData: properties });
+                        continue;
+                    }
+                    transformSync.handleLocalTransformChange(targetId, properties);
                 }
             }
         };
@@ -765,6 +774,7 @@ function attachYjsProvider() {
                             if (kind === 'blocks') handleTargetBlocksChanged(targetId, eventData);
                             else if (kind === 'variables') handleTargetVariablesChanged(targetId, eventData);
                             else if (kind === 'comments') handleTargetCommentsChanged(targetId, eventData);
+                            else if (kind === 'transform') transformSync.handleLocalTransformChange(targetId, eventData);
                         });
 
                         if (constants.mutableRefs.addon?.tab?.redux?.dispatch) {
