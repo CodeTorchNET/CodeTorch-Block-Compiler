@@ -172,16 +172,18 @@ async function syncRemoteToLocal(targetId) {
         
         const loadPromises = remoteCostumesData.map(async (remoteMeta) => {
             let existingMatch = currentCostumes.find(c => c.id === remoteMeta.id);
+            let staleMatch = null;
             if (existingMatch && (existingMatch.md5 || existingMatch.md5ext) !== remoteMeta.md5ext) {
-                existingMatch = null; 
+                staleMatch = existingMatch;
+                existingMatch = null;
             }
             if (!existingMatch) {
-                existingMatch = currentCostumes.find(c => 
+                existingMatch = currentCostumes.find(c =>
                     c.assetId === remoteMeta.assetId && (c.md5 === remoteMeta.md5ext || c.md5ext === remoteMeta.md5ext)
                 );
             }
             if (existingMatch) return { existing: existingMatch, meta: remoteMeta };
-            const loaded = await helper.loadRemoteCostume(remoteMeta, constants.mutableRefs.vm.runtime);
+            const loaded = await helper.loadRemoteCostume(remoteMeta, constants.mutableRefs.vm.runtime, 3, staleMatch);
             return { loaded: loaded, meta: remoteMeta };
         });
 
@@ -210,6 +212,12 @@ async function syncRemoteToLocal(targetId) {
         }
         target.setCostume(target.currentCostume);
         target.updateAllDrawableProperties();
+        const keptSkinIds = new Set(newCostumeList.map(c => c.skinId).filter(id => id !== undefined));
+        currentCostumes.forEach(oldCostume => {
+            if (oldCostume.skinId !== undefined && !keptSkinIds.has(oldCostume.skinId)) {
+                constants.mutableRefs.vm.runtime.renderer.destroySkin(oldCostume.skinId);
+            }
+        });
         setTimeout(function() {
             const vm = constants.mutableRefs.vm;
             if (vm) {

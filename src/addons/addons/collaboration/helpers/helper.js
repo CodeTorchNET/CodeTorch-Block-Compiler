@@ -265,55 +265,56 @@ export async function uploadCollaborationAsset(runtime, asset) {
     }
 }
 
-export async function loadRemoteCostume(costumeData, runtime, retries = 3) {
-    
-    
+export async function loadRemoteCostume(costumeData, runtime, retries = 3, existingCostume = null) {
     const costume = { ...costumeData };
     if (!costume.md5) costume.md5 = costume.md5ext;
     if (!costume.dataFormat && costume.md5ext) {
         costume.dataFormat = costume.md5ext.split('.').pop();
     }
-    
-    const assetType = costume.dataFormat === 'svg' 
-        ? runtime.storage.AssetType.ImageVector 
+    const assetType = costume.dataFormat === 'svg'
+        ? runtime.storage.AssetType.ImageVector
         : runtime.storage.AssetType.ImageBitmap;
-
     try {
-        
         const asset = await runtime.storage.load(assetType, costume.assetId, costume.dataFormat);
-        
         if (!asset) {
             if (retries > 0) {
-                
                 await new Promise(resolve => setTimeout(resolve, 500));
-                return loadRemoteCostume(costumeData, runtime, retries - 1);
+                return loadRemoteCostume(costumeData, runtime, retries - 1, existingCostume);
             }
-            
-            return costume; 
+            return costume;
         }
-        
         costume.asset = asset;
-        
-        
         return new Promise(resolve => {
             if (costume.dataFormat === 'svg') {
                 const svgString = asset.decodeText();
-                costume.skinId = runtime.renderer.createSVGSkin(svgString, [costume.rotationCenterX, costume.rotationCenterY]);
+                if (existingCostume && existingCostume.skinId !== undefined && existingCostume.dataFormat === 'svg') {
+                    runtime.renderer.updateSVGSkin(existingCostume.skinId, svgString, [costume.rotationCenterX, costume.rotationCenterY]);
+                    costume.skinId = existingCostume.skinId;
+                } else {
+                    costume.skinId = runtime.renderer.createSVGSkin(svgString, [costume.rotationCenterX, costume.rotationCenterY]);
+                    if (existingCostume && existingCostume.skinId !== undefined) {
+                        runtime.renderer.destroySkin(existingCostume.skinId);
+                    }
+                }
                 costume.size = runtime.renderer.getSkinSize(costume.skinId);
-                
                 resolve(costume);
             } else {
                 const image = new Image();
                 image.onload = function () {
-                    const skinId = runtime.renderer.createBitmapSkin(
-                        image, 
-                        costume.bitmapResolution || 1, 
-                        [costume.rotationCenterX, costume.rotationCenterY]
-                    );
-                    costume.skinId = skinId;
+                    const resolution = costume.bitmapResolution || 1;
+                    const center = [costume.rotationCenterX, costume.rotationCenterY];
+                    if (existingCostume && existingCostume.skinId !== undefined && existingCostume.dataFormat !== 'svg') {
+                        runtime.renderer.updateBitmapSkin(existingCostume.skinId, image, resolution,
+                            [center[0] / resolution, center[1] / resolution]);
+                        costume.skinId = existingCostume.skinId;
+                    } else {
+                        costume.skinId = runtime.renderer.createBitmapSkin(image, resolution, center);
+                        if (existingCostume && existingCostume.skinId !== undefined) {
+                            runtime.renderer.destroySkin(existingCostume.skinId);
+                        }
+                    }
                     const renderSize = runtime.renderer.getSkinSize(costume.skinId);
-                    costume.size = [renderSize[0] * 2, renderSize[1] * 2]; 
-                    
+                    costume.size = [renderSize[0] * 2, renderSize[1] * 2];
                     resolve(costume);
                 };
                 image.onerror = function (err) {
@@ -323,7 +324,6 @@ export async function loadRemoteCostume(costumeData, runtime, retries = 3) {
             }
         });
     } catch (e) {
-        
         return costume;
     }
 }
@@ -577,12 +577,8 @@ export function performInitialSync() {
             const remoteName = yTargetMap.get('__targetName');
             if (remoteName) {
                 const localTarget = vm.runtime.targets.find(t => t.getName() === remoteName);
-                if (localTarget && localTarget.isStage && localTarget.id !== remoteId) {            
-                    localTarget.id = remoteId;
-                    localTarget.originalTargetId = remoteId;
-                    Object.values(localTarget.variables).forEach(v => {
-                        v.targetId = remoteId;
-                    });
+                if (localTarget && localTarget.isStage && localTarget.id !== remoteId) {
+                    vm.runtime.updateTargetId(localTarget, remoteId);
                 }
             }
         });
@@ -604,8 +600,7 @@ export function performInitialSync() {
                     target = vm.runtime.getTargetForStage();
                     if (target) {
                         localTargetsMap.delete(target.id);
-                        target.id = id;
-                        target.originalTargetId = id;
+                        vm.runtime.updateTargetId(target, id);
                     }
                 }
 

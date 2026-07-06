@@ -121,12 +121,21 @@ async function syncRemoteToLocal(targetId) {
             return finalSound;
         });
         constants.mutableRefs.BlocklyInstance.Events.setGroup('yjs-remote-sync');
+        const soundBank = target.sprite.soundBank;
+        const keptPlayerIds = new Set(newSoundList.map(s => s.soundId).filter(Boolean));
+        if (soundBank && soundBank.removeSoundPlayer) {
+            currentSounds.forEach(oldSound => {
+                if (oldSound.soundId && !keptPlayerIds.has(oldSound.soundId)) {
+                    soundBank.removeSoundPlayer(oldSound.soundId);
+                }
+            });
+        }
         target.sprite.sounds = newSoundList;
         for (const sound of newSoundList) {
-            if (sound.asset && target.sprite.soundBank) {
+            if (sound.asset && soundBank && !sound.soundId) {
                 const player = await constants.mutableRefs.vm.runtime.audioEngine.decodeSoundPlayer({ ...sound, data: sound.asset.data });
                 sound.soundId = player.id;
-                target.sprite.soundBank.addSoundPlayer(player);
+                soundBank.addSoundPlayer(player);
             }
         }
         if (constants.mutableRefs.vm.editingTarget?.id === target.id) constants.mutableRefs.vm.emitTargetsUpdate();

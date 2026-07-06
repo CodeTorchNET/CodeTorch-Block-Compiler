@@ -516,6 +516,11 @@ class Blocks extends React.Component {
                 error.message = `Workspace Update Error: ${error.message}`;
             }
             log.error(error);
+            const editingTarget = this.props.vm.editingTarget;
+            if (editingTarget && typeof editingTarget.blocks.validateAndRepair === 'function' &&
+                editingTarget.blocks.validateAndRepair() > 0) {
+                setTimeout(() => this.props.vm.emitWorkspaceUpdate(), 0);
+            }
         }
         this.workspace.addChangeListener(this.props.vm.blockListener);
 

@@ -62,7 +62,7 @@ export const mutableRefs = {
     inactivityTimerY: null,          
     userIconContainer: null,         
 
-    isWorkspaceLoading: false,
+    isInitialRoomSync: false,
     loadingCooldownTimer: null,
 
     syncingTargets: new Set(),
@@ -70,8 +70,9 @@ export const mutableRefs = {
     syncingSounds: new Set(),
     costumeIndexMaps: new Map(),
 
-    isWorkspaceLoading: true,
+    isUiTransition: false,
     initialSyncEvents: [],
+    pendingLocalEvents: [],
 
     roomUUID: null
 };

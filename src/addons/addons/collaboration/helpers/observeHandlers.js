@@ -87,7 +87,20 @@ export function sharedBlocks(event){
                             block[key] = val;
                         }
                     } else if (change.action === 'delete') {
-                        delete block[key];
+                        if (key.startsWith('["')) {
+                            try {
+                                const pathParts = JSON.parse(key);
+                                let current = block;
+                                for (let i = 0; i < pathParts.length - 1 && current; i++) {
+                                    current = current[pathParts[i]];
+                                }
+                                if (current) delete current[pathParts[pathParts.length - 1]];
+                            } catch (e) {
+                                delete block[key];
+                            }
+                        } else {
+                            delete block[key];
+                        }
                     }
                 });
                 target.blocks.updateBlock(block);
@@ -113,6 +126,8 @@ export function sharedBlocksRefresh(needsToolboxRefresh,needsWorkspaceRefresh){
 
     if (needsWorkspaceRefresh) {
         if (constants.mutableRefs.vm.editingTarget) {
+            const blocks = constants.mutableRefs.vm.editingTarget.blocks;
+            if (typeof blocks.validateAndRepair === 'function') blocks.validateAndRepair();
             constants.mutableRefs.vm.emitWorkspaceUpdate();
         }
     }
