@@ -71,8 +71,6 @@ export const mutableRefs = {
     costumeIndexMaps: new Map(),
 
     isUiTransition: false,
-    initialSyncEvents: [],
-    pendingLocalEvents: [],
 
     roomUUID: null
 };

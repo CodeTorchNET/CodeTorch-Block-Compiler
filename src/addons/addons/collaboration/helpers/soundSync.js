@@ -12,6 +12,7 @@ function getSharedSoundList(targetId) {
 export async function handleLocalSoundChange(targetId, [op, idParam, data]) {
     const eventGroup = constants.mutableRefs.BlocklyInstance?.Events.getGroup();
     if (eventGroup === 'yjs-remote-sync') return;
+    if (constants.mutableRefs.isInitialRoomSync) return;
     const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
     if (!target) return;
     if (constants.mutableRefs.syncingSounds.has(targetId)) return;

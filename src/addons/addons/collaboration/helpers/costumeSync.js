@@ -28,7 +28,9 @@ export async function handleLocalCostumeChange(targetId, [op, idParam, data]) {
     if (eventGroup === 'yjs-remote-sync') {
         return;
     }
-    
+    if (constants.mutableRefs.isInitialRoomSync) return;
+
+
     const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
     if (!target) return;
     

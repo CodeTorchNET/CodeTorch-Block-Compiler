@@ -21,6 +21,18 @@ export function applyTransformFromYjs(target, yMap) {
         if (value !== undefined) data[field] = value;
     });
 
+    const costumes = (!target.isStage && typeof target.getCostumes === 'function') ? target.getCostumes() : null;
+    const currentCostume = costumes ? costumes[target.currentCostume] : null;
+    const hasLoadedSkin = target.isStage ||
+        !!(currentCostume && currentCostume.skinId !== undefined && currentCostume.skinId !== null);
+
+    if (!hasLoadedSkin) {
+        TRANSFORM_FIELDS.forEach(field => {
+            if (Object.prototype.hasOwnProperty.call(data, field)) target[field] = data[field];
+        });
+        return;
+    }
+
     const isXChanged = Object.prototype.hasOwnProperty.call(data, 'x');
     const isYChanged = Object.prototype.hasOwnProperty.call(data, 'y');
     if (isXChanged || isYChanged) {

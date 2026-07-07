@@ -1,8 +1,5 @@
 import * as constants from './constants.js';
 import * as Y from 'yjs';
-import * as OH from './observeHandlers.js';
-import * as costumeSync from './costumeSync.js';
-import * as soundSync from './soundSync.js';
 import * as transformSync from './transformSync.js';
 
 const targetNameIdCache = new Map();
@@ -487,7 +484,9 @@ export function pushLocalStateToYjs() {
 
             sharedSprites.insert(0, ySpriteArray);
 
-            vm.runtime.getMonitorState().forEach((monitor, id) => {
+            const monitorState = vm.runtime.getMonitorState();
+            const monitors = (monitorState && monitorState.map instanceof Map) ? monitorState.map : monitorState;
+            monitors.forEach((monitor, id) => {
                 sharedMonitors.set(id, serializeMonitorForYjs(monitor));
             });
 
@@ -551,6 +550,113 @@ export async function pushTargetStateToYjs(target) {
         constants.mutableRefs.sharedSounds.set(targetId, ySoundArray);
 
     }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+}
+
+function applyYjsBlocksToTarget(target, yTargetMap) {
+    yTargetMap.forEach((yBlockMap, blockId) => {
+        if (blockId === '__targetName') return;
+        if (target.blocks.getBlock(blockId)) return;
+        const blockData = deserializeBlockFromYjs(yBlockMap);
+        target.blocks.createBlock(blockData);
+    });
+}
+
+function applyYjsVariablesToTarget(target, yTargetVarMap) {
+    const vm = constants.mutableRefs.vm;
+
+    const remoteVarIds = new Set(yTargetVarMap.keys());
+    Object.keys(target.variables).forEach(varId => {
+        if (!remoteVarIds.has(varId)) {
+            target.deleteVariable(varId, true);
+        }
+    });
+
+    yTargetVarMap.forEach((yVarMap, varId) => {
+        const name = yVarMap.get('name');
+        const type = yVarMap.get('type');
+        const isCloud = yVarMap.get('isCloud');
+        let value = yVarMap.get('value');
+
+        if (type === 'list') {
+            try { value = JSON.parse(value); } catch (e) { }
+        }
+
+        if (!target.variables[varId]) {
+            target.createVariable(varId, name, type, isCloud, true);
+        }
+
+        if (type === 'broadcast_msg') {
+            target.variables[varId].value = name;
+            target.variables[varId].name = name;
+            vm.runtime.targets.forEach(t => t.blocks.resetCache());
+        } else {
+            target.variables[varId].value = value;
+        }
+    });
+}
+
+function applyYjsCommentsToTarget(target, yTargetCommentMap) {
+    yTargetCommentMap.forEach((yCommentMap, commentId) => {
+        if (target.comments[commentId]) return;
+        const commentData = deserializeCommentFromYjs(yCommentMap);
+        target.createComment(
+            commentData.id, commentData.blockId, commentData.text,
+            commentData.x, commentData.y, commentData.width,
+            commentData.height, commentData.minimized, true
+        );
+    });
+}
+
+function applyYjsCostumesToTarget(target, yCostumeArray) {
+    const vm = constants.mutableRefs.vm;
+    if (!target.sprite) return;
+    const costumeList = yCostumeArray.map(yMap => deserializeCostumeFromYjs(yMap));
+
+    Promise.all(costumeList.map(c => loadRemoteCostume(c, vm.runtime)))
+        .then(loadedCostumes => {
+            if (loadedCostumes.length > 0) {
+                target.sprite.costumes = loadedCostumes;
+                target.currentCostume = 0;
+                target.setCostume(0);
+                target.updateAllDrawableProperties();
+            }
+        });
+}
+
+function applyYjsSoundsToTarget(target, ySoundArray) {
+    const vm = constants.mutableRefs.vm;
+    if (!target.sprite) return;
+    const soundList = ySoundArray.map(yMap => deserializeSoundFromYjs(yMap));
+    Promise.all(soundList.map(s => loadRemoteSound(s, vm.runtime)))
+        .then(async loadedSounds => {
+            target.sprite.sounds = loadedSounds;
+            for (const sound of loadedSounds) {
+                if (sound.asset && target.sprite.soundBank) {
+                    const player = await vm.runtime.audioEngine.decodeSoundPlayer({
+                        ...sound, data: sound.asset.data
+                    });
+                    sound.soundId = player.id;
+                    target.sprite.soundBank.addSoundPlayer(player);
+                }
+            }
+        });
+}
+
+export function hydrateTargetFromYjs(targetId) {
+    const vm = constants.mutableRefs.vm;
+    const target = vm?.runtime.getTargetById(targetId);
+    if (!target) return;
+
+    const yBlocks = constants.mutableRefs.sharedBlocks?.get(targetId);
+    if (yBlocks) applyYjsBlocksToTarget(target, yBlocks);
+    const yVariables = constants.mutableRefs.sharedVariables?.get(targetId);
+    if (yVariables) applyYjsVariablesToTarget(target, yVariables);
+    const yComments = constants.mutableRefs.sharedComments?.get(targetId);
+    if (yComments) applyYjsCommentsToTarget(target, yComments);
+    const yCostumes = constants.mutableRefs.sharedCostumes?.get(targetId);
+    if (yCostumes) applyYjsCostumesToTarget(target, yCostumes);
+    const ySounds = constants.mutableRefs.sharedSounds?.get(targetId);
+    if (ySounds) applyYjsSoundsToTarget(target, ySounds);
 }
 
 export function performInitialSync() {
@@ -630,58 +736,17 @@ export function performInitialSync() {
         sharedBlocks.forEach((yTargetMap, targetId) => {
             const target = vm.runtime.getTargetById(targetId);
             if (!target) return;
-
-            yTargetMap.forEach((yBlockMap, blockId) => {
-                if (blockId === '__targetName') return;
-                const blockData = deserializeBlockFromYjs(yBlockMap);
-                target.blocks.createBlock(blockData);
-            });
+            applyYjsBlocksToTarget(target, yTargetMap);
         });
         sharedVariables.forEach((yTargetVarMap, targetId) => {
             const target = vm.runtime.getTargetById(targetId);
             if (!target) return;
-
-            const remoteVarIds = new Set(yTargetVarMap.keys());
-            Object.keys(target.variables).forEach(varId => {
-                if (!remoteVarIds.has(varId)) {
-                    target.deleteVariable(varId, true);
-                }
-            });
-
-            yTargetVarMap.forEach((yVarMap, varId) => {
-                const name = yVarMap.get('name');
-                const type = yVarMap.get('type');
-                const isCloud = yVarMap.get('isCloud');
-                let value = yVarMap.get('value');
-
-                if (type === 'list') {
-                    try { value = JSON.parse(value); } catch (e) { }
-                }
-
-                if (!target.variables[varId]) {
-                    target.createVariable(varId, name, type, isCloud, true);
-                }
-                
-                if (type === 'broadcast_msg') {
-                    target.variables[varId].value = name;
-                    target.variables[varId].name = name;
-                    vm.runtime.targets.forEach(t => t.blocks.resetCache());
-                } else {
-                    target.variables[varId].value = value;
-                }
-            });
+            applyYjsVariablesToTarget(target, yTargetVarMap);
         });
         sharedComments.forEach((yTargetMap, targetId) => {
             const target = vm.runtime.getTargetById(targetId);
             if (!target) return;
-            yTargetMap.forEach((yCommentMap, commentId) => {
-                const commentData = deserializeCommentFromYjs(yCommentMap);
-                target.createComment(
-                    commentData.id, commentData.blockId, commentData.text,
-                    commentData.x, commentData.y, commentData.width,
-                    commentData.height, commentData.minimized, true
-                );
-            });
+            applyYjsCommentsToTarget(target, yTargetMap);
         });
 
         sharedMonitors.forEach((yMonitorMap, monitorId) => {
@@ -690,38 +755,15 @@ export function performInitialSync() {
         });
 
         sharedCostumes.forEach((yCostumeArray, targetId) => {
-             const target = vm.runtime.getTargetById(targetId);
-             if (!target || !target.sprite) return;
-             const costumeList = yCostumeArray.map(yMap => deserializeCostumeFromYjs(yMap));
-             
-             Promise.all(costumeList.map(c => loadRemoteCostume(c, vm.runtime)))
-                .then(loadedCostumes => {
-                    if (loadedCostumes.length > 0) {
-                        target.sprite.costumes = loadedCostumes;
-                        target.currentCostume = 0;
-                        target.setCostume(0);
-                        target.updateAllDrawableProperties();
-                    }
-                });
+            const target = vm.runtime.getTargetById(targetId);
+            if (!target) return;
+            applyYjsCostumesToTarget(target, yCostumeArray);
         });
 
         sharedSounds.forEach((ySoundArray, targetId) => {
             const target = vm.runtime.getTargetById(targetId);
-            if (!target || !target.sprite) return;
-            const soundList = ySoundArray.map(yMap => deserializeSoundFromYjs(yMap));
-            Promise.all(soundList.map(s => loadRemoteSound(s, vm.runtime)))
-                .then(async loadedSounds => {
-                    target.sprite.sounds = loadedSounds;
-                    for (const sound of loadedSounds) {
-                        if (sound.asset && target.sprite.soundBank) {
-                            const player = await vm.runtime.audioEngine.decodeSoundPlayer({
-                                ...sound, data: sound.asset.data
-                            });
-                            sound.soundId = player.id;
-                            target.sprite.soundBank.addSoundPlayer(player);
-                        }
-                    }
-                });
+            if (!target) return;
+            applyYjsSoundsToTarget(target, ySoundArray);
         });
 
         const remoteExtensions = sharedExtensions.toArray();
@@ -751,120 +793,3 @@ export function performInitialSync() {
     
 }
 
-export function applyInitialSyncEventQueue() {
-    if (constants.mutableRefs.initialSyncEvents.length === 0) return;
-
-    const eventCount = constants.mutableRefs.initialSyncEvents.length;
-    
-
-    const Blockly = constants.mutableRefs.BlocklyInstance;
-    const events = constants.mutableRefs.initialSyncEvents;
-    
-    Blockly.Events.setGroup('yjs-remote-sync');
-
-    try {
-        let globalNeedsWorkspaceRefresh = false;
-        let globalNeedsToolboxRefresh = false;
-
-        for (const item of events) {
-            const { eventType, event } = item;
-
-            switch (eventType) {
-                case 'blocks': {
-                    const [ws, tb] = OH.sharedBlocks(event);
-                    globalNeedsWorkspaceRefresh = globalNeedsWorkspaceRefresh || ws;
-                    globalNeedsToolboxRefresh = globalNeedsToolboxRefresh || tb;
-                    break;
-                }
-                case 'variables': {
-                    const ws = OH.sharedVariables(event);
-                    globalNeedsWorkspaceRefresh = globalNeedsWorkspaceRefresh || ws;
-                    break;
-                }
-                case 'monitors': {
-                    OH.sharedMonitors(event);
-                    break;
-                }
-                case 'comments': {
-                    OH.sharedComments(event);
-                    break;
-                }
-                case 'costumes': {
-                    costumeSync.handleRemoteCostumeChanges(event);
-                    break;
-                }
-                case 'sounds': {
-                    soundSync.handleRemoteSoundChanges(event);
-                    break;
-                }
-            }
-        }
-
-        OH.sharedBlocksRefresh(globalNeedsToolboxRefresh, globalNeedsWorkspaceRefresh);
-        setTimeout(function() {
-            const vm = constants.mutableRefs.vm;
-            if (vm) {
-                
-                vm.emitTargetsUpdate();
-            }
-        },500);
-
-    } catch (err) {
-        
-    } finally {
-        constants.mutableRefs.initialSyncEvents = [];
-        Blockly.Events.setGroup(false);
-    }
-}
-
-export function applyQueuedEventsForTarget(targetId) {
-    
-    const events = constants.mutableRefs.initialSyncEvents;
-    if (events.length === 0) return;
-
-    
-
-    const Blockly = constants.mutableRefs.BlocklyInstance;
-    Blockly.Events.setGroup('yjs-remote-sync');
-
-    try {
-        let globalNeedsWorkspaceRefresh = false;
-        let globalNeedsToolboxRefresh = false;
-
-        for (let i = events.length - 1; i >= 0; i--) {
-            const {eventType, event, targetId: eventTargetId} = events[i];
-            
-            if (eventTargetId === targetId) {
-                switch (eventType) {
-                    case 'blocks': {
-                        const [ws, tb] = OH.sharedBlocks(event);
-                        globalNeedsWorkspaceRefresh = globalNeedsWorkspaceRefresh || ws;
-                        globalNeedsToolboxRefresh = globalNeedsToolboxRefresh || tb;
-                        break;
-                    }
-                    case 'variables': {
-                        globalNeedsWorkspaceRefresh = globalNeedsWorkspaceRefresh || OH.sharedVariables(event);
-                        break;
-                    }
-                    case 'costumes': {
-                        costumeSync.handleRemoteCostumeChanges(event);
-                        break;
-                    }
-                    case 'sounds': {
-                        soundSync.handleRemoteSoundChanges(event);
-                        break;
-                    }
-                    case 'comments': {
-                        OH.sharedComments(event);
-                        break;
-                    }
-                }
-                events.splice(i, 1);
-            }
-        }
-
-        OH.sharedBlocksRefresh(globalNeedsToolboxRefresh, globalNeedsWorkspaceRefresh);
-    } finally {
-        Blockly.Events.setGroup(false);
-    }
-}

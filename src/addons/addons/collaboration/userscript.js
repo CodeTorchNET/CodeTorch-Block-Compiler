@@ -9,6 +9,7 @@ import * as costumeSync from './helpers/costumeSync.js';
 import * as soundSync from './helpers/soundSync.js';
 import * as transformSync from './helpers/transformSync.js';
 import * as OH from './helpers/observeHandlers.js';
+import * as scheduler from './helpers/refreshScheduler.js';
 
 
 function attachYjsProvider() {
@@ -135,7 +136,7 @@ function attachYjsProvider() {
                         target.originalTargetId = id;
                         runtime.addTarget(target);
                         transformSync.applyTransformFromYjs(target, yMap);
-                        helper.applyQueuedEventsForTarget(id);
+                        helper.hydrateTargetFromYjs(id);
                     } else {
                         if (existingTarget.getName() !== name) {
                             vm.renameSprite(id, name, false);
@@ -188,45 +189,29 @@ function attachYjsProvider() {
             });
         });
         constants.mutableRefs.sharedBlocks.observeDeep(events => {
-            
-            let needsWorkspaceRefresh = false;
-            let needsToolboxRefresh = false;
-
             try {
                 const isLocal = events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN);
                 if (isLocal) return;
+                if (constants.mutableRefs.isInitialRoomSync) return;
 
                 const Blockly = constants.mutableRefs.BlocklyInstance;
 
                 Blockly.Events.setGroup('yjs-remote-sync');
                 events.forEach(event => {
-                    let targetId = event.path.length >= 1 ? event.path[0] : null;
-                    if (!targetId && event.target instanceof Y.Map) {
-                        event.changes.keys.forEach((change, key) => { targetId = key; });
-                    }
-
-                    if (constants.mutableRefs.isInitialRoomSync) {
-                        constants.mutableRefs.initialSyncEvents.push({
-                            "eventType": "blocks",
-                            "event": event,
-                            "targetId": targetId
-                        });
-                        return;
-                    }
+                    const targetId = event.path.length >= 1 ? event.path[0] : null;
                     if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
-                        constants.mutableRefs.initialSyncEvents.push({ 
-                            "eventType": "blocks", 
-                            "event": event, 
-                            "targetId": targetId 
-                        });
                         return;
                     }
 
-                    const [workspaceTemp, toolboxTemp] = OH.sharedBlocks(event);
-                    needsWorkspaceRefresh = needsWorkspaceRefresh || workspaceTemp;
-                    needsToolboxRefresh = needsToolboxRefresh || toolboxTemp;
+                    const result = OH.sharedBlocks(event);
+                    if (!result) return;
+                    if (result.needsToolboxRefresh) scheduler.queueToolboxRefresh();
+                    if (result.needsFullRefresh) {
+                        scheduler.queueFullRefresh();
+                    } else if (result.targetId && result.dirtyIds.length > 0) {
+                        scheduler.queueBlockSync(result.targetId, result.dirtyIds);
+                    }
                 });
-                OH.sharedBlocksRefresh(needsToolboxRefresh, needsWorkspaceRefresh);
             } finally {
                 setTimeout(() => {
                     constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
@@ -234,35 +219,18 @@ function attachYjsProvider() {
             }
         });
         constants.mutableRefs.sharedVariables.observeDeep(events => {
-            
+
             try {
-                if (events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN)) return; 
+                if (events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN)) return;
+                if (constants.mutableRefs.isInitialRoomSync) return;
                 const Blockly = constants.mutableRefs.BlocklyInstance;
 
                 Blockly.Events.setGroup('yjs-remote-sync');
 
                 let needsWorkspaceRefresh = false;
                 events.forEach(event => {
-                    let targetId = event.path.length >= 1 ? event.path[0] : null;
-                    if (!targetId && event.target instanceof Y.Map) {
-                        event.changes.keys.forEach((change, key) => { targetId = key; });
-                    }
-
-                    if (constants.mutableRefs.isInitialRoomSync) {
-                        constants.mutableRefs.initialSyncEvents.push({
-                            "eventType": "variables",
-                            "event": event,
-                            "targetId": targetId
-                        });
-                        return;
-                    }
-
+                    const targetId = event.path.length >= 1 ? event.path[0] : null;
                     if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
-                        constants.mutableRefs.initialSyncEvents.push({ 
-                            "eventType": "variables", 
-                            "event": event, 
-                            "targetId": targetId 
-                        });
                         return;
                     }
 
@@ -270,40 +238,35 @@ function attachYjsProvider() {
                 });
 
                 if (needsWorkspaceRefresh) {
-                    constants.mutableRefs.vm.emitWorkspaceUpdate();
+                    scheduler.queueFullRefresh();
+                    scheduler.queueToolboxRefresh();
                 }
 
                 setTimeout(() => {
                     constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
                 }, 0);
-                const workspace = Blockly.getMainWorkspace();
-                if (workspace) {
-                    workspace.refreshToolboxSelection_();
-                }
 
             } catch (e) {
-                
+
                 constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
             }
         });
 
         constants.mutableRefs.sharedMonitors.observeDeep(events => {
-            
+
             const isLocal = events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN);
             if (isLocal) return;
+            if (constants.mutableRefs.isInitialRoomSync) return;
             try {
                 const Blockly = constants.mutableRefs.BlocklyInstance;
                 Blockly.Events.setGroup('yjs-remote-sync');
 
                 events.forEach(event => {
-                    if (!constants.mutableRefs.isInitialRoomSync) {
-                        OH.sharedMonitors(event);
-                    } else {
-                        constants.mutableRefs.initialSyncEvents.push({"eventType":"monitors","event":event})
-                    }
+                    OH.sharedMonitors(event);
                 });
+                scheduler.queueToolboxRefresh();
             } catch (e) {
-                
+
             } finally {
                 setTimeout(() => {
                     constants.mutableRefs.BlocklyInstance.Events.setGroup(false);
@@ -312,39 +275,27 @@ function attachYjsProvider() {
         });
 
         constants.mutableRefs.sharedComments.observeDeep(events => {
-            
+
             const isLocal = events.some(event => event.transaction.origin === constants.LOCAL_EVENT_SYNC_ORIGIN);
             if (isLocal) return;
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
             const Blockly = constants.mutableRefs.BlocklyInstance;
             Blockly.Events.setGroup('yjs-remote-sync');
 
             try {
                 events.forEach(event => {
-                    let targetId = event.path.length >= 1 ? event.path[0] : null;
-                    if (!targetId && event.target instanceof Y.Map) {
-                        event.changes.keys.forEach((change, key) => { targetId = key; });
-                    }
-
-                    if (constants.mutableRefs.isInitialRoomSync) {
-                        constants.mutableRefs.initialSyncEvents.push({
-                            "eventType": "comments",
-                            "event": event,
-                            "targetId": targetId
-                        });
-                        return;
-                    }
-
+                    const targetId = event.path.length >= 1 ? event.path[0] : null;
                     if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
-                        constants.mutableRefs.initialSyncEvents.push({ 
-                            "eventType": "comments", 
-                            "event": event, 
-                            "targetId": targetId 
-                        });
                         return;
                     }
 
-                    OH.sharedComments(event);
+                    if (OH.sharedComments(event)) {
+                        const editingTargetId = constants.mutableRefs.vm.editingTarget?.id;
+                        if (!targetId || targetId === editingTargetId) {
+                            scheduler.queueFullRefresh();
+                        }
+                    }
                 });
             } finally {
                 setTimeout(() => {
@@ -353,27 +304,11 @@ function attachYjsProvider() {
             }
         });
         constants.mutableRefs.sharedCostumes.observeDeep(events => {
-            
-            events.forEach(event => {
-                let targetId = event.path.length > 0 ? event.path[0] : null;
-                if (!targetId && event.target instanceof Y.Map) {
-                    event.changes.keys.forEach((change, key) => { targetId = key; });
-                }
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
-                if (constants.mutableRefs.isInitialRoomSync) {
-                    constants.mutableRefs.initialSyncEvents.push({
-                        "eventType": "costumes",
-                        "event": event,
-                        "targetId": targetId
-                    });
-                    return;
-                }
+            events.forEach(event => {
+                const targetId = event.path.length > 0 ? event.path[0] : null;
                 if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
-                    constants.mutableRefs.initialSyncEvents.push({ 
-                        "eventType": "costumes", 
-                        "event": event, 
-                        "targetId": targetId 
-                    });
                     return;
                 }
 
@@ -382,27 +317,11 @@ function attachYjsProvider() {
         });
 
         constants.mutableRefs.sharedSounds.observeDeep(events => {
-            
-            events.forEach(event => {
-                let targetId = event.path.length > 0 ? event.path[0] : null;
-                if (!targetId && event.target instanceof Y.Map) {
-                    event.changes.keys.forEach((change, key) => { targetId = key; });
-                }
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
-                if (constants.mutableRefs.isInitialRoomSync) {
-                    constants.mutableRefs.initialSyncEvents.push({
-                        "eventType": "sounds",
-                        "event": event,
-                        "targetId": targetId
-                    });
-                    return;
-                }
+            events.forEach(event => {
+                const targetId = event.path.length > 0 ? event.path[0] : null;
                 if (targetId && !constants.mutableRefs.vm.runtime.getTargetById(targetId)) {
-                    constants.mutableRefs.initialSyncEvents.push({ 
-                        "eventType": "sounds", 
-                        "event": event, 
-                        "targetId": targetId 
-                    });
                     return;
                 }
 
@@ -412,11 +331,7 @@ function attachYjsProvider() {
 
         const handleTargetBlocksChanged = (targetId, [type, payload]) => {
             if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
-            if (constants.mutableRefs.isInitialRoomSync) {
-                constants.mutableRefs.pendingLocalEvents.push(
-                    { kind: 'blocks', targetId, eventData: [type, payload] });
-                return;
-            }
+            if (constants.mutableRefs.isInitialRoomSync) return;
             const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
             if (!target) return;
 
@@ -485,11 +400,7 @@ function attachYjsProvider() {
 
         const handleTargetVariablesChanged = (targetId, [varId, varType, op, data]) => {
             if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
-            if (constants.mutableRefs.isInitialRoomSync) {
-                constants.mutableRefs.pendingLocalEvents.push(
-                    { kind: 'variables', targetId, eventData: [varId, varType, op, data] });
-                return;
-            }
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
             const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
 
@@ -559,11 +470,7 @@ function attachYjsProvider() {
 
         const handleTargetCommentsChanged = (targetId, [type, commentId, payload]) => {
             if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
-            if (constants.mutableRefs.isInitialRoomSync) {
-                constants.mutableRefs.pendingLocalEvents.push(
-                    { kind: 'comments', targetId, eventData: [type, commentId, payload] });
-                return;
-            }
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
             const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
             if (!target) return;
@@ -622,11 +529,7 @@ function attachYjsProvider() {
                 const hasTransformField = transformSync.TRANSFORM_FIELDS.some(
                     key => Object.prototype.hasOwnProperty.call(properties, key));
                 if (hasTransformField) {
-                    if (constants.mutableRefs.isInitialRoomSync) {
-                        constants.mutableRefs.pendingLocalEvents.push(
-                            { kind: 'transform', targetId, eventData: properties });
-                        continue;
-                    }
+                    if (constants.mutableRefs.isInitialRoomSync) continue;
                     transformSync.handleLocalTransformChange(targetId, properties);
                 }
             }
@@ -634,6 +537,7 @@ function attachYjsProvider() {
 
         const handleTargetsIndexChanged = (data) => {
             if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
             constants.mutableRefs.ydoc.transact(() => {
                 const sharedSprites = constants.mutableRefs.sharedSprites;
@@ -662,7 +566,9 @@ function attachYjsProvider() {
         };
 
         const handleAddSprite = () => {
+            if (constants.mutableRefs.isInitialRoomSync) return;
             setTimeout(async () => {
+                if (constants.mutableRefs.isInitialRoomSync) return;
                 const targets = constants.mutableRefs.vm.runtime.targets;
                 const sharedSprites = constants.mutableRefs.sharedSprites;
                 
@@ -682,6 +588,7 @@ function attachYjsProvider() {
         };
 
         const handleDeleteSprite = (targetId) => {
+            if (constants.mutableRefs.isInitialRoomSync) return;
             constants.mutableRefs.ydoc.transact(() => {
                 const sharedSprites = constants.mutableRefs.sharedSprites;
                 for (let i = 0; i < sharedSprites.length; i++) {
@@ -710,8 +617,9 @@ function attachYjsProvider() {
         };
 
         const handleTargetRenamed = (targetId, newName) => {
-            
+
             if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
+            if (constants.mutableRefs.isInitialRoomSync) return;
 
             constants.mutableRefs.ydoc.transact(() => {
                 
@@ -764,18 +672,13 @@ function attachYjsProvider() {
                         constants.mutableRefs.ydoc.transact(() => {
                             helper.performInitialSync();
                         }, constants.LOCAL_EVENT_SYNC_ORIGIN);
-                        helper.applyInitialSyncEventQueue();
                     } finally {
                         collabUI.hideSyncingPopup();
                         timeout.resetInactivityTimers();
                         constants.mutableRefs.isInitialRoomSync = false;
-                        const pending = constants.mutableRefs.pendingLocalEvents.splice(0);
-                        pending.forEach(({ kind, targetId, eventData }) => {
-                            if (kind === 'blocks') handleTargetBlocksChanged(targetId, eventData);
-                            else if (kind === 'variables') handleTargetVariablesChanged(targetId, eventData);
-                            else if (kind === 'comments') handleTargetCommentsChanged(targetId, eventData);
-                            else if (kind === 'transform') transformSync.handleLocalTransformChange(targetId, eventData);
-                        });
+                        setTimeout(() => {
+                            constants.mutableRefs.vm?.emitTargetsUpdate(false);
+                        }, 500);
 
                         if (constants.mutableRefs.addon?.tab?.redux?.dispatch) {
                             constants.mutableRefs.addon.tab.redux.dispatch({
@@ -1069,9 +972,8 @@ function attachYjsProvider() {
             constants.mutableRefs.sharedExtensions = null;
             constants.mutableRefs.isInitialRoomSync = false;
             constants.mutableRefs.isUiTransition = false;
-            constants.mutableRefs.initialSyncEvents = [];
-            constants.mutableRefs.pendingLocalEvents = [];
             constants.mutableRefs.roomUUID = null;
+            scheduler.reset();
 
             if (window.collab) delete window.collab;
             

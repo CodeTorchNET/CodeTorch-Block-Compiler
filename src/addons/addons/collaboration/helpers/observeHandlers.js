@@ -2,10 +2,15 @@ import * as constants from './constants.js';
 import * as helper from './helper.js';
 
 export function sharedBlocks(event){
-    let needsWorkspaceRefresh = false;
-    let needsToolboxRefresh = false;
+    const result = {
+        targetId: null,
+        dirtyIds: [],
+        needsFullRefresh: false,
+        needsToolboxRefresh: false
+    };
     const path = event.path;
     if (path.length === 0) {
+        const editingTargetId = constants.mutableRefs.vm.editingTarget?.id;
         event.changes.keys.forEach((change, targetId) => {
             if (change.action === 'add') {
                 const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
@@ -19,9 +24,11 @@ export function sharedBlocks(event){
                     if (!target.blocks.getBlock(blockId)) {
                         target.blocks.createBlock(block);
                         if (block.opcode === 'procedures_prototype') {
-                            needsToolboxRefresh = true;
+                            result.needsToolboxRefresh = true;
                         }
-                        needsWorkspaceRefresh = true;
+                        if (targetId === editingTargetId) {
+                            result.needsFullRefresh = true;
+                        }
                     }
                 });
             }
@@ -31,7 +38,8 @@ export function sharedBlocks(event){
         const targetId = path[0];
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
 
-        if (!target) return;
+        if (!target) return result;
+        result.targetId = targetId;
 
         event.changes.keys.forEach((change, blockId) => {
             if (blockId === '__targetName') return;
@@ -45,13 +53,13 @@ export function sharedBlocks(event){
                     target.blocks.createBlock(block);
                 }
                 if (block.opcode === 'procedures_prototype') {
-                    needsToolboxRefresh = true;
+                    result.needsToolboxRefresh = true;
                 }
-                needsWorkspaceRefresh = true;
+                result.dirtyIds.push(blockId);
             }
             else if (change.action === 'delete') {
                 target.blocks.deleteBlock(blockId);
-                needsWorkspaceRefresh = true;
+                result.dirtyIds.push(blockId);
             }
         });
     }
@@ -63,7 +71,12 @@ export function sharedBlocks(event){
         if (target) {
             const block = target.blocks.getBlock(blockId);
             if (block) {
+                result.targetId = targetId;
+                let mutationTouched = false;
                 event.changes.keys.forEach((change, key) => {
+                    if (key === 'mutation' || (key.startsWith('["') && key.includes('"mutation"'))) {
+                        mutationTouched = true;
+                    }
                     if (change.action === 'add' || change.action === 'update') {
                         let val = event.target.get(key);
 
@@ -104,33 +117,19 @@ export function sharedBlocks(event){
                     }
                 });
                 target.blocks.updateBlock(block);
-                
+
                 if (block.opcode === 'procedures_prototype') {
-                    needsToolboxRefresh = true;
+                    result.needsToolboxRefresh = true;
                 }
-                needsWorkspaceRefresh = true;
+                if (mutationTouched) {
+                    result.needsFullRefresh = true;
+                } else {
+                    result.dirtyIds.push(blockId);
+                }
             }
         }
     }
-    return [needsWorkspaceRefresh,needsToolboxRefresh];
-}
-
-export function sharedBlocksRefresh(needsToolboxRefresh,needsWorkspaceRefresh){
-    if (needsToolboxRefresh) {
-        const workspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
-        if (workspace) {
-            
-            workspace.refreshToolboxSelection_();
-        }
-    }
-
-    if (needsWorkspaceRefresh) {
-        if (constants.mutableRefs.vm.editingTarget) {
-            const blocks = constants.mutableRefs.vm.editingTarget.blocks;
-            if (typeof blocks.validateAndRepair === 'function') blocks.validateAndRepair();
-            constants.mutableRefs.vm.emitWorkspaceUpdate();
-        }
-    }
+    return result;
 }
 
 export function sharedVariables (event) {
@@ -179,10 +178,15 @@ export function sharedVariables (event) {
                 try { val = JSON.parse(val); } catch (e) { }
             }
 
-            
+
             target.variables[varId][key] = val;
 
+            if (key === 'name') {
+                needsWorkspaceRefresh = true;
+            }
+
             if (target.variables[varId].type === 'broadcast_msg' && (key === 'name' || key === 'value')) {
+                needsWorkspaceRefresh = true;
                 const newName = target.variables[varId].name;
                 if (target.variables[varId].value !== newName) {
                     target.variables[varId].value = newName;
@@ -211,7 +215,6 @@ export function sharedVariables (event) {
                 }
             }
         });
-        needsWorkspaceRefresh = true;
     }
     return needsWorkspaceRefresh;
 }
@@ -274,7 +277,6 @@ export function sharedMonitors (event) {
                 constants.mutableRefs.vm.runtime.requestRemoveMonitor(monitorId, true);
             }
         });
-        constants.mutableRefs.vm.emitWorkspaceUpdate();
     }
     else if (path.length === 1) {
         const monitorId = path[0];
@@ -282,11 +284,11 @@ export function sharedMonitors (event) {
         const monitorData = helper.deserializeMonitorFromYjs(yMonitorMap, constants.mutableRefs.vm.runtime);
         monitorData.id = monitorId;
         constants.mutableRefs.vm.deserializeMonitor(monitorData);
-        constants.mutableRefs.vm.emitWorkspaceUpdate();
     }
 }
 
 export function sharedComments (event){
+    let needsWorkspaceRefresh = false;
     const path = event.path;
 
     if (path.length === 0) {
@@ -303,15 +305,15 @@ export function sharedComments (event){
                             commentData.x, commentData.y, commentData.width,
                             commentData.height, commentData.minimized, true
                         );
+                        needsWorkspaceRefresh = true;
                     }
                 });
-                constants.mutableRefs.vm.emitWorkspaceUpdate();
             }
         });
     } else if (path.length === 1) {
         const targetId = path[0];
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-        if (!target) return;
+        if (!target) return needsWorkspaceRefresh;
 
         event.changes.keys.forEach((change, commentId) => {
             if (change.action === 'add' || change.action === 'update') {
@@ -332,15 +334,16 @@ export function sharedComments (event){
                 delete target.comments[commentId];
             }
         });
-        constants.mutableRefs.vm.emitWorkspaceUpdate();
+        needsWorkspaceRefresh = true;
     } else if (path.length === 2) {
         const [targetId, commentId] = path;
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-        if (!target || !target.comments[commentId]) return;
+        if (!target || !target.comments[commentId]) return needsWorkspaceRefresh;
 
         event.changes.keys.forEach((change, key) => {
             target.comments[commentId][key] = event.target.get(key);
         });
-        constants.mutableRefs.vm.emitWorkspaceUpdate();
-    }              
+        needsWorkspaceRefresh = true;
+    }
+    return needsWorkspaceRefresh;
 }
