@@ -86,7 +86,11 @@ export function sharedBlocks(event){
                                 let current = block;
                                 for (let i = 0; i < pathParts.length - 1; i++) {
                                     const part = pathParts[i];
-                                    if (!current[part]) current[part] = {};
+                                    if (!current[part]) {
+                                        current[part] = (pathParts[0] === 'inputs' && i === 1)
+                                            ? { name: part, block: null, shadow: null }
+                                            : {};
+                                    }
                                     current = current[part];
                                 }
                                 current[pathParts[pathParts.length - 1]] = val;
@@ -331,6 +335,13 @@ export function sharedComments (event){
                     Object.assign(target.comments[commentId], commentData);
                 }
             } else if (change.action === 'delete') {
+                const deletedComment = target.comments[commentId];
+                if (deletedComment && deletedComment.blockId) {
+                    const owningBlock = target.blocks.getBlock(deletedComment.blockId);
+                    if (owningBlock && owningBlock.comment === commentId) {
+                        delete owningBlock.comment;
+                    }
+                }
                 delete target.comments[commentId];
             }
         });

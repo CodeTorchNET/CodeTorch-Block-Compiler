@@ -95,7 +95,11 @@ export function deserializeBlockFromYjs(yBlockMap) {
             let current = block;
             for (let i = 0; i < pathParts.length - 1; i++) {
                 const part = pathParts[i];
-                if (!current[part]) current[part] = {};
+                if (!current[part]) {
+                    current[part] = (pathParts[0] === 'inputs' && i === 1)
+                        ? { name: part, block: null, shadow: null }
+                        : {};
+                }
                 current = current[part];
             }
             current[pathParts[pathParts.length - 1]] = value;
