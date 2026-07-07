@@ -659,6 +659,39 @@ export function hydrateTargetFromYjs(targetId) {
     if (ySounds) applyYjsSoundsToTarget(target, ySounds);
 }
 
+export function reconcileExtensionsToYjs() {
+    const vm = constants.mutableRefs.vm;
+    const sharedExtensions = constants.mutableRefs.sharedExtensions;
+    if (!vm || !sharedExtensions || !constants.mutableRefs.ydoc) return;
+
+    const extensionManager = vm.extensionManager;
+    if (!extensionManager || !extensionManager._loadedExtensions) return;
+    const extensionURLs = (typeof extensionManager.getExtensionURLs === 'function') ?
+        extensionManager.getExtensionURLs() : {};
+
+    const knownNames = new Set();
+    sharedExtensions.toArray().forEach(ext => {
+        const extObj = (typeof ext.toJSON === 'function') ? ext.toJSON() : ext;
+        if (typeof extObj === 'string') {
+            knownNames.add(extObj);
+        } else if (extObj && extObj.name) {
+            knownNames.add(extObj.name);
+        }
+    });
+
+    const missing = [];
+    for (const id of extensionManager._loadedExtensions.keys()) {
+        if (!knownNames.has(id)) {
+            missing.push({ URL: extensionURLs[id] || id, name: id });
+        }
+    }
+    if (missing.length === 0) return;
+
+    constants.mutableRefs.ydoc.transact(() => {
+        constants.mutableRefs.sharedExtensions.push(missing);
+    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+}
+
 export function performInitialSync() {
     const vm = constants.mutableRefs.vm;
     const Blockly = constants.mutableRefs.BlocklyInstance;

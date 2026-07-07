@@ -584,6 +584,8 @@ function attachYjsProvider() {
                     const ySpriteArray = targets.map(target => helper.serializeSpriteForYjs(target));
                     sharedSprites.insert(0, ySpriteArray);
                 }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+
+                helper.reconcileExtensionsToYjs();
             }, 100);
         };
 
@@ -637,8 +639,6 @@ function attachYjsProvider() {
         };
 
         const handleExtensionAdded = (extension) => {
-            if (constants.mutableRefs.BlocklyInstance?.Events.getGroup() === 'yjs-remote-sync') return;
-
             constants.mutableRefs.ydoc.transact(() => {
                 const currentExts = constants.mutableRefs.sharedExtensions.toArray();
                 const alreadyExists = currentExts.some(ext => {
@@ -650,6 +650,8 @@ function attachYjsProvider() {
                     constants.mutableRefs.sharedExtensions.push([extension]);
                 }
             }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+
+            setTimeout(() => helper.reconcileExtensionsToYjs(), 0);
         };
 
         constants.mutableRefs.vm.on('TARGET_BLOCKS_CHANGED', handleTargetBlocksChanged);
@@ -676,6 +678,7 @@ function attachYjsProvider() {
                         collabUI.hideSyncingPopup();
                         timeout.resetInactivityTimers();
                         constants.mutableRefs.isInitialRoomSync = false;
+                        helper.reconcileExtensionsToYjs();
                         setTimeout(() => {
                             constants.mutableRefs.vm?.emitTargetsUpdate(false);
                         }, 500);
@@ -901,7 +904,7 @@ function attachYjsProvider() {
             constants.mutableRefs.vm.removeListener('TARGETS_INDEX_CHANGED', handleTargetsIndexChanged);
             constants.mutableRefs.vm.removeListener('ADD_SPRITE', handleAddSprite);
             constants.mutableRefs.vm.removeListener('DELETE_SPRITE', handleDeleteSprite);
-            constants.mutableRefs.vm.removeListener('EXTENSION_ADDED', handleExtensionAdded);
+            constants.mutableRefs.vm.removeListener('COLLABORATION_EXTENSION_ADDED', handleExtensionAdded);
 
             collabUI.clearLocalChatMessage();
             timeout.clearInactivityTimers();
