@@ -193,7 +193,7 @@ function reconcileState(Blockly, workspace, target, blockId) {
 
 export function reconcileBlocks(target, blockIds) {
     const Blockly = constants.mutableRefs.BlocklyInstance;
-    const workspace = Blockly?.getMainWorkspace?.();
+    const workspace = constants.editorWorkspace();
     if (!workspace || !target || typeof target.blocks.blockToXML !== 'function') return false;
     Blockly.Events.disable();
     try {

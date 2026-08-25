@@ -108,8 +108,6 @@ class Storage extends ScratchStorage {
         this.projectToken = creds.token;
         this.username = creds.username;
         this.accessKey = creds.accessKey;
-        // eslint-disable-next-line require-atomic-updates
-        window.CollaborationUsername = creds?.username;
         return creds;
     }
     async getProjectToken () {

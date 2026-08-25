@@ -339,11 +339,12 @@ class MenuBar extends React.Component {
         const modifier = bowser.mac ? event.metaKey : event.ctrlKey;
         if (modifier) {
             if (event.key.toLowerCase() === 's') {
-                if (this.props.canSave){
-                    if (window.collaborationDisableSave !== true){
-                        this.props.onClickSave();
-                        event.preventDefault();
-                    }
+                // disable saving "by hand" during collaboratary projects
+                if (this.props.isCollabActive) {
+                    event.preventDefault();
+                } else if (this.props.canSave) {
+                    this.props.onClickSave();
+                    event.preventDefault();
                 }
             } else if (event.key.toLowerCase() === 'o') {
                 event.preventDefault();
@@ -443,6 +444,7 @@ class MenuBar extends React.Component {
         };
     }
     render () {
+        const canSaveByHand = this.props.canSave && !this.props.isCollabActive;
         const saveNowMessage = (
             <FormattedMessage
                 defaultMessage="Save now"
@@ -613,9 +615,9 @@ class MenuBar extends React.Component {
                                             />
                                         </MenuItem>
                                     )}
-                                    {(this.props.canSave || this.props.canCreateCopy || this.props.canRemix) && (
+                                    {(canSaveByHand || this.props.canCreateCopy || this.props.canRemix) && (
                                         <MenuSection>
-                                            {this.props.canSave && (
+                                            {canSaveByHand && (
                                                 <MenuItem onClick={this.handleClickSave}>
                                                     {saveNowMessage}
                                                 </MenuItem>

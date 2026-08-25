@@ -1,4 +1,6 @@
 import * as constants from './constants.js';
+import * as session from './session.js';
+import * as recorder from './recorder.js';
 
 let attachedListeners = false;
 
@@ -23,17 +25,25 @@ export async function handleInactivityX() {
     constants.mutableRefs.inactivityTimerX = null;
 }
 
+export function pauseForInactivity() {
+    const provider = constants.mutableRefs.provider;
+    if (!provider || !provider.shouldConnect) return;
+    recorder.record('session.pause');
+    provider.disconnect();
+}
+
+export function resumeIfPaused() {
+    const provider = constants.mutableRefs.provider;
+    if (!provider || provider.shouldConnect) return;
+    recorder.record('session.resume');
+    Promise.resolve(session.refreshToken()).catch(() => null).then(() => {
+        const current = constants.mutableRefs.provider;
+        if (current && !current.shouldConnect) current.connect();
+    });
+}
+
 function handleInactivityY() {
-    if (constants.mutableRefs.addon?.tab?.redux?.dispatch) {
-        constants.mutableRefs.addon.tab.redux.dispatch({
-            type: 'scratch-gui/collaboration/SET_DISCONNECTED',
-            payload: true
-        });
-    }
-    if (constants.mutableRefs.currentCleanupFunction) {
-        constants.mutableRefs.currentCleanupFunction();
-        constants.mutableRefs.currentCleanupFunction = null;
-    }
+    pauseForInactivity();
     clearInactivityTimers();
 }
 
@@ -45,6 +55,8 @@ export function clearInactivityTimers() {
 }
 
 export function resetInactivityTimers() {
+    resumeIfPaused();
+
     clearInactivityTimers();
 
     if (constants.mutableRefs.yjsAwarenessInstance && constants.mutableRefs.provider) {

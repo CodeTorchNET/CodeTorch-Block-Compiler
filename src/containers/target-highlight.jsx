@@ -13,10 +13,8 @@ class TargetHighlight extends React.Component {
         ]);
     }
 
-    // Transform scratch coordinates into page coordinates
     getPageCoords (x, y) {
         const {stageWidth, stageHeight, vm} = this.props;
-        // The renderers "nativeSize" is the [width, height] of the stage in scratch-units
         const nativeSize = vm.renderer.getNativeSize();
         return [
             ((stageWidth / nativeSize[0]) * x) + (stageWidth / 2),
@@ -36,16 +34,19 @@ class TargetHighlight extends React.Component {
             vm.runtime.getTargetById(highlightedTargetId))) return null;
 
         const target = vm.runtime.getTargetById(highlightedTargetId);
+
+        const costume = target.getCostumes()[target.currentCostume];
+        if (!costume || typeof costume.skinId !== 'number') return null;
+
         const bounds = vm.renderer.getBounds(target.drawableID);
         const [left, top] = this.getPageCoords(bounds.left, bounds.top);
         const [right, bottom] = this.getPageCoords(bounds.right, bounds.bottom);
 
-        const pad = 2; // px
+        const pad = 2;
 
         return (
             <div
                 className={className}
-                // Ensure new DOM element each update to restart animation
                 key={highlightedTargetTime}
                 style={{
                     position: 'absolute',

@@ -11,6 +11,7 @@ import DragRecognizer from '../lib/drag-recognizer';
 import {getEventXY} from '../lib/touch-utils';
 
 import SpriteSelectorItemComponent from '../components/sprite-selector-item/sprite-selector-item.jsx';
+import DragConstants from '../lib/drag-constants';
 
 class SpriteSelectorItem extends React.PureComponent {
     constructor (props) {
@@ -51,13 +52,6 @@ class SpriteSelectorItem extends React.PureComponent {
     }
     handleDragEnd () {
         if (this.props.dragging) {
-            if (this.props.dragType === 'BACKPACK_CODE') {
-                // collaborator only sends events with requestUndo = true,
-                // backpack inserts are false, so we must specifically tell collaborator to send this event
-                if (typeof window !== 'undefined' && window.handleBackpackCollaboratorOverride) {
-                    window.handleBackpackCollaboratorOverride();
-                }
-            }
             this.props.onDrag({
                 img: null,
                 currentOffset: null,
@@ -98,11 +92,11 @@ class SpriteSelectorItem extends React.PureComponent {
         }
     }
     handleDelete (e) {
-        e.stopPropagation(); // To prevent from bubbling back to handleClick
+        e.stopPropagation();
         this.props.onDeleteButtonClick(this.props.id);
     }
     handleDuplicate (e) {
-        e.stopPropagation(); // To prevent from bubbling back to handleClick
+        e.stopPropagation();
         this.props.onDuplicateButtonClick(this.props.id);
     }
     handleExport (e) {
@@ -113,19 +107,20 @@ class SpriteSelectorItem extends React.PureComponent {
         e.stopPropagation();
         this.props.onRenameButtonClick(this.props.id);
     }
+    isSprite () {
+        return this.props.dragType === DragConstants.SPRITE;
+    }
     handleMouseLeave () {
-        this.props.dispatchSetHoveredSprite(null);
+        if (this.isSprite()) this.props.dispatchSetHoveredSprite(null);
     }
     handleMouseEnter () {
-        this.props.dispatchSetHoveredSprite(this.props.id);
+        if (this.isSprite()) this.props.dispatchSetHoveredSprite(this.props.id);
     }
     setRef (component) {
-        // Access the DOM node using .elem because it is going through ContextMenuTrigger
         this.ref = component && component.elem;
     }
     render () {
         const {
-            /* eslint-disable no-unused-vars */
             asset,
             id,
             index,
@@ -138,7 +133,6 @@ class SpriteSelectorItem extends React.PureComponent {
             receivedBlocks,
             costumeURL,
             vm,
-            /* eslint-enable no-unused-vars */
             ...props
         } = this.props;
         return (
@@ -161,18 +155,14 @@ class SpriteSelectorItem extends React.PureComponent {
 }
 
 SpriteSelectorItem.propTypes = {
-    // eslint-disable-next-line react/forbid-prop-types
     asset: PropTypes.any,
     costumeURL: PropTypes.string,
     dispatchSetHoveredSprite: PropTypes.func.isRequired,
-    // eslint-disable-next-line react/forbid-prop-types
     dragPayload: PropTypes.any,
     dragType: PropTypes.string,
     dragging: PropTypes.bool,
-    // eslint-disable-next-line react/forbid-prop-types
     id: PropTypes.any,
     index: PropTypes.number,
-    // eslint-disable-next-line react/forbid-prop-types
     name: PropTypes.any,
     onClick: PropTypes.func,
     onDeleteButtonClick: PropTypes.func,

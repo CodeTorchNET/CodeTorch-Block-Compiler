@@ -18,6 +18,7 @@ import RecordModal from './record-modal.jsx';
 import SoundEditor from './sound-editor.jsx';
 import SoundLibrary from './sound-library.jsx';
 import SoundEditorNotSupported from '../components/tw-sound-editor-not-supported/sound-editor-not-supported.jsx';
+import SoundUnavailable from '../components/sound-unavailable/sound-unavailable.jsx';
 
 import {getSoundLibrary} from '../lib/libraries/tw-async-libraries';
 import {handleFileUpload, soundUpload} from '../lib/file-uploader.js';
@@ -65,6 +66,10 @@ class SoundTab extends React.Component {
         this.state = {selectedSoundIndex: 0};
     }
 
+    componentDidMount () {
+        this.props.onSetSelectedAsset('sound', this.state.selectedSoundIndex, this.props.editingTarget);
+    }
+
     componentWillReceiveProps (nextProps) {
         const {
             editingTarget,
@@ -77,7 +82,6 @@ class SoundTab extends React.Component {
             return;
         }
 
-        // If switching editing targets, reset the sound index
         if (this.props.editingTarget !== editingTarget) {
             this.setState({selectedSoundIndex: 0});
             this.props.onSetSelectedAsset('sound', 0, editingTarget);
@@ -185,7 +189,7 @@ class SoundTab extends React.Component {
 
     render () {
         const {
-            dispatchUpdateRestore, // eslint-disable-line no-unused-vars
+            dispatchUpdateRestore,
             intl,
             isRtl,
             vm,
@@ -274,7 +278,7 @@ class SoundTab extends React.Component {
                         title: intl.formatMessage(messages.createSound),
                         img: AIIcon,
                         onClick: () => {
-                            console.log('AI Clicked'); // CHANGE FOR AI
+                            console.log('AI Clicked');
                         }
                     }] :
                     []
@@ -299,7 +303,13 @@ class SoundTab extends React.Component {
                     <>
                         {sprite.sounds && sprite.sounds[this.state.selectedSoundIndex] ? (
                             isSupported ? (
-                                <SoundEditor soundIndex={this.state.selectedSoundIndex} />
+                                this.props.vm.getSoundBuffer(this.state.selectedSoundIndex) ? (
+                                    <SoundEditor soundIndex={this.state.selectedSoundIndex} />
+                                ) : (
+                                    <SoundUnavailable
+                                        name={sprite.sounds[this.state.selectedSoundIndex].name}
+                                    />
+                                )
                             ) : (
                                 <SoundEditorNotSupported />
                             )

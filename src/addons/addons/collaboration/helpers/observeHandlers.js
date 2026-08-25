@@ -5,6 +5,10 @@ export function sharedBlocks(event){
     const result = {
         targetId: null,
         dirtyIds: [],
+        promotedIds: [],
+        detachedSlots: [],
+        deletedAny: false,
+        cancelledDrags: 0,
         needsFullRefresh: false,
         needsToolboxRefresh: false
     };
@@ -43,12 +47,14 @@ export function sharedBlocks(event){
 
         event.changes.keys.forEach((change, blockId) => {
             if (blockId === '__targetName') return;
-            if (change.action === 'add') {
+            if (change.action === 'add' || change.action === 'update') {
                 const yBlockMap = event.target.get(blockId);
+                if (!yBlockMap) return;
                 const block = helper.deserializeBlockFromYjs(yBlockMap);
 
                 if (target.blocks.getBlock(blockId)) {
                     Object.assign(target.blocks._blocks[blockId], block);
+                    target.blocks.updateBlock(target.blocks._blocks[blockId]);
                 } else {
                     target.blocks.createBlock(block);
                 }
@@ -58,8 +64,57 @@ export function sharedBlocks(event){
                 result.dirtyIds.push(blockId);
             }
             else if (change.action === 'delete') {
-                target.blocks.deleteBlock(blockId);
+
+                if (helper.cancelDragOf(blockId)) {
+                    result.cancelledDrags++;
+                }
+
+                const doomed = target.blocks.getBlock(blockId);
+                const attachment = [];
+                if (doomed && doomed.parent) {
+                    const parent = target.blocks.getBlock(doomed.parent);
+                    if (parent) {
+                        if (parent.next === blockId) {
+                            attachment.push([doomed.parent, 'next']);
+                        }
+                        for (const name in parent.inputs || {}) {
+                            const input = parent.inputs[name];
+                            if (!input) continue;
+                            if (input.block === blockId) {
+                                attachment.push([doomed.parent, JSON.stringify(['inputs', name, 'block'])]);
+                            }
+                            if (input.shadow === blockId) {
+                                attachment.push([doomed.parent, JSON.stringify(['inputs', name, 'shadow'])]);
+                            }
+                        }
+                    }
+                }
+
+                const promoted = target.blocks.deleteBlock(blockId, {cascade: false});
+                result.deletedAny = true;
                 result.dirtyIds.push(blockId);
+                promoted.forEach(promotedId => {
+                    result.dirtyIds.push(promotedId);
+                    result.promotedIds.push(promotedId);
+                });
+
+                attachment.forEach(([parentId, prop]) => {
+                    const parent = target.blocks.getBlock(parentId);
+                    if (!parent) return;
+                    const stillThere = prop === 'next' ?
+                        parent.next === blockId :
+                        (() => {
+                            try {
+                                const [, name, slot] = JSON.parse(prop);
+                                return parent.inputs?.[name]?.[slot] === blockId;
+                            } catch (e) {
+                                return true;
+                            }
+                        })();
+                    if (stillThere) return;
+                    result.detachedSlots.push([parentId, prop]);
+                    result.dirtyIds.push(parentId);
+                });
             }
         });
     }
@@ -68,7 +123,10 @@ export function sharedBlocks(event){
         const blockId = path[1];
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
 
-        if (target) {
+        const yTargetBlockMap = constants.mutableRefs.sharedBlocks?.get(targetId);
+        const superseded = yTargetBlockMap && yTargetBlockMap.get(blockId) !== event.target;
+
+        if (target && !superseded) {
             const block = target.blocks.getBlock(blockId);
             if (block) {
                 result.targetId = targetId;
@@ -143,20 +201,20 @@ export function sharedVariables (event) {
 
     if (path.length === 0) {
         event.changes.keys.forEach((change, targetId) => {
-            if (change.action === 'add') {
-                const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-                if (!target) return;
-                const yTargetVarMap = event.target.get(targetId);
-                yTargetVarMap.forEach((yVarMap, varId) => {
-                    handleSingleVariableSync(target, yVarMap, varId);
-                    needsWorkspaceRefresh = true;
-                });
-            }
+            if (change.action !== 'add' && change.action !== 'update') return;
+            const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
+            if (!target) return;
+            const yTargetVarMap = event.target.get(targetId);
+            if (!yTargetVarMap) return;
+            yTargetVarMap.forEach((yVarMap, varId) => {
+                handleSingleVariableSync(target, yVarMap, varId);
+                needsWorkspaceRefresh = true;
+            });
         });
     } else if (path.length === 1) {
         const targetId = path[0];
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-        if (!target) return;
+        if (!target) return needsWorkspaceRefresh;
 
         event.changes.keys.forEach((change, varId) => {
             const yVarMap = event.target.get(varId);
@@ -174,56 +232,35 @@ export function sharedVariables (event) {
         const targetId = path[0];
         const varId = path[1];
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-        if (!target || !target.variables[varId]) return;
+        if (!target) return needsWorkspaceRefresh;
 
-        event.changes.keys.forEach((change, key) => {
-            let val = event.target.get(key);
-            if (key === 'value' && target.variables[varId].type === 'list') {
-                try { val = JSON.parse(val); } catch (e) { }
-            }
-
-
-            target.variables[varId][key] = val;
-
-            if (key === 'name') {
-                needsWorkspaceRefresh = true;
-            }
-
-            if (target.variables[varId].type === 'broadcast_msg' && (key === 'name' || key === 'value')) {
-                needsWorkspaceRefresh = true;
-                const newName = target.variables[varId].name;
-                if (target.variables[varId].value !== newName) {
-                    target.variables[varId].value = newName;
-                }
-
-                let updateCount = 0;
-                const blockContainers = new Set(constants.mutableRefs.vm.runtime.targets.map(i => i.blocks));
-                if (constants.mutableRefs.vm.runtime.flyoutBlocks) blockContainers.add(constants.mutableRefs.vm.runtime.flyoutBlocks);
-
-                for (const blockContainer of blockContainers) {
-                    let containerUpdated = false;
-                    for (const block of Object.values(blockContainer._blocks)) {
-                        const broadcastOption = block.fields && block.fields.BROADCAST_OPTION;
-                        if (broadcastOption && broadcastOption.id === varId) {
-                            if (broadcastOption.value !== newName) {
-                                
-                                broadcastOption.value = newName;
-                                updateCount++;
-                                containerUpdated = true;
-                            }
-                        }
-                    }
-                    if (containerUpdated && blockContainer.resetCache) {
-                        blockContainer.resetCache();
-                    }
-                }
-            }
-        });
+        if (handleSingleVariableSync(target, event.target, varId)) {
+            needsWorkspaceRefresh = true;
+        }
     }
     return needsWorkspaceRefresh;
 }
 
+function syncBroadcastOptionFields(varId, name) {
+    const blockContainers = new Set(constants.mutableRefs.vm.runtime.targets.map(i => i.blocks));
+    if (constants.mutableRefs.vm.runtime.flyoutBlocks) blockContainers.add(constants.mutableRefs.vm.runtime.flyoutBlocks);
+
+    for (const blockContainer of blockContainers) {
+        let containerUpdated = false;
+        for (const block of Object.values(blockContainer._blocks)) {
+            const broadcastOption = block.fields && block.fields.BROADCAST_OPTION;
+            if (broadcastOption && broadcastOption.id === varId && broadcastOption.value !== name) {
+                broadcastOption.value = name;
+                containerUpdated = true;
+            }
+        }
+        if (containerUpdated && blockContainer.resetCache) blockContainer.resetCache();
+    }
+}
+
 function handleSingleVariableSync(target, yVarMap, varId) {
+    if (!yVarMap || typeof yVarMap.get !== 'function') return false;
+
     const name = yVarMap.get('name');
     const type = yVarMap.get('type');
     const isCloud = yVarMap.get('isCloud');
@@ -239,32 +276,25 @@ function handleSingleVariableSync(target, yVarMap, varId) {
         didChange = true;
     }
 
-    if (JSON.stringify(target.variables[varId].value) !== JSON.stringify(value)) {
-        if (type === 'broadcast_msg') {
-            if (target.variables[varId].value !== name) {
-                target.variables[varId].value = name;
-                target.variables[varId].name = name;
-            }
-            
-            const blockContainers = new Set(constants.mutableRefs.vm.runtime.targets.map(i => i.blocks));
-            if (constants.mutableRefs.vm.runtime.flyoutBlocks) blockContainers.add(constants.mutableRefs.vm.runtime.flyoutBlocks);
+    const variable = target.variables[varId];
+    if (!variable) return didChange;
 
-            for (const blockContainer of blockContainers) {
-                for (const block of Object.values(blockContainer._blocks)) {
-                    const broadcastOption = block.fields && block.fields.BROADCAST_OPTION;
-                    if (broadcastOption && broadcastOption.id === varId) {
-                        if (broadcastOption.value !== name) {
-                            broadcastOption.value = name;
-                        }
-                    }
-                }
-                if (blockContainer.resetCache) blockContainer.resetCache();
-            }
-        } else {
-            target.variables[varId].value = value;
-        }
+    if (typeof name !== 'undefined' && variable.name !== name) {
+        variable.name = name;
         didChange = true;
     }
+
+    if (variable.type === 'broadcast_msg') {
+        if (typeof name !== 'undefined' && variable.value !== name) {
+            variable.value = name;
+            didChange = true;
+        }
+        if (didChange) syncBroadcastOptionFields(varId, variable.name);
+    } else if (JSON.stringify(variable.value) !== JSON.stringify(value)) {
+        variable.value = value;
+        didChange = true;
+    }
+
     return didChange;
 }
 

@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import {intlShape, injectIntl} from 'react-intl';
 import bindAll from 'lodash.bindall';
 import {connect} from 'react-redux';
-// eslint-disable-next-line import/no-commonjs
 const {API_HOST, ASSET_HOST} = require('./brand');
 
 import {setProjectUnchanged} from '../reducers/project-changed';
@@ -25,10 +24,11 @@ import {
 
 import log from './log';
 import storage from './storage';
+import * as collabSnapshot from './collab-snapshot';
+import {setCollaborationSession} from '../reducers/collaboration';
 
 import VM from 'scratch-vm';
 
-// TW: Temporary hack for project tokens
 const fetchProjectToken = async projectId => {
     if (projectId === '0') {
         return null;
@@ -37,11 +37,6 @@ const fetchProjectToken = async projectId => {
     return storage.getProjectToken();
 };
 
-/* Higher Order Component to provide behavior for loading projects by id. If
- * there's no id, the default project is loaded.
- * @param {React.Component} WrappedComponent component to receive projectData prop
- * @returns {React.Component} component with project loading behavior
- */
 const ProjectFetcherHOC = function (WrappedComponent) {
     class ProjectFetcherComponent extends React.Component {
         constructor (props) {
@@ -55,10 +50,6 @@ const ProjectFetcherHOC = function (WrappedComponent) {
             storage.setAssetHost(props.assetHost);
             storage.setAssetLoadHost(props.assetLoadHost);
             storage.setTranslatorFunction(props.intl.formatMessage);
-            // props.projectId might be unset, in which case we use our default;
-            // or it may be set by an even higher HOC, and passed to us.
-            // Either way, we now know what the initial projectId should be, so
-            // set it in the redux store.
             if (
                 props.projectId !== '' &&
                 props.projectId !== null &&
@@ -95,17 +86,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 storage.setProjectHost(this.props.scratchProjectHost);
                 storage.setAssetLoadHost(this.props.scratchTrampolineHost);
             }
-            // tw: clear and stop the VM before fetching
-            // these will also happen later after the project is fetched, but fetching may take a while and
-            // the project shouldn't be running while fetching the new project
             this.props.vm.clear();
             this.props.vm.quit();
+            collabSnapshot.reset();
 
             let assetPromise;
-            // In case running in node...
-            // let projectUrl = typeof URLSearchParams === 'undefined' ?
-            //    null :
-            //    new URLSearchParams(location.search).get('project_url');
             let projectUrl = null;
             if (projectUrl) {
                 if (
@@ -149,26 +134,35 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 .then(projectAsset => {
                     if (projectAsset) {
                         let collaboratorStatus = false;
-                        // eslint-disable-next-line func-style, require-jsdoc, no-inner-declarations
-                        function startCollaborator (){
-                            if (typeof window.StartCollaborator === 'function'){
-                                window.StartCollaborator(collaboratorStatus);
-                            } else {
-                                setTimeout(startCollaborator, 100);
+                        const {collaborationRoom} = this.props;
+
+                        let projectData = projectAsset.data;
+                        const bytes = projectData instanceof Uint8Array ? projectData :
+                            (projectData instanceof ArrayBuffer ? new Uint8Array(projectData) : null);
+                        if (bytes && collabSnapshot.isSnapshotFrame(bytes)) {
+                            const parsed = collabSnapshot.parseSnapshotFrame(bytes);
+                            if (parsed) {
+                                projectData = parsed.projectData;
+                                collabSnapshot.setSnapshot(parsed);
+                                collaboratorStatus = true;
                             }
                         }
-                        this.props.onFetchedProjectData(projectAsset.data, loadingState);
+
+                        this.props.onFetchedProjectData(projectData, loadingState);
+
                         if (
-                            window.CollaborationRoom &&
-                            typeof window.CollaborationRoom === 'string' &&
-                            window.CollaborationRoom !== 'false'
+                            !collaboratorStatus &&
+                            collaborationRoom &&
+                            typeof collaborationRoom === 'string' &&
+                            collaborationRoom !== 'false'
                         ) {
                             collaboratorStatus = true;
+                            collabSnapshot.setNoSnapshot();
                         }
-                        startCollaborator();
+                        this.props.onSetCollaborationSession({
+                            status: collaboratorStatus ? 'collaborative' : 'solo'
+                        });
                     } else {
-                        // Treat failure to load as an error
-                        // Throw to be caught by catch later on
                         throw new Error('Could not find project');
                     }
                 })
@@ -179,9 +173,9 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         }
         render () {
             const {
-                /* eslint-disable no-unused-vars */
                 assetHost,
                 assetLoadHost,
+                collaborationRoom,
                 intl,
                 isLoadingProject: isLoadingProjectProp,
                 loadingState,
@@ -189,11 +183,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
                 onError: onErrorProp,
                 onFetchedProjectData: onFetchedProjectDataProp,
                 onProjectUnchanged,
+                onSetCollaborationSession,
                 projectHost,
                 projectId,
                 reduxProjectId,
                 setProjectId: setProjectIdProp,
-                /* eslint-enable no-unused-vars */
                 isFetchingWithId: isFetchingWithIdProp,
                 ...componentProps
             } = this.props;
@@ -220,7 +214,9 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         loadingState: PropTypes.oneOf(LoadingStates),
         onActivateTab: PropTypes.func,
         onError: PropTypes.func,
+        collaborationRoom: PropTypes.string,
         onFetchedProjectData: PropTypes.func,
+        onSetCollaborationSession: PropTypes.func,
         onProjectUnchanged: PropTypes.func,
         projectHost: PropTypes.string,
         projectToken: PropTypes.string,
@@ -230,11 +226,11 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         vm: PropTypes.instanceOf(VM)
     };
     ProjectFetcherComponent.defaultProps = {
-        assetHost: `${API_HOST}/v1/projects/blocks/assets`, // used to upload assets
-        assetLoadHost: `${ASSET_HOST}/block_project_assets`, // used to load assets
-        scratchTrampolineHost: `${ASSET_HOST}/scratch_project_assets`, // used to load Scratch projects
+        assetHost: `${API_HOST}/v1/projects/blocks/assets`,
+        assetLoadHost: `${ASSET_HOST}/block_project_assets`,
+        scratchTrampolineHost: `${ASSET_HOST}/scratch_project_assets`,
         projectHost: `${API_HOST}/v1/projects/blocks`,
-        scratchProjectHost: `${ASSET_HOST}/scratch_project_json` // used to load Scratch projects
+        scratchProjectHost: `${ASSET_HOST}/scratch_project_json`
     };
 
     const mapStateToProps = state => ({
@@ -245,6 +241,7 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         loadingState: state.scratchGui.projectState.loadingState,
         reduxProjectId: state.scratchGui.projectState.projectId,
         isScratchProject: state.scratchGui.projectState.isScratchProject,
+        collaborationRoom: state.scratchGui.collaboration.session.room,
         vm: state.scratchGui.vm
     });
     const mapDispatchToProps = dispatch => ({
@@ -253,9 +250,9 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         onFetchedProjectData: (projectData, loadingState) =>
             dispatch(onFetchedProjectData(projectData, loadingState)),
         setProjectId: projectId => dispatch(setProjectId(projectId)),
-        onProjectUnchanged: () => dispatch(setProjectUnchanged())
+        onProjectUnchanged: () => dispatch(setProjectUnchanged()),
+        onSetCollaborationSession: session => dispatch(setCollaborationSession(session))
     });
-    // Allow incoming props to override redux-provided props. Used to mock in tests.
     const mergeProps = (stateProps, dispatchProps, ownProps) => Object.assign(
         {}, stateProps, dispatchProps, ownProps
     );

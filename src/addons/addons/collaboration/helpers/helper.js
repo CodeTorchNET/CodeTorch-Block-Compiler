@@ -71,6 +71,104 @@ export function serializeBlockForYjs(block) {
     return yBlockMap;
 }
 
+export function publishBlocksToYjs(targetId, repaired) {
+    const vm = constants.mutableRefs.vm;
+    const sharedBlocks = constants.mutableRefs.sharedBlocks;
+    const ydoc = constants.mutableRefs.ydoc;
+    if (!vm || !sharedBlocks || !ydoc || !repaired || repaired.size === 0) return;
+    if (constants.mutableRefs.isInitialRoomSync) return;
+
+    const target = vm.runtime.getTargetById(targetId);
+    if (!target) return;
+
+    const yTargetBlockMap = sharedBlocks.get(targetId);
+    if (!yTargetBlockMap) return;
+
+    ydoc.transact(() => {
+        repaired.forEach((props, blockId) => {
+            const block = target.blocks.getBlock(blockId);
+            if (!block) {
+                if (yTargetBlockMap.has(blockId)) yTargetBlockMap.delete(blockId);
+                return;
+            }
+
+            const yBlock = yTargetBlockMap.get(blockId);
+            if (!yBlock) {
+                yTargetBlockMap.set(blockId, serializeBlockForYjs(block));
+                return;
+            }
+            const write = props || Object.keys(block);
+            write.forEach(prop => writeBlockProp(yBlock, block, prop));
+        });
+    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+}
+
+function writeBlockProp(yBlock, block, prop) {
+    if (!prop.startsWith('["')) {
+        const value = block[prop];
+        if (value === undefined) {
+            if (yBlock.has(prop)) yBlock.delete(prop);
+        } else if (typeof value === 'object' && value !== null) {
+            yBlock.set(prop, JSON.stringify(value));
+        } else {
+            yBlock.set(prop, value);
+        }
+        return;
+    }
+
+    let parts;
+    try {
+        parts = JSON.parse(prop);
+    } catch (e) {
+        return;
+    }
+    let value = block;
+    for (const part of parts) {
+        if (value === null || typeof value !== 'object') return;
+        value = value[part];
+    }
+    yBlock.set(prop, value === undefined ? null : value);
+}
+
+export function cancelDragOf(blockId) {
+    const workspace = constants.editorWorkspace();
+    const gesture = workspace && workspace.currentGesture_;
+    if (!gesture || typeof gesture.cancel !== 'function') return false;
+    if (typeof gesture.isDragging === 'function' && !gesture.isDragging()) return false;
+
+    const dragging = gesture.blockDragger_ && gesture.blockDragger_.draggingBlock_;
+    if (!dragging || dragging.id !== blockId) return false;
+
+    gesture.cancel();
+    return true;
+}
+
+export function referencesAGhost(blocks, blockId, yBlocks) {
+    const block = blocks[blockId];
+    if (!block || !yBlocks) return false;
+
+    const missing = id => id && !blocks[id] && !yBlocks.has(id);
+    if (missing(block.parent)) return true;
+    if (missing(block.next)) return true;
+    for (const name in block.inputs) {
+        const input = block.inputs[name];
+        if (!input) continue;
+        if (missing(input.block) || missing(input.shadow)) return true;
+    }
+    return false;
+}
+
+export function parentChainLoops(blocks, blockId) {
+    const seen = new Set();
+    let current = blockId;
+    while (current && blocks[current]) {
+        if (seen.has(current)) return true;
+        seen.add(current);
+        current = blocks[current].parent;
+    }
+    return false;
+}
+
 export function deserializeBlockFromYjs(yBlockMap) {
     const block = {};
     const pathKeys = [];
@@ -230,12 +328,20 @@ export function serializeSpriteForYjs(target) {
     yMap.set('isStage', !!target.isStage);
     const transform = transformSync.serializeTransformFields(target);
     Object.keys(transform).forEach(key => yMap.set(key, transform[key]));
+    const state = transformSync.serializeStateFields(target);
+    Object.keys(state).forEach(key => yMap.set(key, state[key]));
+    if (!target.isStage && typeof target.getLayerOrder === 'function') {
+        const layerOrder = target.getLayerOrder();
+        if (typeof layerOrder === 'number') yMap.set('layerOrder', layerOrder);
+    }
     return yMap;
 }
 
-export async function uploadCollaborationAsset(runtime, asset) {
+const KEEPALIVE_MAX_BYTES = 60 * 1024;
+
+export async function uploadCollaborationAsset(runtime, asset, opts = {}) {
     if (!asset || !runtime.storage) {
-        return;
+        return false;
     }
 
     const md5ext = `${asset.assetId}.${asset.dataFormat}`;
@@ -249,24 +355,40 @@ export async function uploadCollaborationAsset(runtime, asset) {
             url += `&room=${roomUUID}`;
         }
 
-        const token = await runtime.storage.getProjectToken();
+        const token = (opts.urgent && runtime.storage.projectToken) ?
+            runtime.storage.projectToken :
+            await runtime.storage.getProjectToken();
         if (!token) throw new Error("Could not retrieve project token from storage.");
 
-        const response = await fetch(url, {
+        const request = {
             method: 'POST',
             body: asset.data,
             headers: {
                 'Content-Type': asset.assetType.contentType,
                 'Authorization': `Bearer ${token}`
             }
-        });
+        };
+
+        if (opts.urgent && asset.data && asset.data.byteLength <= KEEPALIVE_MAX_BYTES) {
+            request.keepalive = true;
+        }
+
+        const response = await fetch(url, request);
 
         if (!response.ok) {
             throw new Error(`Upload failed with status ${response.status}: ${response.statusText}`);
         }
+        return true;
     } catch (e) {
         console.error(`Collaboration asset upload failed: ${e.message}`);
+        return false;
     }
+}
+
+function reportMissingBytes(kind, record, why) {
+    console.warn(`[collaboration] ${kind} "${record.name || record.id}" arrived without its bytes ` +
+        `(${record.md5 || record.md5ext || record.assetId}): ${why}. It will have a record and no ` +
+        'picture or sound until somebody republishes it.');
 }
 
 export async function loadRemoteCostume(costumeData, runtime, retries = 3, existingCostume = null) {
@@ -285,6 +407,7 @@ export async function loadRemoteCostume(costumeData, runtime, retries = 3, exist
                 await new Promise(resolve => setTimeout(resolve, 500));
                 return loadRemoteCostume(costumeData, runtime, retries - 1, existingCostume);
             }
+            reportMissingBytes('costume', costume, 'the asset store had nothing under that id');
             return costume;
         }
         costume.asset = asset;
@@ -322,12 +445,14 @@ export async function loadRemoteCostume(costumeData, runtime, retries = 3, exist
                     resolve(costume);
                 };
                 image.onerror = function (err) {
+                    reportMissingBytes('costume', costume, `the image would not decode (${err && err.type})`);
                     resolve(costume);
                 };
                 image.src = asset.encodeDataURI();
             }
         });
     } catch (e) {
+        reportMissingBytes('costume', costume, String(e));
         return costume;
     }
 }
@@ -343,12 +468,13 @@ export async function loadRemoteSound(soundData, runtime, retries = 3) {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 return loadRemoteSound(soundData, runtime, retries - 1);
             }
+            reportMissingBytes('sound', sound, 'the asset store had nothing under that id');
             return sound;
         }
         sound.asset = asset;
         return sound;
     } catch (e) {
-        
+        reportMissingBytes('sound', sound, String(e));
         return sound;
     }
 }
@@ -400,115 +526,6 @@ function deepEqual(x, y) {
     return keysX.every(k => deepEqual(x[k], y[k]));
 }
 
-
-export function clearLocalState() {
-    const vm = constants.mutableRefs.vm;
-    if (!vm) return;
-    const targetsToDelete = vm.runtime.targets.filter(t => !t.isStage && t.isOriginal);
-    targetsToDelete.forEach(target => {
-        if (vm.deleteSpriteNoWarning !== undefined) {
-            vm.deleteSpriteNoWarning(target.id, true);
-        } else {
-            vm.deleteSprite(target.id, true);
-        }
-    });
-    const stage = vm.runtime.getTargetForStage();
-    if (stage) {
-        const blockIds = Object.keys(stage.blocks._blocks);
-        blockIds.forEach(id => stage.blocks.deleteBlock(id));
-        Object.keys(stage.comments).forEach(id => {
-            delete stage.comments[id];
-        });
-    }
-
-    vm.emitWorkspaceUpdate();
-}
-
-
-export function pushLocalStateToYjs() {
-    const vm = constants.mutableRefs.vm;
-    const Blockly = constants.mutableRefs.BlocklyInstance;
-    const sharedBlocks = constants.mutableRefs.sharedBlocks;
-    const sharedVariables = constants.mutableRefs.sharedVariables;
-    const sharedMonitors = constants.mutableRefs.sharedMonitors;
-    const sharedComments = constants.mutableRefs.sharedComments;
-    const sharedCostumes = constants.mutableRefs.sharedCostumes;
-    const sharedSounds = constants.mutableRefs.sharedSounds;
-    const sharedSprites = constants.mutableRefs.sharedSprites;
-    const sharedExtensions = constants.mutableRefs.sharedExtensions;
-
-    if (!vm || !sharedBlocks || !sharedVariables || !sharedCostumes || !sharedSounds || !sharedSprites || !sharedExtensions) return;
-
-    if (Blockly) Blockly.Events.setGroup('yjs-remote-sync');
-
-    try {
-        constants.mutableRefs.ydoc.transact(() => {
-            const ySpriteArray = [];
-            vm.runtime.targets.forEach(target => {
-                const targetId = target.id;
-                const targetName = target.getName();
-
-                ySpriteArray.push(serializeSpriteForYjs(target));
-
-                const yTargetBlockMap = new Y.Map();
-                yTargetBlockMap.set('__targetName', targetName);
-                Object.values(target.blocks._blocks).forEach(block => {
-                    yTargetBlockMap.set(block.id, serializeBlockForYjs(block));
-                });
-                sharedBlocks.set(targetId, yTargetBlockMap);
-
-                const yTargetVarMap = new Y.Map();
-                Object.values(target.variables).forEach(variable => {
-                    yTargetVarMap.set(variable.id, serializeVariableForYjs(variable));
-                });
-                sharedVariables.set(targetId, yTargetVarMap);
-
-                const yTargetMap = new Y.Map();
-                Object.values(target.comments).forEach(comment => {
-                    yTargetMap.set(comment.id, serializeCommentForYjs(comment));
-                });
-                sharedComments.set(targetId, yTargetMap);
-
-                const yCostumeArray = new Y.Array();
-                if (target.sprite && target.sprite.costumes) {
-                    target.sprite.costumes.forEach(costume => {
-                        yCostumeArray.push([serializeCostumeForYjs(costume)]);
-                    });
-                }
-                sharedCostumes.set(targetId, yCostumeArray);
-
-                const ySoundArray = new Y.Array();
-                if (target.sprite && target.sprite.sounds) {
-                    target.sprite.sounds.forEach(sound => {
-                        ySoundArray.push([serializeSoundForYjs(sound)]);
-                    });
-                }
-                sharedSounds.set(targetId, ySoundArray);
-            });
-
-            sharedSprites.insert(0, ySpriteArray);
-
-            const monitorState = vm.runtime.getMonitorState();
-            const monitors = (monitorState && monitorState.map instanceof Map) ? monitorState.map : monitorState;
-            monitors.forEach((monitor, id) => {
-                sharedMonitors.set(id, serializeMonitorForYjs(monitor));
-            });
-
-            const extensionManager = vm.extensionManager;
-            const extensionURLs = extensionManager.getExtensionURLs();
-            const loadedExtensions = Array.from(extensionManager._loadedExtensions.keys()).map(id => {
-                return { URL: extensionURLs[id] || id, name: id };
-            });
-            if (loadedExtensions.length > 0) {
-                sharedExtensions.insert(0, loadedExtensions);
-            }
-
-        }, constants.LOCAL_EVENT_SYNC_ORIGIN);
-    } finally {
-        if (Blockly) Blockly.Events.setGroup(false);
-    }
-}
-
 export async function pushTargetStateToYjs(target) {
     const targetId = target.id;
     const targetName = target.getName();
@@ -544,25 +561,67 @@ export async function pushTargetStateToYjs(target) {
             yTargetCommentMap.set(comment.id, serializeCommentForYjs(comment));
         });
         constants.mutableRefs.sharedComments.set(targetId, yTargetCommentMap);
-        const yCostumeArray = new Y.Array();
-        const costumeElements = target.getCostumes().map(costume => serializeCostumeForYjs(costume));
-        if (costumeElements.length > 0) yCostumeArray.push(costumeElements);
-        constants.mutableRefs.sharedCostumes.set(targetId, yCostumeArray);
-        const ySoundArray = new Y.Array();
-        const soundElements = target.getSounds().map(sound => serializeSoundForYjs(sound));
-        if (soundElements.length > 0) ySoundArray.push(soundElements);
-        constants.mutableRefs.sharedSounds.set(targetId, ySoundArray);
+        const yCostumeOrder = new Y.Array();
+        const yCostumeMap = new Y.Map();
+        target.getCostumes().forEach(costume => {
+            yCostumeMap.set(costume.id, serializeCostumeForYjs(costume));
+            yCostumeOrder.push([costume.id]);
+        });
+        constants.mutableRefs.sharedCostumes.set(targetId, yCostumeOrder);
+        constants.mutableRefs.sharedCostumeData.set(targetId, yCostumeMap);
+        const ySoundOrder = new Y.Array();
+        const ySoundMap = new Y.Map();
+        target.getSounds().forEach(sound => {
+            ySoundMap.set(sound.id, serializeSoundForYjs(sound));
+            ySoundOrder.push([sound.id]);
+        });
+        constants.mutableRefs.sharedSounds.set(targetId, ySoundOrder);
+        constants.mutableRefs.sharedSoundData.set(targetId, ySoundMap);
 
     }, constants.LOCAL_EVENT_SYNC_ORIGIN);
 }
 
 function applyYjsBlocksToTarget(target, yTargetMap) {
+    const alreadyHere = [];
     yTargetMap.forEach((yBlockMap, blockId) => {
         if (blockId === '__targetName') return;
-        if (target.blocks.getBlock(blockId)) return;
         const blockData = deserializeBlockFromYjs(yBlockMap);
+        if (target.blocks.getBlock(blockId)) {
+            alreadyHere.push([blockId, blockData]);
+            return;
+        }
         target.blocks.createBlock(blockData);
     });
+    let adopted = 0;
+    alreadyHere.forEach(([blockId, blockData]) => {
+        adopted += adoptShadowIdsFromYjs(target, blockId, blockData);
+    });
+    if (adopted > 0) target.blocks.resetCache();
+}
+
+function adoptShadowIdsFromYjs(target, blockId, remote) {
+    const local = target.blocks.getBlock(blockId);
+    if (!local || !local.inputs || !remote || !remote.inputs) return 0;
+
+    let adopted = 0;
+    Object.keys(remote.inputs).forEach(name => {
+        const mine = local.inputs[name];
+        const theirs = remote.inputs[name];
+        if (!mine || !theirs) return;
+        if (mine.shadow === theirs.shadow) return;
+        if (!mine.shadow || mine.block !== mine.shadow) return;
+        if (!theirs.shadow || theirs.block !== theirs.shadow) return;
+
+        const roomsShadow = target.blocks.getBlock(theirs.shadow);
+        if (!roomsShadow) return;
+
+        const invented = mine.shadow;
+        local.inputs[name] = { name, block: theirs.shadow, shadow: theirs.shadow };
+        roomsShadow.parent = blockId;
+        target.blocks.deleteBlock(invented);
+        adopted++;
+    });
+    return adopted;
 }
 
 function applyYjsVariablesToTarget(target, yTargetVarMap) {
@@ -589,6 +648,10 @@ function applyYjsVariablesToTarget(target, yTargetVarMap) {
             target.createVariable(varId, name, type, isCloud, true);
         }
 
+        if (typeof name !== 'undefined' && target.variables[varId].name !== name) {
+            target.variables[varId].name = name;
+        }
+
         if (type === 'broadcast_msg') {
             target.variables[varId].value = name;
             target.variables[varId].name = name;
@@ -611,26 +674,53 @@ function applyYjsCommentsToTarget(target, yTargetCommentMap) {
     });
 }
 
-function applyYjsCostumesToTarget(target, yCostumeArray) {
+export function resolveOrderedEntries(yOrderArray, yDataMap) {
+    if (!yOrderArray || !yDataMap) return [];
+    return yOrderArray.toArray()
+        .map(id => yDataMap.get(id))
+        .filter(entry => entry !== undefined && entry !== null);
+}
+
+function applyYjsCostumesToTarget(target, yCostumeOrder, yCostumeMap) {
     const vm = constants.mutableRefs.vm;
     if (!target.sprite) return;
-    const costumeList = yCostumeArray.map(yMap => deserializeCostumeFromYjs(yMap));
+    const costumeList = resolveOrderedEntries(yCostumeOrder, yCostumeMap)
+        .map(yMap => deserializeCostumeFromYjs(yMap));
+
+    const previousCostumeId = target.getCostumes()[target.currentCostume]?.id ?? null;
 
     Promise.all(costumeList.map(c => loadRemoteCostume(c, vm.runtime)))
         .then(loadedCostumes => {
             if (loadedCostumes.length > 0) {
                 target.sprite.costumes = loadedCostumes;
-                target.currentCostume = 0;
-                target.setCostume(0);
+                let index = previousCostumeId === null ?
+                    target.currentCostume :
+                    loadedCostumes.findIndex(c => c.id === previousCostumeId);
+                if (index < 0) index = target.currentCostume;
+                index = Math.min(Math.max(index, 0), loadedCostumes.length - 1);
+                target.currentCostume = index;
+                target.setCostume(index);
                 target.updateAllDrawableProperties();
+
+                const redraw = constants.mutableRefs.redrawCostumeArt;
+                if (redraw) {
+                    for (const costume of loadedCostumes) {
+                        try {
+                            redraw(costume.id);
+                        } catch (e) {
+                            console.warn('[collaboration] could not redraw a rebuilt costume', e);
+                        }
+                    }
+                }
             }
         });
 }
 
-function applyYjsSoundsToTarget(target, ySoundArray) {
+function applyYjsSoundsToTarget(target, ySoundOrder, ySoundMap) {
     const vm = constants.mutableRefs.vm;
     if (!target.sprite) return;
-    const soundList = ySoundArray.map(yMap => deserializeSoundFromYjs(yMap));
+    const soundList = resolveOrderedEntries(ySoundOrder, ySoundMap)
+        .map(yMap => deserializeSoundFromYjs(yMap));
     Promise.all(soundList.map(s => loadRemoteSound(s, vm.runtime)))
         .then(async loadedSounds => {
             target.sprite.sounds = loadedSounds;
@@ -658,9 +748,11 @@ export function hydrateTargetFromYjs(targetId) {
     const yComments = constants.mutableRefs.sharedComments?.get(targetId);
     if (yComments) applyYjsCommentsToTarget(target, yComments);
     const yCostumes = constants.mutableRefs.sharedCostumes?.get(targetId);
-    if (yCostumes) applyYjsCostumesToTarget(target, yCostumes);
+    const yCostumeData = constants.mutableRefs.sharedCostumeData?.get(targetId);
+    if (yCostumes && yCostumeData) applyYjsCostumesToTarget(target, yCostumes, yCostumeData);
     const ySounds = constants.mutableRefs.sharedSounds?.get(targetId);
-    if (ySounds) applyYjsSoundsToTarget(target, ySounds);
+    const ySoundData = constants.mutableRefs.sharedSoundData?.get(targetId);
+    if (ySounds && ySoundData) applyYjsSoundsToTarget(target, ySounds, ySoundData);
 }
 
 export function reconcileExtensionsToYjs() {
@@ -696,137 +788,231 @@ export function reconcileExtensionsToYjs() {
     }, constants.LOCAL_EVENT_SYNC_ORIGIN);
 }
 
-export function performInitialSync() {
+export function remapTargetIdsFromYjs() {
     const vm = constants.mutableRefs.vm;
-    const Blockly = constants.mutableRefs.BlocklyInstance;
-    const sharedBlocks = constants.mutableRefs.sharedBlocks;
-    const sharedVariables = constants.mutableRefs.sharedVariables;
-    const sharedMonitors = constants.mutableRefs.sharedMonitors;
-    const sharedComments = constants.mutableRefs.sharedComments;
-    const sharedCostumes = constants.mutableRefs.sharedCostumes;
-    const sharedSounds = constants.mutableRefs.sharedSounds;
     const sharedSprites = constants.mutableRefs.sharedSprites;
-    const sharedExtensions = constants.mutableRefs.sharedExtensions;
+    const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
+    if (!vm || !sharedSprites || !sharedSpriteData) return 0;
 
-    if (!vm || !sharedBlocks || !sharedVariables || !sharedMonitors || 
-        !sharedComments || !sharedCostumes || !sharedSounds || !sharedSprites || !sharedExtensions) return;
+    const remoteIds = [...new Set(sharedSprites.toArray())];
+    if (remoteIds.length === 0) return 0;
 
-    if (sharedBlocks.size === 0) {
-        pushLocalStateToYjs();
-        return;
-    }
+    const localByName = new Map();
+    vm.runtime.targets.forEach(target => {
+        if (target.isOriginal !== false) localByName.set(target.getName(), target);
+    });
 
-    if (Blockly) Blockly.Events.setGroup('yjs-remote-sync');
+    const claimed = new Set();
+    let remapped = 0;
 
-    try {
-        sharedBlocks.forEach((yTargetMap, remoteId) => {
-            const remoteName = yTargetMap.get('__targetName');
-            if (remoteName) {
-                const localTarget = vm.runtime.targets.find(t => t.getName() === remoteName);
-                if (localTarget && localTarget.isStage && localTarget.id !== remoteId) {
-                    vm.runtime.updateTargetId(localTarget, remoteId);
-                }
-            }
-        });
+    remoteIds.forEach(spriteId => {
+        const meta = sharedSpriteData.get(spriteId);
+        if (!meta) return;
+        const remoteId = meta.get('id') || spriteId;
+        const remoteName = meta.get('name');
 
-        clearLocalState();
-        const remoteSpriteList = sharedSprites.toArray();
-        if (remoteSpriteList.length > 0) {
-            const newTargetList = [];
-            const localTargetsMap = new Map(vm.runtime.targets.map(t => [t.id, t]));
-            
-            remoteSpriteList.forEach(ySpriteMap => {
-                const id = ySpriteMap.get('id');
-                const name = ySpriteMap.get('name');
-                const isStage = ySpriteMap.get('isStage');
+        const local = localByName.get(remoteName);
+        if (!local || claimed.has(local.id)) return;
+        claimed.add(local.id);
 
-                let target = localTargetsMap.get(id);
-
-                if (!target && isStage) {
-                    target = vm.runtime.getTargetForStage();
-                    if (target) {
-                        localTargetsMap.delete(target.id);
-                        vm.runtime.updateTargetId(target, id);
-                    }
-                }
-
-                if (target) {
-                    newTargetList.push(target);
-                    localTargetsMap.delete(id);
-                    if (target.getName() !== name) target.sprite.name = name;
-                    transformSync.applyTransformFromYjs(target, ySpriteMap);
-                } else {
-                    const newSprite = new constants.mutableRefs.vm.exports.Sprite(null, vm.runtime);
-                    newSprite.name = name;
-                    target = newSprite.createClone(isStage ? 'background' : 'sprite');
-                    target.id = id;
-                    target.originalTargetId = id;
-                    vm.runtime.addTarget(target);
-                    transformSync.applyTransformFromYjs(target, ySpriteMap);
-                    newTargetList.push(target);
-                }
-            });
-            vm.runtime.targets = newTargetList;
-            vm.runtime.executableTargets = [...newTargetList];
+        if (local.id !== remoteId) {
+            vm.runtime.updateTargetId(local, remoteId);
+            remapped++;
         }
+        adoptAssetIdsFromYjs(local, 'costumes',
+            constants.mutableRefs.sharedCostumes?.get(remoteId),
+            constants.mutableRefs.sharedCostumeData?.get(remoteId));
+        adoptAssetIdsFromYjs(local, 'sounds',
+            constants.mutableRefs.sharedSounds?.get(remoteId),
+            constants.mutableRefs.sharedSoundData?.get(remoteId));
+    });
 
-        sharedBlocks.forEach((yTargetMap, targetId) => {
-            const target = vm.runtime.getTargetById(targetId);
-            if (!target) return;
-            applyYjsBlocksToTarget(target, yTargetMap);
-        });
-        sharedVariables.forEach((yTargetVarMap, targetId) => {
-            const target = vm.runtime.getTargetById(targetId);
-            if (!target) return;
-            applyYjsVariablesToTarget(target, yTargetVarMap);
-        });
-        sharedComments.forEach((yTargetMap, targetId) => {
-            const target = vm.runtime.getTargetById(targetId);
-            if (!target) return;
-            applyYjsCommentsToTarget(target, yTargetMap);
-        });
-
-        sharedMonitors.forEach((yMonitorMap, monitorId) => {
-            const monitorData = deserializeMonitorFromYjs(yMonitorMap);
-            vm.deserializeMonitor(monitorData);
-        });
-
-        sharedCostumes.forEach((yCostumeArray, targetId) => {
-            const target = vm.runtime.getTargetById(targetId);
-            if (!target) return;
-            applyYjsCostumesToTarget(target, yCostumeArray);
-        });
-
-        sharedSounds.forEach((ySoundArray, targetId) => {
-            const target = vm.runtime.getTargetById(targetId);
-            if (!target) return;
-            applyYjsSoundsToTarget(target, ySoundArray);
-        });
-
-        const remoteExtensions = sharedExtensions.toArray();
-        remoteExtensions.forEach(ext => {
-            const extObj = (typeof ext.toJSON === 'function') ? ext.toJSON() : ext;
-            const extURL = extObj.URL || extObj;
-            const extName = extObj.name || extObj;
-            if (typeof extURL === 'string' && !vm.extensionManager.isExtensionLoaded(extName)) {
-                
-                vm.extensionManager.loadExtensionURL(extURL, false);
-            }
-        });
-
-        // This might seem like a really stupid thing to do but its honestly the most effective way.
-        vm.setEditingTarget(vm.runtime.getTargetForStage().id);
-        if (vm.runtime.targets[1]) {
-            vm.setEditingTarget(vm.runtime.targets[1].id);
-        }
-        if (Blockly) {
-            Blockly.getMainWorkspace()?.refreshToolboxSelection_();
-        }
-
-    } finally {
-        if (Blockly) Blockly.Events.setGroup(false);
-    }
-
-    
+    return remapped;
 }
 
+function adoptAssetIdsFromYjs(target, kind, yOrder, yData) {
+    const sprite = target.sprite;
+    if (!sprite || !yOrder || !yData) return;
+    const local = sprite[kind];
+    if (!Array.isArray(local) || local.length === 0) return;
+
+    const remoteByMd5 = new Map();
+    yOrder.toArray().forEach(id => {
+        const entry = yData.get(id);
+        if (!entry) return;
+        const md5ext = entry.get('md5ext');
+        if (md5ext && !remoteByMd5.has(md5ext)) remoteByMd5.set(md5ext, id);
+    });
+    if (remoteByMd5.size === 0) return;
+
+    const taken = new Set();
+    let changed = false;
+    const next = local.map(asset => {
+        const md5ext = asset.md5ext || asset.md5;
+        const remoteId = remoteByMd5.get(md5ext);
+        if (!remoteId || taken.has(remoteId) || remoteId === asset.id) return asset;
+        taken.add(remoteId);
+        changed = true;
+        return Object.assign({}, asset, {id: remoteId});
+    });
+    if (changed) sprite[kind] = next;
+}
+
+export function performInitialSync(applySpriteList) {
+    const vm = constants.mutableRefs.vm;
+    if (!vm) return 'synced';
+
+    remapTargetIdsFromYjs();
+
+    if (typeof applySpriteList === 'function') {
+        try {
+            applySpriteList();
+        } catch (e) {
+            console.warn('[collaboration] could not reconcile the sprite list', e);
+        }
+    }
+
+    const targetIds = new Set([
+        ...constants.mutableRefs.sharedBlocks.keys(),
+        ...constants.mutableRefs.sharedVariables.keys(),
+        ...constants.mutableRefs.sharedComments.keys(),
+        ...constants.mutableRefs.sharedCostumes.keys(),
+        ...constants.mutableRefs.sharedSounds.keys()
+    ]);
+    targetIds.forEach(targetId => {
+        if (!vm.runtime.getTargetById(targetId)) return;
+        try {
+            hydrateTargetFromYjs(targetId);
+        } catch (e) {
+            console.warn(`[collaboration] could not reconcile target ${targetId}`, e);
+        }
+    });
+
+    constants.mutableRefs.sharedMonitors.forEach(yMonitorMap => {
+        try {
+            vm.deserializeMonitor(deserializeMonitorFromYjs(yMonitorMap));
+        } catch (e) {
+            console.warn('[collaboration] could not reconcile a monitor', e);
+        }
+    });
+
+    repairAfterReconcile();
+
+    return 'synced';
+}
+
+function repairAfterReconcile() {
+    const vm = constants.mutableRefs.vm;
+    if (!vm) return;
+
+    const repairedByTarget = new Map();
+    vm.runtime.targets.forEach(target => {
+        if (!target.isOriginal) return;
+        if (typeof target.blocks.validateAndRepair !== 'function') return;
+        try {
+            const repaired = new Map();
+            if (target.blocks.validateAndRepair(repaired) > 0 && repaired.size > 0) {
+                repairedByTarget.set(target.id, repaired);
+            }
+        } catch (e) {
+            console.warn(`[collaboration] block-graph repair failed for ${target.id}`, e);
+        }
+    });
+
+    if (repairedByTarget.size === 0) return;
+
+    console.warn(`[collaboration] repaired the block graph of ${repairedByTarget.size} target(s) ` +
+        'while joining the room');
+    setTimeout(() => {
+        repairedByTarget.forEach((repaired, targetId) => {
+            publishBlocksToYjs(targetId, repaired);
+        });
+    }, 0);
+}
+
+function unusedName(name, taken) {
+    if (taken.indexOf(name) < 0) return name;
+    const stem = String(name).replace(/\d+$/, '');
+    let i = 2;
+    while (taken.indexOf(stem + i) >= 0) i++;
+    return stem + i;
+}
+
+export function resolveDuplicateSpriteNames(orderedIds) {
+    const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
+    if (!sharedSpriteData) return 0;
+
+    const entries = [];
+    for (const id of orderedIds) {
+        const yMap = sharedSpriteData.get(id);
+        if (!yMap || yMap.get('isStage')) continue;
+        const name = yMap.get('name');
+        if (typeof name !== 'string' || name === '') continue;
+        entries.push([id, name]);
+    }
+
+    const everyName = entries.map(entry => entry[1]);
+    const taken = [];
+    const fixes = [];
+    for (const [id, name] of entries) {
+        if (taken.indexOf(name) < 0) {
+            taken.push(name);
+            continue;
+        }
+        const fixed = unusedName(name, everyName.concat(taken));
+        fixes.push([id, fixed]);
+        taken.push(fixed);
+        everyName.push(fixed);
+    }
+    if (fixes.length === 0) return 0;
+
+    constants.mutableRefs.ydoc.transact(() => {
+        for (const [id, fixed] of fixes) {
+            const yMap = sharedSpriteData.get(id);
+            if (yMap) yMap.set('name', fixed);
+        }
+    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+    return fixes.length;
+}
+
+export function resolveDuplicateVariableNames(targetId) {
+    const sharedVariables = constants.mutableRefs.sharedVariables;
+    const yTargetMap = sharedVariables && sharedVariables.get(targetId);
+    if (!yTargetMap) return 0;
+
+    const entries = [];
+    yTargetMap.forEach((yVar, varId) => {
+        if (!yVar || typeof yVar.get !== 'function') return;
+        const name = yVar.get('name');
+        if (typeof name !== 'string' || name === '') return;
+        entries.push({ id: varId, name: name, type: yVar.get('type') || '' });
+    });
+    entries.sort((a, b) => (a.id < b.id ? -1 : 1));
+
+    const namesOfType = type => entries
+        .filter(entry => entry.type === type)
+        .map(entry => entry.name);
+
+    const taken = [];
+    const fixes = [];
+    for (const entry of entries) {
+        const key = entry.type + ' ' + entry.name;
+        if (taken.indexOf(key) < 0) {
+            taken.push(key);
+            continue;
+        }
+        const used = namesOfType(entry.type).concat(fixes.map(fix => fix[1]));
+        const fixed = unusedName(entry.name, used);
+        fixes.push([entry.id, fixed]);
+        taken.push(entry.type + ' ' + fixed);
+    }
+    if (fixes.length === 0) return 0;
+
+    constants.mutableRefs.ydoc.transact(() => {
+        for (const fix of fixes) {
+            const yVar = yTargetMap.get(fix[0]);
+            if (yVar) yVar.set('name', fix[1]);
+        }
+    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+    return fixes.length;
+}

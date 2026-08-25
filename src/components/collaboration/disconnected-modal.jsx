@@ -35,7 +35,7 @@ class DisconnectedModal extends React.Component {
                             {'Collaboration Disconnected'}
                         </h1>
                         <p className={styles.message}>
-                            {'You have been disconnected due to inactivity.'}
+                            {'Your connection to this project has ended.'}
                             <br />
                             {'Please reload the page to reconnect to the collaboration session.'}
                         </p>

@@ -3,10 +3,10 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import VM from 'scratch-vm';
 import {connect} from 'react-redux';
-import {compose} from 'redux'; // Added compose
+import {compose} from 'redux';
 
 import {showStandardAlert} from '../reducers/alerts';
-import ProjectAnalyticsHOC from '../lib/project-analytics-hoc.jsx'; // Import HOC
+import ProjectAnalyticsHOC from '../lib/project-analytics-hoc.jsx';
 
 import ControlsComponent from '../components/controls/controls.jsx';
 
@@ -23,17 +23,14 @@ class Controls extends React.Component {
     }
 
     handleGreenFlagClick (e) {
-        // Controls-specific logic (Save Warning)
         if (!this.props.disableCompiler && !this.state.showedPopup) {
             this.setState({showedPopup: true});
             this.props.onShowSaveErrorAlert();
         }
         e.preventDefault();
 
-        // Trigger Shared Analytics Logic
         this.props.onGreenFlagClickAnalytics();
 
-        // tw: implement alt+click and right click to toggle FPS
         if (e.shiftKey || e.altKey || e.type === 'contextmenu') {
             if (e.shiftKey) {
                 this.props.vm.setTurboMode(!this.props.turbo);
@@ -57,13 +54,15 @@ class Controls extends React.Component {
         this.props.vm.stopAll();
     }
     render () {
+
         const {
-            vm, // eslint-disable-line no-unused-vars
+            vm,
             isStarted,
             projectRunning,
             turbo,
             disableCompiler,
             onShowSaveErrorAlert,
+            onGreenFlagClickAnalytics,
             ...props
         } = this.props;
 
@@ -72,8 +71,6 @@ class Controls extends React.Component {
                 {...props}
                 active={projectRunning && isStarted}
                 turbo={turbo}
-                disableCompiler={disableCompiler}
-                onShowSaveErrorAlert={onShowSaveErrorAlert}
                 onGreenFlagClick={this.handleGreenFlagClick}
                 onStopAllClick={this.handleStopAllClick}
             />

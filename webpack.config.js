@@ -197,6 +197,8 @@ module.exports = [
                 'process.env.FORCE_EMBED': JSON.stringify(process.env.FORCE_EMBED || 'true'),
                 'process.env.COLLABORATION_HOST': JSON.stringify(process.env.COLLABORATION_HOST || 'wss://collaborator.codetorch.net/'),
                 'process.env.COLLABORATION_DEV_MODE': JSON.stringify(process.env.COLLABORATION_DEV_MODE || 'false'),
+                'process.env.COLLABORATION_RECORD_MODE':
+                    JSON.stringify(process.env.COLLABORATION_RECORD_MODE || 'false'),
                 'process.env.IS_STANDALONE': JSON.stringify(process.env.IS_STANDALONE || 'false')
             }),
             new HtmlWebpackPlugin({

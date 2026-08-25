@@ -87,6 +87,7 @@ class SpriteInfo extends React.Component {
 
         const spriteNameInput = (
             <BufferedInput
+                key={this.props.selectedId}
                 className={classNames(
                     styles.spriteInput,
                     {
@@ -257,6 +258,7 @@ SpriteInfo.propTypes = {
     disabled: PropTypes.bool,
     intl: intlShape,
     name: PropTypes.string,
+    selectedId: PropTypes.string,
     onChangeDirection: PropTypes.func,
     onChangeName: PropTypes.func,
     onChangeRotationStyle: PropTypes.func,

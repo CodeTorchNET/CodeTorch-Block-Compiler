@@ -95,6 +95,7 @@ const SpriteSelectorComponent = function (props) {
                 disabled={spriteInfoDisabled}
                 name={selectedSprite.name}
                 rotationStyle={selectedSprite.rotationStyle}
+                selectedId={selectedId}
                 size={selectedSprite.size}
                 stageSize={stageSize}
                 visible={selectedSprite.visible}

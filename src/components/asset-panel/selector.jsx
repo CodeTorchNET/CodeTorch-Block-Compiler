@@ -76,6 +76,7 @@ const Selector = props => {
                             index={index}
                             name={item.name}
                             number={index + 1 /* 1-indexed */}
+                            peers={item.peers}
                             selected={index === selectedItemIndex}
                             onClick={onItemClick}
                             onDeleteButtonClick={onDeleteClick}
@@ -103,7 +104,8 @@ Selector.propTypes = {
     isRtl: PropTypes.bool,
     items: PropTypes.arrayOf(PropTypes.shape({
         url: PropTypes.string,
-        name: PropTypes.any // modified by folders addon
+        name: PropTypes.any, // modified by folders addon
+        peers: PropTypes.array // who else has this one open, when the project is shared
     })),
     onAddSortable: PropTypes.func,
     onDeleteClick: PropTypes.func,

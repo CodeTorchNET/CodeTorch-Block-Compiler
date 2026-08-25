@@ -1,9 +1,5 @@
 const DIVIDER = "//";
 
-/**
- * getFolderFromName("B") === null
- * getFolderFromName("A//b") === "A"
- */
 const getFolderFromName = (name) => {
   const idx = name.indexOf(DIVIDER);
   if (idx === -1 || idx === 0) {
@@ -12,10 +8,6 @@ const getFolderFromName = (name) => {
   return name.substr(0, idx);
 };
 
-/**
- * getNameWithoutFolder("B") === "B"
- * getNameWithoutFolder("A//b") === "b"
- */
 const getNameWithoutFolder = (name) => {
   const idx = name.indexOf(DIVIDER);
   if (idx === -1 || idx === 0) {
@@ -24,12 +16,6 @@ const getNameWithoutFolder = (name) => {
   return name.substr(idx + DIVIDER.length);
 };
 
-/**
- * setFolderOfName("B", "y") === "y//B"
- * setFolderOfName("c//B", "y") === "y//B"
- * setFolderOfName("B", null) === "B"
- * setFolderOfName("c//B", null) === "B"
- */
 const setFolderOfName = (name, folder) => {
   const basename = getNameWithoutFolder(name);
   if (folder) {
@@ -52,15 +38,6 @@ const ensureNotReserved = (name) => {
 let currentSpriteFolder = null;
 let currentAssetFolder = null;
 
-/**
- * Used for compatibility with other addons that trap the add costume or add sound functions.
- * By default new assets are added to the folder that the user currently has open. This gets
- * encoded in the name of the asset, but that information may not be added until late in the
- * process. If you want to guarantee that your addon is aware of the asset name after
- * accounting for folders, then pass it into this function. The asset will be modified in-place.
- * It is safe to call this multiple times with the same asset.
- * @param {{name: string}} asset a sound or costume asset
- */
 export const addDefaultAssetFolderIfMissing = (asset) => {
   if (asset && currentAssetFolder !== null && typeof getFolderFromName(asset.name) !== "string") {
     asset.name = setFolderOfName(asset.name, currentAssetFolder);
@@ -68,28 +45,12 @@ export const addDefaultAssetFolderIfMissing = (asset) => {
 };
 
 export default async function ({ addon, console, msg }) {
-  // The basic premise of how this addon works is relative simple.
-  // scratch-gui renders the sprite selectors and asset selectors in a hierarchy like this:
-  // <SelectorHOC>
-  //   <SpriteSelectorItem />
-  //   <SpriteSelectorItem />
-  //   <SpriteSelectorItem />
-  //   <SpriteSelectorItem />
-  //   ...
-  // </SelectorHOC>
-  // It's obviously more complicated than that, but there are two important parts:
-  // SelectorHOC - We override this to change which items are displayed
-  // SpriteSelectorItem - We override this to change how items are displayed.
-  //    Folders are just items rendered differently
-  // These two components communicate through the `name` property of the items.
-  // We touch some things on the VM to make dragging items work properly.
 
   const REACT_INTERNAL_PREFIX = "__reactInternalInstance$";
 
   const TYPE_SPRITES = 1;
   const TYPE_ASSETS = 2;
 
-  // We run too early, will be set later
   let vm;
 
   let reactInternalKey;
@@ -97,14 +58,56 @@ export default async function ({ addon, console, msg }) {
   let currentSpriteItems;
   let currentAssetItems;
 
+  let folderUIPatched = false;
+
+  const findInstanceBelow = (el, verify) => {
+    const root = el && el[reactInternalKey];
+    if (!root) return null;
+    const queue = [[root, 0]];
+    while (queue.length) {
+      const [fiber, depth] = queue.shift();
+      const instance = fiber.stateNode;
+      if (instance && instance.props) {
+        try {
+          verify(instance);
+          return instance;
+        } catch (e) {
+        }
+      }
+      if (depth >= 12) continue;
+      if (fiber.child) queue.push([fiber.child, depth + 1]);
+      if (depth > 0 && fiber.sibling) queue.push([fiber.sibling, depth]);
+    }
+    return null;
+  };
+
+  const sortableHOCUnder = (el, quick) => {
+    let instance = null;
+    try {
+      instance = quick(el[reactInternalKey]);
+    } catch (e) {
+      instance = null;
+    }
+    if (instance) {
+      try {
+        verifySortableHOC(instance);
+        return instance;
+      } catch (e) {
+      }
+    }
+    return findInstanceBelow(el, verifySortableHOC);
+  };
+
   const getSortableHOCFromElement = (el) => {
     const nearestSpriteSelector = el.closest("[class*='sprite-selector_sprite-selector']");
     if (nearestSpriteSelector) {
-      return nearestSpriteSelector[reactInternalKey].child.sibling.child.stateNode;
+      const found = sortableHOCUnder(nearestSpriteSelector, (f) => f.child.sibling.child.stateNode);
+      if (found) return found;
     }
     const nearestAssetPanelWrapper = el.closest('[class*="asset-panel_wrapper"]');
     if (nearestAssetPanelWrapper) {
-      return nearestAssetPanelWrapper[reactInternalKey].child.child.stateNode;
+      const found = sortableHOCUnder(nearestAssetPanelWrapper, (f) => f.child.child.stateNode);
+      if (found) return found;
     }
     throw new Error("cannot find SortableHOC");
   };
@@ -119,18 +122,6 @@ export default async function ({ addon, console, msg }) {
     return Math.min(Math.max(n, min), max);
   };
 
-  /**
-   * @typedef {Object} ItemData
-   * @property {string} realName
-   * @property {number} realIndex
-   * @property {string} inFolder
-   * @property {string} folder
-   * @property {boolean} folderOpen
-   */
-
-  /**
-   * @returns {ItemData|null}
-   */
   const getItemData = (item) => {
     if (item && item.name && typeof item.name === "object") {
       return item.name;
@@ -141,12 +132,10 @@ export default async function ({ addon, console, msg }) {
   const openFolderAsset = {
     assetId: "&__sa_folders_folder",
     encodeDataURI() {
-      // Doesn't actually need to be a data: URI
-      return addon.self.getResource("/folder.svg") /* rewritten by pull.js */;
+      return addon.self.getResource("/folder.svg") ;
     },
   };
 
-  // https://github.com/scratchfoundation/scratch-gui/blob/develop/src/components/asset-panel/icon--sound.svg
   const imageIconSource = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="100px" height="100px" viewBox="0 0 20 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <g id="Sound" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
@@ -159,7 +148,6 @@ export default async function ({ addon, console, msg }) {
   const folderColors = Object.create(null);
   const getFolderColorClass = (folderName) => {
     const mulberry32 = (a) => {
-      // https://stackoverflow.com/a/47593316
       return function () {
         var t = (a += 0x6d2b79f5);
         t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -169,8 +157,6 @@ export default async function ({ addon, console, msg }) {
     };
 
     const hashCode = (str) => {
-      // Based on Java's String.hashCode
-      // https://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/lang/String.java#l1452
       let hash = 0;
       for (let i = 0; i < str.length; i++) {
         hash = 31 * hash + str.charCodeAt(i);
@@ -182,7 +168,6 @@ export default async function ({ addon, console, msg }) {
     const random = (str) => {
       const seed = hashCode(str);
       const rng = mulberry32(seed);
-      // Run RNG a few times to get more random numbers, otherwise similar seeds tend to give somewhat similar results
       rng();
       rng();
       rng();
@@ -354,7 +339,6 @@ export default async function ({ addon, console, msg }) {
   }
 
   const patchSortableHOC = (SortableHOC, type) => {
-    // SortableHOC should be: https://github.com/scratchfoundation/scratch-gui/blob/29d9851778febe4e69fa5111bf7559160611e366/src/lib/sortable-hoc.jsx#L8
 
     const itemCache = new Cache();
     const folderItemCache = new Cache();
@@ -362,7 +346,6 @@ export default async function ({ addon, console, msg }) {
 
     const PREVIEW_SIZE = 80;
     const PREVIEW_POSITIONS = [
-      // x, y
       [0, 0],
       [PREVIEW_SIZE / 2, 0],
       [0, PREVIEW_SIZE / 2],
@@ -370,8 +353,6 @@ export default async function ({ addon, console, msg }) {
     ];
 
     const createFolderPreview = (items) => {
-      // Directly generate a string instead of using DOM API for performance as we deal with very large inlined images
-      // Because the result is only used as an img src, XSS shouldn't be a concern
       let result = `data:image/svg+xml;,<svg xmlns="http://www.w3.org/2000/svg" width="${PREVIEW_SIZE}" height="${PREVIEW_SIZE}">`;
       for (let i = 0; i < Math.min(PREVIEW_POSITIONS.length, items.length); i++) {
         const item = items[i];
@@ -380,7 +361,6 @@ export default async function ({ addon, console, msg }) {
         const [x, y] = PREVIEW_POSITIONS[i];
         let src;
         if (item.asset) {
-          // TW: We can be 100% certain that escaping here is unnecessary
           src = item.asset.encodeDataURI();
         } else if (item.costume && item.costume.asset) {
           src = item.costume.asset.encodeDataURI();
@@ -505,7 +485,6 @@ export default async function ({ addon, console, msg }) {
             folderData = folderItem.name;
           } else {
             folderItem = {
-              // Can be used as a react key
               id: {
                 toString() {
                   return reactKey;
@@ -513,7 +492,6 @@ export default async function ({ addon, console, msg }) {
               },
             };
             folderData = {
-              // Can be used as a react key
               toString() {
                 return reactKey;
               },
@@ -546,7 +524,6 @@ export default async function ({ addon, console, msg }) {
           if (type === TYPE_SPRITES) {
             if (!folderItem.costume) folderItem.costume = {};
             folderItem.costume.asset = folderAsset;
-            // For sprite items, `id` is used as the drag payload and toString is used as a React key
             if (!folderItem.id) folderItem.id = {};
             folderItem.id.sa_folder_items = folderItems;
             folderItem.id.toString = () => reactKey;
@@ -606,7 +583,6 @@ export default async function ({ addon, console, msg }) {
     };
 
     SortableHOC.prototype.componentDidMount = function () {
-      // Do part of componentDidUpdate on mount as well
       const selectedItem = getSelectedItem(this);
       if (selectedItem) {
         const folder = getFolderFromName(selectedItem.name);
@@ -758,7 +734,6 @@ export default async function ({ addon, console, msg }) {
           data.folder,
           { useEditorClasses: true }
         );
-        // Prompt cancelled, do not rename
         if (newName === null) {
           return;
         }
@@ -766,7 +741,6 @@ export default async function ({ addon, console, msg }) {
           alert(msg("name-not-allowed"));
           return;
         }
-        // Empty name will remove the folder
         if (!newName) {
           newName = null;
         }
@@ -895,8 +869,6 @@ export default async function ({ addon, console, msg }) {
       const itemData = getItemData(this.props);
       if (itemData) {
         if (typeof itemData.realIndex === "number" && this.props.dragging) {
-          // If the item is being dragged onto another group (eg. costume list -> sprite list)
-          // then we fake a drag event to make the `index` be the real index
           const originalIndex = this.props.index;
           const realIndex = itemData.realIndex;
           if (originalIndex !== realIndex) {
@@ -954,7 +926,6 @@ export default async function ({ addon, console, msg }) {
           this.props.name = getNameWithoutFolder(itemData.realName);
         }
         if (typeof this.props.number === "number" && typeof itemData.realIndex === "number") {
-          // Convert 0-indexed to 1-indexed
           this.props.number = itemData.realIndex + 1;
         }
         if (typeof itemData.folder === "string") {
@@ -1032,7 +1003,6 @@ export default async function ({ addon, console, msg }) {
       itemIndex,
       newIndex
     ) => {
-      // First index depends on zeroIndexed
       itemIndex = clamp(itemIndex, zeroIndexed ? 0 : 1, zeroIndexed ? guiItems.length - 1 : guiItems.length);
       newIndex = clamp(newIndex, zeroIndexed ? 0 : 1, zeroIndexed ? guiItems.length - 1 : guiItems.length);
       if (itemIndex === newIndex) {
@@ -1057,7 +1027,6 @@ export default async function ({ addon, console, msg }) {
       if (typeof itemAtNewIndexData.realIndex === "number") {
         const newTarget = getVMItemFromGUIItem(itemAtNewIndex, assets);
         if (!newTarget || reorderingAssets.includes(newTarget)) {
-          // Dragging folder into itself or target doesn't exist. Ignore.
           return false;
         }
       }
@@ -1086,19 +1055,11 @@ export default async function ({ addon, console, msg }) {
         let item;
         let offset = 0;
         if (newIndex < itemIndex) {
-          // A B [C D E] F G
-          //    ^----------*
-          // A B C [D] E F G
-          //      ^--------*
           item = itemAtNewIndex.items[0];
         } else if (itemAtNewIndexData.folderOpen) {
-          // A B [C D E] F G
-          //   *---^
           item = itemAtNewIndex.items[0];
           newFolder = itemAtNewIndexData.folder;
         } else {
-          // A B [C] D E F G
-          //   *----^
           item = itemAtNewIndex.items[itemAtNewIndex.items.length - 1];
           offset = 1;
         }
@@ -1106,9 +1067,6 @@ export default async function ({ addon, console, msg }) {
         if (newAsset) {
           realNewIndex = assets.indexOf(newAsset) + offset;
         } else {
-          // Edge case: Dragging the first item of a list on top of the folder item
-          // A B [C D E] F G
-          //    ^---*
           newAsset = getVMItemFromGUIItem(item, originalAssets);
           if (!newAsset) {
             console.warn("should never happen");
@@ -1122,7 +1080,6 @@ export default async function ({ addon, console, msg }) {
       }
 
       if (typeof targetItemData.folder === "string" && newFolder !== null) {
-        // Cannot drag a folder into another folder
         return;
       }
 
@@ -1134,7 +1091,6 @@ export default async function ({ addon, console, msg }) {
       assets.splice(realNewIndex, 0, ...reorderingAssets);
       set(assets);
 
-      // If the folder has changed, update item names to match.
       if (typeof targetItemData.folder !== "string" && targetItemData.inFolder !== newFolder) {
         for (const asset of reorderingAssets) {
           const name = asset.getName ? asset.getName() : asset.name;
@@ -1248,15 +1204,11 @@ export default async function ({ addon, console, msg }) {
       );
     };
 
-    // Temporal bug fix for #5762
     const originalShareSoundToTarget = vm.shareSoundToTarget;
     vm.shareSoundToTarget = function (...args) {
       const target = this.runtime.getTargetById(args[1]);
       if (!target) {
-        // Avoid reading property from null
         return Promise.reject(new Error("Dropping sound into folder is not supported"));
-        // This would also work no matter what we returned, probably
-        // Original method returns a promise, so here too
       }
       return originalShareSoundToTarget.call(this, ...args);
     };
@@ -1298,7 +1250,6 @@ export default async function ({ addon, console, msg }) {
 
     const originalHandleDrop = Backpack.prototype.handleDrop;
     Backpack.prototype.handleDrop = function (...args) {
-      // When a folder is dropped into the backpack, upload all the items in the folder.
       const dragInfo = args[0];
       const folderItems = dragInfo && dragInfo.payload && dragInfo.payload.sa_folder_items;
       if (Array.isArray(folderItems)) {
@@ -1314,7 +1265,6 @@ export default async function ({ addon, console, msg }) {
     backpackInstance.handleDrop = Backpack.prototype.handleDrop.bind(backpackInstance);
   };
 
-  // Backpack
   {
     const clickListener = (e) => {
       if (!e.target.closest('[class*="backpack_backpack-header_"]')) {
@@ -1334,32 +1284,43 @@ export default async function ({ addon, console, msg }) {
     document.addEventListener("click", clickListener, true);
   }
 
-  // Sprite list
   {
     const spriteSelectorItemElement = await addon.tab.waitForElement("[class^='sprite-selector_sprite-wrapper']", {
       reduxCondition: (state) => !state.scratchGui.mode.isPlayerOnly,
     });
     vm = addon.tab.traps.vm;
     reactInternalKey = Object.keys(spriteSelectorItemElement).find((i) => i.startsWith(REACT_INTERNAL_PREFIX));
-    const sortableHOCInstance = getSortableHOCFromElement(spriteSelectorItemElement);
-    const spriteSelectorItemInstance = spriteSelectorItemElement[reactInternalKey].child.child.child.stateNode;
-    verifySortableHOC(sortableHOCInstance);
-    verifySpriteSelectorItem(spriteSelectorItemInstance);
     verifyVM(vm);
-    patchSortableHOC(sortableHOCInstance.constructor, TYPE_SPRITES);
-    patchSpriteSelectorItem(spriteSelectorItemInstance.constructor);
-    sortableHOCInstance.saInitialSetup();
+
+    try {
+      const sortableHOCInstance = getSortableHOCFromElement(spriteSelectorItemElement);
+      const spriteSelectorItemInstance =
+        findInstanceBelow(spriteSelectorItemElement, verifySpriteSelectorItem);
+      if (!spriteSelectorItemInstance) throw new Error("Can not find SpriteSelectorItem");
+      verifySortableHOC(sortableHOCInstance);
+      patchSpriteSelectorItem(spriteSelectorItemInstance.constructor);
+      patchSortableHOC(sortableHOCInstance.constructor, TYPE_SPRITES);
+      sortableHOCInstance.saInitialSetup();
+      folderUIPatched = true;
+    } catch (e) {
+      console.warn("[folders] the sprite list could not be patched; folders are off", e);
+    }
+
     patchVM();
   }
 
-  // Costume and sound list
+  if (!folderUIPatched) return;
   {
     const selectorListItem = await addon.tab.waitForElement("[class*='selector_list-item']", {
       reduxCondition: (state) => state.scratchGui.editorTab.activeTabIndex !== 0 && !state.scratchGui.mode.isPlayerOnly,
     });
-    const sortableHOCInstance = getSortableHOCFromElement(selectorListItem);
-    verifySortableHOC(sortableHOCInstance);
-    patchSortableHOC(sortableHOCInstance.constructor, TYPE_ASSETS);
-    sortableHOCInstance.saInitialSetup();
+    try {
+      const sortableHOCInstance = getSortableHOCFromElement(selectorListItem);
+      verifySortableHOC(sortableHOCInstance);
+      patchSortableHOC(sortableHOCInstance.constructor, TYPE_ASSETS);
+      sortableHOCInstance.saInitialSetup();
+    } catch (e) {
+      console.warn("[folders] the costume and sound lists could not be patched", e);
+    }
   }
 }

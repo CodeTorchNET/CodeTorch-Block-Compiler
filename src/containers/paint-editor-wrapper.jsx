@@ -5,6 +5,7 @@ import VM from 'scratch-vm';
 import PaintEditor from '../lib/tw-scratch-paint';
 import {inlineSvgFonts, sanitizeSvg} from '@turbowarp/scratch-svg-renderer';
 import ErrorBoundaryHOC from '../lib/error-boundary-hoc.jsx';
+import {publishArt, hasArtSubscribers} from '../lib/collab-art-bus.js';
 import {openFontsModal} from '../reducers/modals';
 
 import {connect} from 'react-redux';
@@ -28,6 +29,8 @@ class PaintEditorWrapper extends React.Component {
     }
     shouldComponentUpdate (nextProps, nextState) {
         return this.props.imageId !== nextProps.imageId ||
+
+            this.props.imageFormat !== nextProps.imageFormat ||
             this.props.rtl !== nextProps.rtl ||
             this.props.name !== nextProps.name ||
             this.props.theme !== nextProps.theme ||
@@ -45,20 +48,42 @@ class PaintEditorWrapper extends React.Component {
     handleUpdateName (name) {
         this.props.vm.renameCostume(this.props.selectedCostumeIndex, name);
     }
-    handleUpdateImage (isVector, image, rotationCenterX, rotationCenterY) {
+    handleUpdateImage (isVector, image, rotationCenterX, rotationCenterY, art) {
         if (isVector) {
+
+            if (art && hasArtSubscribers()) {
+                publishArt({
+                    targetId: this.props.vm.editingTarget && this.props.vm.editingTarget.id,
+                    costumeIndex: this.props.selectedCostumeIndex,
+                    rotationCenterX,
+                    rotationCenterY,
+                    view: art.view,
+                    shapes: art.shapes,
+                    items: art.items
+                });
+            }
             this.props.vm.updateSvg(
                 this.props.selectedCostumeIndex,
                 image,
                 rotationCenterX,
                 rotationCenterY);
         } else {
+            if (art && art.op && hasArtSubscribers()) {
+                publishArt({
+                    targetId: this.props.vm.editingTarget && this.props.vm.editingTarget.id,
+                    costumeIndex: this.props.selectedCostumeIndex,
+                    rotationCenterX,
+                    rotationCenterY,
+                    bitmapResolution: 2,
+                    op: art.op
+                });
+            }
             this.props.vm.updateBitmap(
                 this.props.selectedCostumeIndex,
                 image,
                 rotationCenterX,
                 rotationCenterY,
-                2 /* bitmapResolution */);
+                2 );
         }
     }
     fontInlineFn (svgString) {
@@ -108,7 +133,6 @@ PaintEditorWrapper.propTypes = {
 const mapStateToProps = (state, {selectedCostumeIndex}) => {
     const targetId = state.scratchGui.vm.editingTarget.id;
     const sprite = state.scratchGui.vm.editingTarget.sprite;
-    // Make sure the costume index doesn't go out of range.
     const index = selectedCostumeIndex < sprite.costumes.length ?
         selectedCostumeIndex : sprite.costumes.length - 1;
     const costume = state.scratchGui.vm.editingTarget.sprite.costumes[index];
@@ -118,7 +142,9 @@ const mapStateToProps = (state, {selectedCostumeIndex}) => {
         rotationCenterX: costume && costume.rotationCenterX,
         rotationCenterY: costume && costume.rotationCenterY,
         imageFormat: costume && costume.dataFormat,
-        imageId: targetId && `${targetId}${costume.skinId}`,
+
+        imageId: targetId && costume && typeof costume.skinId === 'number' ?
+            `${targetId}${costume.skinId}` : null,
         rtl: state.locales.isRtl,
         selectedCostumeIndex: index,
         theme: state.scratchGui.theme.theme,

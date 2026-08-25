@@ -1,4 +1,5 @@
 import * as constants from './constants.js';
+import * as presence from './presence.js';
 import * as helper from './helper.js';
 
 export const CURSOR_UPDATE_THROTTLE_MS = 50;
@@ -515,8 +516,10 @@ export function ensureCollaborationLayerOnTop() {
 }
 
 export function setupCollaborationLayer() {
-    const workspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
+    const workspace = constants.editorWorkspace();
     if (!workspace) return;
+
+    if (constants.mutableRefs.isViewer) applyViewerWorkspace(workspace);
 
     const newWorkspaceSvg = workspace.getParentSvg(); 
     const workspaceGroup = newWorkspaceSvg?.querySelector('.blocklyBlockCanvas');
@@ -593,7 +596,7 @@ export function setupCollaborationLayer() {
 
     if (!constants.mutableRefs.throttledMouseMoveHandler) {
         constants.mutableRefs.throttledMouseMoveHandler = helper.throttle((e) => {
-            const currentWorkspace = constants.mutableRefs.BlocklyInstance.getMainWorkspace();
+            const currentWorkspace = constants.editorWorkspace();
             if (!currentWorkspace || !currentWorkspace.getParentSvg() || !currentWorkspace.getCanvas() || !constants.mutableRefs.yjsAwarenessInstance) return;
             if (e.target?.closest('.blocklyFlyout') || currentWorkspace.isFlyout) return;
 
@@ -659,7 +662,7 @@ export function setupCollaborationLayer() {
     }
 
     if (constants.mutableRefs.yjsAwarenessInstance && constants.mutableRefs.collaborationLayerGroup) {
-        const states = constants.mutableRefs.yjsAwarenessInstance.getStates();
+        const states = presence.collabStates();
         const localClientID = constants.mutableRefs.yjsAwarenessInstance.clientID;
         states.forEach((state, clientID) => {
             if (clientID === localClientID) return; 
@@ -672,14 +675,6 @@ export function setupCollaborationLayer() {
     }
 }
 
-let backpackInsertOverride = false;
-window.handleBackpackCollaboratorOverride = function () {
-    backpackInsertOverride = true;
-    setTimeout(() => {
-        backpackInsertOverride = false;
-    }, 1000); 
-};
-
 let undoRedoOverride = false;
 export function setUndoRedoOverride() {
     undoRedoOverride = true;
@@ -691,7 +686,7 @@ export function setUndoRedoOverride() {
 export function updateUserMenuBarIcons() {
     if (!constants.mutableRefs.yjsAwarenessInstance || !constants.mutableRefs.userIconContainer) return;
 
-    const states = constants.mutableRefs.yjsAwarenessInstance.getStates(); 
+    const states = presence.collabStates(); 
     const localClientID = constants.mutableRefs.yjsAwarenessInstance.clientID;
     const currentlyDisplayed = new Set(constants.remoteUserIcons.keys());
     const activeRemoteClientIDs = new Set(); 
@@ -753,7 +748,7 @@ export function updateUserMenuBarIcons() {
 export function updateSpriteUserIcons() {
     if (!constants.mutableRefs.yjsAwarenessInstance || !constants.mutableRefs.vm) return;
 
-    const states = constants.mutableRefs.yjsAwarenessInstance.getStates(); 
+    const states = presence.collabStates(); 
     const localClientID = constants.mutableRefs.yjsAwarenessInstance.clientID;
     const spriteListElement = document.querySelector('[class*="sprite-selector_items-wrapper"]'); 
     const stageElement = document.querySelectorAll('[class*="stage-selector_stage-selector"]')[0];
@@ -885,7 +880,7 @@ export function updateSpriteUserIcons() {
 export function updateTabUserIcons() {
     if (!constants.mutableRefs.yjsAwarenessInstance || !constants.mutableRefs.vm) return;
 
-    const states = constants.mutableRefs.yjsAwarenessInstance.getStates();
+    const states = presence.collabStates();
     const localClientID = constants.mutableRefs.yjsAwarenessInstance.clientID;
     const tabElements = document.querySelectorAll(constants.TAB_SELECTOR); 
     const localUserCurrentTargetId = constants.localUserInfo.currentTargetId; 
@@ -1193,4 +1188,67 @@ export function setupCSS() {
 
 export function getActiveRemoteClientIDs() {
     return new Set(cursorElements.keys());
+}
+
+/*
+ * Telling somebody they are watching.
+ */
+const VIEWER_BANNER_ID = 'collaboration-viewer-banner';
+
+export function showViewerBanner() {
+    if (document.getElementById(VIEWER_BANNER_ID)) return;
+    const banner = document.createElement('div');
+    banner.id = VIEWER_BANNER_ID;
+    banner.textContent = 'You are watching this project. Ask the owner for edit access.';
+    banner.style.cssText = [
+        'position:fixed', 'left:50%', 'transform:translateX(-50%)', 'bottom:16px',
+        'z-index:9999', 'pointer-events:none',
+        'background:rgba(35,39,50,0.94)', 'color:#ffffff',
+        'font-family:"Helvetica Neue", Helvetica, Arial, sans-serif', 'font-size:13px',
+        'padding:8px 16px', 'border-radius:16px', 'box-shadow:0 2px 8px rgba(0,0,0,.35)'
+    ].join(';');
+    document.body.appendChild(banner);
+}
+
+export function hideViewerBanner() {
+    document.getElementById(VIEWER_BANNER_ID)?.remove();
+}
+
+const VIEWER_STYLE_ID = 'collaboration-viewer-styles';
+
+export function applyViewerWorkspace(workspace) {
+    if (!document.getElementById(VIEWER_STYLE_ID)) {
+        const style = document.createElement('style');
+        style.id = VIEWER_STYLE_ID;
+
+        style.textContent = `
+        .blocklyBlockCanvas, .blocklyFlyout { pointer-events: none; }
+
+        [class*="sprite-selector_add-button"],
+        [class*="stage-selector_add-button"],
+        [class*="selector_new-buttons"],
+        [class*="sprite-selector-item_delete-button"] { display: none !important; }
+
+        [class*="sprite-info_sprite-info"] { pointer-events: none; opacity: .6; }
+
+        [class*="paint-editor_canvas-container"],
+        [class*="paint-editor_mode-selector"],
+        [class*="paint-editor_editor-container-top"] { pointer-events: none; }
+
+        [class*="sound-editor_effects"],
+        [class*="sound-editor_button-group"],
+        [class*="sound-editor_name-input"],
+        [class*="sound-editor_input-group"] { pointer-events: none; opacity: .6; }
+        `;
+        document.head.appendChild(style);
+    }
+    if (!workspace || !workspace.options) return;
+    workspace.options.readOnly = true;
+    const flyout = workspace.getFlyout && workspace.getFlyout();
+    const flyoutWorkspace = flyout && flyout.getWorkspace && flyout.getWorkspace();
+    if (flyoutWorkspace && flyoutWorkspace.options) flyoutWorkspace.options.readOnly = true;
+}
+
+export function clearViewerWorkspace() {
+    document.getElementById(VIEWER_STYLE_ID)?.remove();
 }

@@ -3,19 +3,14 @@ import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
 import log from './log';
 
-// eslint-disable-next-line import/no-commonjs
 const {API_HOST, ASSET_HOST} = require('./brand');
 
 import {setProjectTitle} from '../reducers/project-title';
 import {setAuthor, setDescription} from '../reducers/tw';
+import {setCollaborationSession} from '../reducers/collaboration';
 
 import storage from './storage';
 
-/**
- * Shared promise cache to prevent double-loading metadata
- * when both HOCs trigger at the same time.
- * (this is primarily due to Scratch Project Loading)
- */
 let activeFetchMetadataPromise = null;
 
 export const fetchProjectMeta = async (projectId, isScratch) => {
@@ -45,7 +40,7 @@ export const fetchProjectMeta = async (projectId, isScratch) => {
             const data = await res.json();
             if (res.ok) {
                 if (isScratch){
-                    storage.setScratchProjectToken(data.project_token); // so we can load actual project JSON file
+                    storage.setScratchProjectToken(data.project_token);
 
                     const canRemix = (authToken && authToken !== 'anonymous') ? 'true' : 'false';
                     return {
@@ -126,7 +121,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 const isScratch = this.props.isScratchProject;
 
                 if (projectId === '0') {
-                    activeFetchMetadataPromise = null; // Reset cache on new project
+                    activeFetchMetadataPromise = null;
                 } else {
                     fetchProjectMetaWithCache(projectId, isScratch).then(data => {
                         if (this.props.reduxProjectId !== projectId) return;
@@ -150,11 +145,11 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         this.setState({
                             canSave: canSave,
                             canRemix: data.canRemix === 'true',
-                            canEditTitle: canSave // Enable title editing if user has save permissions
+                            canEditTitle: canSave
                         });
                         
                         if (isScratch) {
-                            window.CollaborationRoom = null;
+                            this.props.onSetCollaborationSession({room: null});
                             window.parent.postMessage({
                                 type: 'block-compiler-action',
                                 action: 'scratch-project-description',
@@ -163,14 +158,17 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                                     pfp: data.author.pfp,
                                     username: data.author.username,
                                     title: data.title
-                                    // description: data.description || ''
                                 }
                             }, '*');
                         } else {
                             storage.setCloudOTT(data?.cloudDataOTT);
                             storage.setCustomAchievements(data?.customAchievements);
-                            window.CollaborationRoom = data?.collaboratorRoom;
-                            window.collaborationOTT = data?.collaborationOTT;
+                            this.props.onSetCollaborationSession({
+                                room: data?.collaboratorRoom,
+                                ott: data?.collaborationOTT,
+                                username: storage.username,
+                                role: data?.collaborationRole || null
+                            });
                         }
                         setIndexable(true);
                     })
@@ -186,13 +184,11 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         }
         render () {
             const {
-                /* eslint-disable no-unused-vars */
                 reduxProjectId,
                 isScratchProject,
                 onSetAuthor,
                 onSetDescription,
                 onSetProjectTitle,
-                /* eslint-enable no-unused-vars */
                 ...props
             } = this.props;
             return (
@@ -209,6 +205,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         reduxProjectId: PropTypes.string,
         isScratchProject: PropTypes.bool,
         onSetAuthor: PropTypes.func,
+        onSetCollaborationSession: PropTypes.func,
         onSetDescription: PropTypes.func,
         onSetProjectTitle: PropTypes.func
     };
@@ -225,7 +222,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             instructions,
             credits
         })),
-        onSetProjectTitle: title => dispatch(setProjectTitle(title))
+        onSetProjectTitle: title => dispatch(setProjectTitle(title)),
+        onSetCollaborationSession: session => dispatch(setCollaborationSession(session))
     });
     return connect(
         mapStateToProps,

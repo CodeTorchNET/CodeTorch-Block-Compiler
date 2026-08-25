@@ -8,7 +8,6 @@ import {ContextMenuTrigger} from 'react-contextmenu';
 import {DangerousMenuItem, ContextMenu, MenuItem} from '../context-menu/context-menu.jsx';
 import {FormattedMessage} from 'react-intl';
 
-// react-contextmenu requires unique id to match trigger and context menu
 let contextMenuId = 0;
 
 const SpriteSelectorItem = props => (
@@ -30,6 +29,20 @@ const SpriteSelectorItem = props => (
         {typeof props.number === 'undefined' ? null : (
             <div className={styles.number}>{props.number}</div>
         )}
+        {props.peers && props.peers.length ? (
+            <div
+                className={styles.collaborators}
+                title={props.peers.map(peer => peer.name).join(', ')}
+            >
+                {props.peers.map((peer, order) => (
+                    <div
+                        className={styles.collaboratorDot}
+                        key={`${peer.name}-${order}`}
+                        style={{backgroundColor: peer.color}}
+                    />
+                ))}
+            </div>
+        ) : null}
         {props.costumeURL ? (
             <div className={styles.spriteImageOuter}>
                 <div className={styles.spriteImageInner}>
@@ -102,7 +115,6 @@ SpriteSelectorItem.propTypes = {
     componentRef: PropTypes.func,
     costumeURL: PropTypes.string,
     details: PropTypes.string,
-    // eslint-disable-next-line react/forbid-prop-types
     name: PropTypes.any,
     number: PropTypes.number,
     onClick: PropTypes.func,
@@ -113,6 +125,10 @@ SpriteSelectorItem.propTypes = {
     onMouseDown: PropTypes.func,
     onMouseEnter: PropTypes.func,
     onMouseLeave: PropTypes.func,
+    peers: PropTypes.arrayOf(PropTypes.shape({
+        name: PropTypes.string,
+        color: PropTypes.string
+    })),
     preventContextMenu: PropTypes.bool,
     selected: PropTypes.bool.isRequired
 };

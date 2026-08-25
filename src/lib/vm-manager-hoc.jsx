@@ -16,24 +16,16 @@ import {
 } from '../reducers/project-state';
 import log from './log';
 import storage from './storage';
+import * as collabSnapshot from './collab-snapshot';
 
-// eslint-disable-next-line import/no-commonjs
 const {API_HOST, TRUSTED_IFRAME_HOST} = require('../lib/brand');
 
-/**
- * List of fonts that could be used by security prompts.
- */
 const SECURITY_CRITICAL_FONTS = [
     'Helvetica Neue',
     'Helvetica',
     'Arial'
 ];
 
-/*
- * Higher Order Component to manage events emitted by the VM
- * @param {React.Component} WrappedComponent component to manage VM events for
- * @returns {React.Component} connected component with vm events bound to redux
- */
 const vmManagerHOC = function (WrappedComponent) {
     class VMManager extends React.Component {
         constructor (props) {
@@ -65,24 +57,19 @@ const vmManagerHOC = function (WrappedComponent) {
             }
         }
         componentDidUpdate (prevProps) {
-            // if project is in loading state, AND fonts are loaded,
-            // and they weren't both that way until now... load project!
             if (this.props.isLoadingWithId && this.props.fontsLoaded &&
                 (!prevProps.isLoadingWithId || !prevProps.fontsLoaded)) {
                 this.loadProject();
             }
-            // Start the VM if entering editor mode with an unstarted vm
             if (!this.props.isPlayerOnly && !this.props.isStarted) {
                 this.props.vm.start();
             }
         }
         loadProject () {
  
-            // tw: stop when loading new project
             this.props.vm.quit();
             return storage.loadCustomAchievementData()
                 .then(({accessToken, customAchievements}) => {
-                    // I hate how we are doing this but until I find a better way this will work:
                     const additionalData = {
                         projectId: this.props.projectId,
                         authToken: accessToken,
@@ -101,33 +88,28 @@ const vmManagerHOC = function (WrappedComponent) {
 
                     this.props.vm.loadProject(this.props.projectData, additionalData)
                         .then(() => {
+                            collabSnapshot.applySnapshotIds(this.props.vm);
+                            collabSnapshot.markReady();
+
                             this.props.onLoadedProject(this.props.loadingState, this.props.canSave);
-                            // Wrap in a setTimeout because skin loading in
-                            // the renderer can be async.
                             setTimeout(() => this.props.onSetProjectUnchanged());
 
-                            // If the vm is not running, call draw on the renderer manually
-                            // This draws the state of the loaded project with no blocks running
-                            // which closely matches the 2.0 behavior, except for monitors–
-                            // 2.0 runs monitors and shows updates (e.g. timer monitor)
-                            // before the VM starts running other hat blocks.
                             if (!this.props.isStarted) {
-                                // Wrap in a setTimeout because skin loading in
-                                // the renderer can be async.
                                 setTimeout(() => this.props.vm.renderer.draw());
                             }
                         })
                         .catch(e => {
+                            collabSnapshot.markReady();
                             this.props.onError(e);
                         });
                 })
                 .catch(e => {
+                    collabSnapshot.markReady();
                     this.props.onError(e);
                 });
         }
         render () {
             const {
-                /* eslint-disable no-unused-vars */
                 fontsLoaded,
                 loadingState,
                 locale,
@@ -137,7 +119,6 @@ const vmManagerHOC = function (WrappedComponent) {
                 onLoadedProject: onLoadedProjectProp,
                 onSetProjectUnchanged,
                 projectData,
-                /* eslint-enable no-unused-vars */
                 isLoadingWithId: isLoadingWithIdProp,
                 vm,
                 ...componentProps
@@ -198,7 +179,6 @@ const vmManagerHOC = function (WrappedComponent) {
         onSetUsername: username => dispatch(setUsername(username))
     });
 
-    // Allow incoming props to override redux-provided props. Used to mock in tests.
     const mergeProps = (stateProps, dispatchProps, ownProps) => Object.assign(
         {}, stateProps, dispatchProps, ownProps
     );

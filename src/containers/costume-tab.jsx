@@ -27,7 +27,7 @@ import {
 
 import {setRestore} from '../reducers/restore-deletion';
 import {showStandardAlert, closeAlertWithId} from '../reducers/alerts';
-import {selectIsAssetLocked, setSelectedAsset} from '../reducers/collaboration';
+import {selectIsAssetLocked, selectAllCostumePeers, peersForCostume, setSelectedAsset} from '../reducers/collaboration';
 
 import addLibraryBackdropIcon from '../components/asset-panel/icon--add-backdrop-lib.svg';
 import addLibraryCostumeIcon from '../components/asset-panel/icon--add-costume-lib.svg';
@@ -110,6 +110,10 @@ class CostumeTab extends React.Component {
             this.state = {selectedCostumeIndex: 0};
         }
     }
+
+    componentDidMount () {
+        this.props.onSetSelectedAsset('costume', this.state.selectedCostumeIndex, this.props.editingTarget);
+    }
     componentWillReceiveProps (nextProps) {
         const {
             editingTarget,
@@ -123,25 +127,23 @@ class CostumeTab extends React.Component {
         }
 
         if (this.props.editingTarget === editingTarget) {
-            // If costumes have been added or removed, change costumes to the editing target's
-            // current costume.
             const oldTarget = this.props.sprites[editingTarget] ?
                 this.props.sprites[editingTarget] : this.props.stage;
-            // @todo: Find and switch to the index of the costume that is new. This is blocked by
-            // https://github.com/LLK/scratch-vm/issues/967
-            // Right now, you can land on the wrong costume if a costume changing script is running.
             if (oldTarget.costumeCount !== target.costumeCount) {
                 this.setState({selectedCostumeIndex: target.currentCostume});
             }
         } else {
-            // If switching editing targets, update the costume index
             this.setState({selectedCostumeIndex: target.currentCostume});
-            // Update collaboration lock when target switches
             this.props.onSetSelectedAsset('costume', target.currentCostume, editingTarget);
         }
     }
     handleSelectCostume (costumeIndex) {
-        this.props.vm.editingTarget.setCostume(costumeIndex);
+        const target = this.props.vm.editingTarget;
+        target.setCostume(costumeIndex);
+
+        this.props.vm.runtime.emitTargetSimplePropertyChanged([
+            [target.originalTargetId, {currentCostume: target.currentCostume}]
+        ]);
         this.setState({selectedCostumeIndex: costumeIndex});
         this.props.onSetSelectedAsset('costume', costumeIndex, this.props.editingTarget);
     }
@@ -169,9 +171,6 @@ class CostumeTab extends React.Component {
             if (fromCostumeLibrary) {
                 return this.props.vm.addCostumeFromLibrary(c.md5, c);
             }
-            // If targetId is falsy, VM should default it to editingTarget.id
-            // However, targetId should be provided to prevent #5876,
-            // if making new costume takes a while
             return this.props.vm.addCostume(c.md5, c, targetId);
         }));
     }
@@ -192,7 +191,7 @@ class CostumeTab extends React.Component {
             bitmapResolution: item.bitmapResolution,
             skinId: null
         };
-        this.handleNewCostume(vmCostume, true /* fromCostumeLibrary */);
+        this.handleNewCostume(vmCostume, true );
     }
     async handleSurpriseBackdrop () {
         const backdropLibraryContent = await getBackdropLibrary();
@@ -250,16 +249,12 @@ class CostumeTab extends React.Component {
         this.fileInput = input;
     }
     formatCostumeDetails (size, optResolution) {
-        // If no resolution is given, assume that the costume is an SVG
         const resolution = optResolution ? optResolution : 1;
-        // Convert size to stage units by dividing by resolution
-        // Round up width and height for scratch-flash compatibility
-        // https://github.com/LLK/scratch-flash/blob/9fbac92ef3d09ceca0c0782f8a08deaa79e4df69/src/ui/media/MediaInfo.as#L224-L237
         return `${Math.ceil(size[0] / resolution)} x ${Math.ceil(size[1] / resolution)}`;
     }
     render () {
         const {
-            dispatchUpdateRestore, // eslint-disable-line no-unused-vars
+            dispatchUpdateRestore,
             intl,
             isRtl,
             onNewLibraryBackdropClick,
@@ -280,11 +275,13 @@ class CostumeTab extends React.Component {
         const addLibraryFunc = isStage ? onNewLibraryBackdropClick : onNewLibraryCostumeClick;
         const addLibraryIcon = isStage ? addLibraryBackdropIcon : addLibraryCostumeIcon;
 
-        const costumeData = target.costumes ? target.costumes.map(costume => ({
+        const peers = this.props.costumePeers;
+        const costumeData = target.costumes ? target.costumes.map((costume, index) => ({
             name: costume.name,
             asset: costume.asset,
             details: costume.size ? this.formatCostumeDetails(costume.size, costume.bitmapResolution) : null,
-            dragPayload: costume
+            dragPayload: costume,
+            peers: peersForCostume(peers, this.props.editingTarget, index)
         })) : [];
 
         const lock = this.props.isAssetLocked(this.props.editingTarget, this.state.selectedCostumeIndex, 'costume');
@@ -326,7 +323,7 @@ class CostumeTab extends React.Component {
                             title: intl.formatMessage(messages.addAICostumeMsg),
                             img: AIIcon,
                             onClick: () => {
-                                console.log('AI Clicked'); // CHANGE FOR AI
+                                console.log('AI Clicked');
                             }
                         }] :
                         []
@@ -371,6 +368,7 @@ CostumeTab.propTypes = {
     onNewLibraryCostumeClick: PropTypes.func.isRequired,
     onShowImporting: PropTypes.func.isRequired,
     isAssetLocked: PropTypes.func.isRequired,
+    costumePeers: PropTypes.object.isRequired,
     onSetSelectedAsset: PropTypes.func.isRequired,
     sprites: PropTypes.shape({
         id: PropTypes.shape({
@@ -395,7 +393,8 @@ const mapStateToProps = state => ({
     sprites: state.scratchGui.targets.sprites,
     stage: state.scratchGui.targets.stage,
     dragging: state.scratchGui.assetDrag.dragging,
-    isAssetLocked: (targetId, index, type) => selectIsAssetLocked(state, targetId, index, type)
+    isAssetLocked: (targetId, index, type) => selectIsAssetLocked(state, targetId, index, type),
+    costumePeers: selectAllCostumePeers(state)
 });
 
 const mapDispatchToProps = dispatch => ({

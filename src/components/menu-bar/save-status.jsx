@@ -22,12 +22,13 @@ import styles from './save-status.css';
 // of the project state, rather than an event.
 const SaveStatus = ({
     alertsList,
+    isCollabActive,
     projectChanged,
     onClickSave
 }) => (
     filterInlineAlerts(alertsList).length > 0 ? (
         <InlineMessages />
-    ) : projectChanged && (
+    ) : projectChanged && !isCollabActive && (
         <div
             className={styles.saveNow}
             onClick={onClickSave}
@@ -42,12 +43,14 @@ const SaveStatus = ({
 
 SaveStatus.propTypes = {
     alertsList: PropTypes.arrayOf(PropTypes.object),
+    isCollabActive: PropTypes.bool,
     onClickSave: PropTypes.func,
     projectChanged: PropTypes.bool
 };
 
 const mapStateToProps = state => ({
     alertsList: state.scratchGui.alerts.alertsList,
+    isCollabActive: state.scratchGui.collaboration.isCollabActive,
     projectChanged: state.scratchGui.projectChanged
 });
 

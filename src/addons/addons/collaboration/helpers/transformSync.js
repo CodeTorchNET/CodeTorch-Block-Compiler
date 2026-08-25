@@ -2,6 +2,10 @@ import * as constants from './constants.js';
 
 export const TRANSFORM_FIELDS = ['x', 'y', 'direction', 'size', 'rotationStyle', 'visible', 'draggable'];
 
+export const SPRITE_STATE_FIELDS = ['currentCostume', 'volume'];
+
+const STAGE_ONLY_FIELDS = ['tempo', 'videoTransparency', 'videoState', 'textToSpeechLanguage'];
+
 export function serializeTransformFields(target) {
     return {
         x: target.x,
@@ -12,6 +16,60 @@ export function serializeTransformFields(target) {
         visible: target.visible,
         draggable: target.draggable
     };
+}
+
+export function serializeStateFields(target) {
+    const out = {
+        currentCostume: target.currentCostume ?? 0,
+        volume: target.volume ?? 100
+    };
+    if (target.isStage) {
+        STAGE_ONLY_FIELDS.forEach(field => {
+            if (target[field] !== undefined) out[field] = target[field];
+        });
+    }
+    return out;
+}
+
+export function publishLayerOrder() {
+    const vm = constants.mutableRefs.vm;
+    if (!vm || !constants.mutableRefs.sharedSpriteData) return;
+
+    constants.mutableRefs.ydoc.transact(() => {
+        vm.runtime.targets.forEach(target => {
+            if (!target.isOriginal || target.isStage) return;
+            const order = target.getLayerOrder();
+            if (typeof order !== 'number') return;
+            const yMap = findSpriteMap(target.id);
+            if (yMap && yMap.get('layerOrder') !== order) yMap.set('layerOrder', order);
+        });
+    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+}
+
+export function applyLayerOrderFromYjs() {
+    const vm = constants.mutableRefs.vm;
+    if (!vm || !constants.mutableRefs.sharedSpriteData) return;
+
+    const ordered = vm.runtime.targets
+        .filter(target => target.isOriginal && !target.isStage)
+        .map(target => ({target, order: findSpriteMap(target.id)?.get('layerOrder')}))
+        .filter(entry => typeof entry.order === 'number')
+        .sort((a, b) => a.order - b.order);
+
+    if (ordered.length < 2) return;
+    ordered.forEach(entry => entry.target.goToFront());
+}
+
+export function applyStateFromYjs(target, yMap) {
+    const currentCostume = yMap.get('currentCostume');
+    if (typeof currentCostume === 'number' &&
+        currentCostume !== target.currentCostume &&
+        currentCostume >= 0 &&
+        currentCostume < target.getCostumes().length) {
+        target.setCostume(currentCostume);
+    }
+    const volume = yMap.get('volume');
+    if (typeof volume === 'number' && volume !== target.volume) target.volume = volume;
 }
 
 export function applyTransformFromYjs(target, yMap) {
@@ -46,12 +104,7 @@ export function applyTransformFromYjs(target, yMap) {
 }
 
 function findSpriteMap(targetId) {
-    const sharedSprites = constants.mutableRefs.sharedSprites;
-    for (let i = 0; i < sharedSprites.length; i++) {
-        const yMap = sharedSprites.get(i);
-        if (yMap.get('id') === targetId) return yMap;
-    }
-    return null;
+    return constants.mutableRefs.sharedSpriteData?.get(targetId) || null;
 }
 
 const TRANSFORM_PUSH_THROTTLE_MS = 50;
@@ -72,7 +125,9 @@ function flushTransformPush(targetId) {
             const yMap = findSpriteMap(targetId);
             if (!yMap) return;
             Object.keys(properties).forEach(key => {
-                if (TRANSFORM_FIELDS.includes(key)) yMap.set(key, properties[key]);
+                if (TRANSFORM_FIELDS.includes(key) || SPRITE_STATE_FIELDS.includes(key)) {
+                    yMap.set(key, properties[key]);
+                }
             });
         }, constants.LOCAL_EVENT_SYNC_ORIGIN);
     } finally {
@@ -84,7 +139,7 @@ export function handleLocalTransformChange(targetId, properties) {
     if (constants.mutableRefs.syncingTargets.has(targetId)) return;
 
     const relevant = {};
-    TRANSFORM_FIELDS.forEach(key => {
+    [...TRANSFORM_FIELDS, ...SPRITE_STATE_FIELDS].forEach(key => {
         if (Object.prototype.hasOwnProperty.call(properties, key)) relevant[key] = properties[key];
     });
     if (Object.keys(relevant).length === 0) return;

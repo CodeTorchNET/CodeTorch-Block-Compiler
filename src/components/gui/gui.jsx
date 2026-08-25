@@ -70,6 +70,20 @@ const getFullscreenBackgroundColor = () => {
 
 const fullscreenBackgroundColor = getFullscreenBackgroundColor();
 
+// Props that reach this component, while they are none of the GUI's business, and must not reach the DOM.
+const PASSED_THROUGH = [
+    'dispatch',
+    'handleRemix',
+    'hasEverEnteredEditor',
+    'isScratchProject',
+    'onSetUsername',
+    'onShowCollaborationLock',
+    'projectState',
+    'scratchProjectHost',
+    'scratchTrampolineHost',
+    'usernameModalVisible'
+];
+
 const GUIComponent = props => {
     const {
         accountNavOpen,
@@ -160,7 +174,7 @@ const GUIComponent = props => {
         vm,
         isCollabSyncing,
         ...componentProps
-    } = omit(props, 'dispatch');
+    } = omit(props, PASSED_THROUGH);
     if (children) {
         return <Box {...componentProps}>{children}</Box>;
     }

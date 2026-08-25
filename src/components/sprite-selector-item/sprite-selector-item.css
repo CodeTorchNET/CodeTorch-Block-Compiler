@@ -121,3 +121,28 @@
 [dir="rtl"] .number {
     right: 0.15rem;
 }
+
+.collaborators {
+    position: absolute;
+    top: 0.15rem;
+    display: flex;
+    gap: 2px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+[dir="ltr"] .collaborators {
+    right: 0.15rem;
+}
+
+[dir="rtl"] .collaborators {
+    left: 0.15rem;
+}
+
+.collaborator-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    border: 1.5px solid $ui-white;
+    box-shadow: 0 1px 2px $ui-black-transparent;
+}
