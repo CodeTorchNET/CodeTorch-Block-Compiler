@@ -1,3 +1,4 @@
+import {postMessageToParent} from "../../../../lib/ct-parent-message";
 import blockDefinitions from "./blockDefinitions.js";
 
 export default class helpers {
@@ -178,7 +179,7 @@ export default class helpers {
             document.AI_INTEGRATION.popupOpen = false;
         });
         document.getElementById('addonsPage').addEventListener('click', () => {
-            window.parent.postMessage({ type: "block-compiler-action", action: "addonsPage"}, "*");
+            postMessageToParent({ type: "block-compiler-action", action: "addonsPage"});
         });
     }
     static generateExtensionDefinitions(runtime) {

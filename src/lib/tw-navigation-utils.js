@@ -1,15 +1,5 @@
 import {setProjectId as reduxSetProjectId} from '../reducers/project-state';
-
-const setProjectId = (dispatch, projectId) => {
-    if (process.env.ROUTING_STYLE === 'wildcard') {
-        if (projectId === '0') {
-            projectId = '';
-        }
-        location.href = `${process.env.ROOT}/projects/${projectId}`;
-        return;
-    }
-    dispatch(reduxSetProjectId(projectId));
-};
+import {applyPersistentFlags} from './ct-url-flags';
 
 const searchParamsToString = params => {
     let newSearch = params.toString();
@@ -27,11 +17,24 @@ const searchParamsToString = params => {
     return newSearch;
 };
 
+const setProjectId = (dispatch, projectId) => {
+    if (process.env.ROUTING_STYLE === 'wildcard') {
+        if (projectId === '0') {
+            projectId = '';
+        }
+        const flags = searchParamsToString(applyPersistentFlags(new URLSearchParams()));
+        location.href = `${process.env.ROOT}/projects/${projectId}${flags}`;
+        return;
+    }
+    dispatch(reduxSetProjectId(projectId));
+};
+
 /**
  * Change URL search params to something else in place
  * @param {URLSearchParams} params New URLSearchParams
  */
 const setSearchParams = params => {
+    applyPersistentFlags(params);
     const newSearch = searchParamsToString(params);
     if (location.search !== newSearch) {
         history.replaceState(null, null, `${location.pathname}${newSearch}${location.hash}`);

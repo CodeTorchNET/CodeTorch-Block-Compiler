@@ -1,3 +1,4 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
 import bindAll from 'lodash.bindall';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -14,6 +15,7 @@ import extensionLibraryContent, {
     galleryLoading
 } from '../lib/libraries/extensions/index.jsx';
 import extensionTags from '../lib/libraries/tw-extension-tags';
+import {isExtensionAllowed, reportRefusedExtension} from '../lib/ct-extension-restrictions';
 
 import LibraryComponent from '../components/library/library.jsx';
 import extensionIcon from '../components/action-menu/icon--sprite.svg';
@@ -25,6 +27,20 @@ const messages = defineMessages({
         id: 'gui.extensionLibrary.chooseAnExtension'
     }
 });
+
+/**
+ * @param {object|string} item An entry of the extension library
+ * @returns {boolean} True if the entry may be shown and loaded
+ */
+const isLibraryItemAllowed = item => {
+    if (typeof item !== 'object' || item === null) {
+        return true;
+    }
+    if (item.extensionId && !isExtensionAllowed(item.extensionId)) {
+        return false;
+    }
+    return !item.extensionURL || isExtensionAllowed(item.extensionURL);
+};
 
 const toLibraryItem = extension => {
     if (typeof extension === 'object') {
@@ -132,6 +148,11 @@ class ExtensionLibrary extends React.PureComponent {
 
         const extensionId = item.extensionId;
 
+        if (!isLibraryItemAllowed(item)) {
+            reportRefusedExtension(item.extensionURL || extensionId);
+            return;
+        }
+
         if (extensionId === 'custom_extension') {
             this.props.onOpenCustomExtensionModal();
             return;
@@ -149,21 +170,21 @@ class ExtensionLibrary extends React.PureComponent {
         if (extensionId === 'customAchievements') {
             // Check if project ID exists and is not the default '0' (unsaved)
             if (!this.props.projectId || this.props.projectId === '0') {
-                window.parent.postMessage({
+                postMessageToParent({
                     type: 'block-compiler-action',
                     action: 'extension-error',
                     error: 'login_required'
-                }, '*');
+                });
                 return;
             }
 
             // Check if user owns the project (canSave)
             if (!this.props.canSave) {
-                window.parent.postMessage({
+                postMessageToParent({
                     type: 'block-compiler-action',
                     action: 'extension-error',
                     error: 'not_owner'
-                }, '*');
+                });
                 return;
             }
             const {accessToken, customAchievements} = await storage.loadCustomAchievementData();
@@ -197,13 +218,14 @@ class ExtensionLibrary extends React.PureComponent {
     render () {
         let library = null;
         if (this.state.gallery || this.state.galleryError || this.state.galleryTimedOut) {
-            library = extensionLibraryContent.map(toLibraryItem);
+            library = extensionLibraryContent.filter(isLibraryItemAllowed).map(toLibraryItem);
             library.push('---');
             if (this.state.gallery) {
                 const locale = this.props.intl.locale;
                 library.push(
                     ...this.state.gallery
                         .filter(i => i.extensionId !== 'faceSensing')
+                        .filter(isLibraryItemAllowed)
                         .map(i => translateGalleryItem(i, locale))
                         .map(toLibraryItem)
                 );

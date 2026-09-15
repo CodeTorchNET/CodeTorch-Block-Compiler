@@ -1,3 +1,4 @@
+import {postMessageToParent} from './ct-parent-message';
 import queryString from 'query-string';
 import xhr from 'xhr';
 import storage from '../lib/storage';
@@ -64,7 +65,7 @@ export default function (projectId, vmState, params) {
 
                     if (queryParams.is_remix){
                     // eslint-disable-next-line max-len
-                        window.parent.postMessage({type: 'block-compiler-action', action: 'createdRemix', remixId: body['content-name'], remixTitle: body['content-title'], originalId: queryParams.original_id}, '*');
+                        postMessageToParent({type: 'block-compiler-action', action: 'createdRemix', remixId: body['content-name'], remixTitle: body['content-title'], originalId: queryParams.original_id});
                     }
                 } catch (e) {
                     return reject(e);

@@ -8,7 +8,13 @@ import SecurityModals from '../lib/tw-security-manager-constants';
 import {getPersistedUnsandboxed, setPersistedUnsandboxed} from '../lib/tw-persisted-unsandboxed.js';
 
 
-import {API_HOST} from '../lib/brand.js';
+import {API_HOST, ASSET_HOST, EXTENSION_HOST} from '../lib/brand.js';
+import {isSameOrigin} from '../lib/ct-same-origin.js';
+import {isMinimalMode} from '../lib/ct-url-flags.js';
+import {
+    isExtensionAllowed,
+    reportRefusedExtension
+} from '../lib/ct-extension-restrictions.js';
 /* eslint-disable require-atomic-updates */
 
 /**
@@ -31,7 +37,7 @@ const isTrustedExtension = url => (
     url.startsWith('https://blockcompiler.codetorch.net/') ||
     url.startsWith('https://blockextensions.codetorch.net/') ||
     url.startsWith('https://codetorch.net/') ||
-    url.startsWith(API_HOST) ||
+    isSameOrigin(url, API_HOST) ||
     // For development.
     url.startsWith('http://localhost:8000/') ||
 
@@ -127,11 +133,90 @@ const parseURL = (url, protocols) => {
     return parsed;
 };
 
+/**
+ * Origins that the reduced editor may exchange data with. The reduced editor has nobody
+ * to answer a prompt, so anything outside of this list is refused instead of asked
+ * about.
+ * @returns {string[]} List of serialized origins. Never contains opaque origins.
+ */
+const reducedEditorOrigins = () => {
+    const origins = [];
+    try {
+        if (location.origin && location.origin !== 'null') {
+            origins.push(location.origin);
+        }
+    } catch (e) {
+        // No location, for example when running outside of a browser.
+    }
+    for (const host of [API_HOST, ASSET_HOST, EXTENSION_HOST]) {
+        if (!host) {
+            // Not configured for this build.
+            continue;
+        }
+        try {
+            const origin = new URL(host).origin;
+            if (origin !== 'null' && !origins.includes(origin)) {
+                origins.push(origin);
+            }
+        } catch (e) {
+            // Not configured with a usable URL.
+        }
+    }
+    return origins;
+};
+
+/**
+ * @param {URL} parsed Parsed URL object
+ * @returns {boolean} True if the reduced editor may talk to this URL's origin.
+ */
+const isAllowedInReducedEditor = parsed => reducedEditorOrigins().includes(parsed.origin);
+
 let allowedAudio = false;
 let allowedVideo = false;
 let allowedReadClipboard = false;
 let allowedNotify = false;
 let allowedGeolocation = false;
+
+/**
+ * Property used to make sure the extension manager is only wrapped once.
+ */
+const RESTRICTION_MARKER = '__restrictedExtensionLoading';
+
+/**
+ * Make the extension manager refuse every extension that this editor is not allowed to load,
+ * no matter which code path asked for it (the extension library, URL parameters, extensions
+ * embedded in a project, or extensions shared by a collaborator)
+ * @param {*} extensionManager The VM's extension manager
+ */
+const restrictExtensionLoading = extensionManager => {
+    if (
+        !extensionManager ||
+        typeof extensionManager.loadExtensionURL !== 'function' ||
+        extensionManager[RESTRICTION_MARKER]
+    ) {
+        return;
+    }
+    extensionManager[RESTRICTION_MARKER] = true;
+
+    const originalLoadExtensionURL = extensionManager.loadExtensionURL.bind(extensionManager);
+    extensionManager.loadExtensionURL = (extensionURL, ...args) => {
+        if (!isExtensionAllowed(extensionURL)) {
+            return Promise.reject(reportRefusedExtension(extensionURL));
+        }
+        return originalLoadExtensionURL(extensionURL, ...args);
+    };
+
+    // Built-in extensions used by a project are loaded through this instead.
+    if (typeof extensionManager.loadExtensionIdSync === 'function') {
+        const originalLoadExtensionIdSync = extensionManager.loadExtensionIdSync.bind(extensionManager);
+        extensionManager.loadExtensionIdSync = (extensionId, ...args) => {
+            if (!isExtensionAllowed(extensionId)) {
+                throw reportRefusedExtension(extensionId);
+            }
+            return originalLoadExtensionIdSync(extensionId, ...args);
+        };
+    }
+};
 
 const SECURITY_MANAGER_METHODS = [
     'getSandboxMode',
@@ -167,11 +252,13 @@ class TWSecurityManagerComponent extends React.Component {
     }
 
     componentDidMount () {
-        const vmSecurityManager = this.props.vm.extensionManager.securityManager;
+        const extensionManager = this.props.vm.extensionManager;
+        const vmSecurityManager = extensionManager.securityManager;
         const propsSecurityManager = this.props.securityManager;
         for (const method of SECURITY_MANAGER_METHODS) {
             vmSecurityManager[method] = propsSecurityManager[method] || this[method];
         }
+        restrictExtensionLoading(extensionManager);
     }
 
     // eslint-disable-next-line valid-jsdoc
@@ -238,6 +325,10 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {string} The VM worker mode to use
      */
     getSandboxMode (url) {
+        if (!isExtensionAllowed(url)) {
+            // Refused, not sandboxed.
+            throw reportRefusedExtension(url);
+        }
         if (isTrustedExtension(url)) {
             log.info(`Loading extension ${url} unsandboxed`);
             return 'unsandboxed';
@@ -260,6 +351,11 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {Promise<boolean>} Whether the extension can be loaded
      */
     async canLoadExtensionFromProject (url) {
+        if (!isExtensionAllowed(url)) {
+            // Refused outright, with no way to confirm it.
+            reportRefusedExtension(url);
+            return false;
+        }
         if (isTrustedExtension(url)) {
             log.info(`Loading extension ${url} automatically`);
             return true;
@@ -294,6 +390,12 @@ class TWSecurityManagerComponent extends React.Component {
         if (!parsed) {
             return false;
         }
+        if (isMinimalMode()) {
+            if (parsed.protocol === 'data:' || parsed.protocol === 'blob:') {
+                return true;
+            }
+            return isAllowedInReducedEditor(parsed);
+        }
         if (isAlwaysTrustedForFetching(parsed)) {
             return true;
         }
@@ -323,7 +425,7 @@ class TWSecurityManagerComponent extends React.Component {
      */
     async canOpenWindow (url) {
         const parsed = parseURL(url, VISITABLE_PROTOCOLS);
-        if (!parsed) {
+        if (!parsed || isMinimalMode()) {
             return false;
         }
         const {showModal} = await this.acquireModalLock();
@@ -338,7 +440,7 @@ class TWSecurityManagerComponent extends React.Component {
      */
     async canRedirect (url) {
         const parsed = parseURL(url, VISITABLE_PROTOCOLS);
-        if (!parsed) {
+        if (!parsed || isMinimalMode()) {
             return false;
         }
         const {showModal} = await this.acquireModalLock();
@@ -351,6 +453,9 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {Promise<boolean>} True if audio can be recorded
      */
     async canRecordAudio () {
+        if (isMinimalMode()) {
+            return false;
+        }
         if (!allowedAudio) {
             const {showModal} = await this.acquireModalLock();
             allowedAudio = await showModal(SecurityModals.RecordAudio);
@@ -362,6 +467,9 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {Promise<boolean>} True if video can be recorded
      */
     async canRecordVideo () {
+        if (isMinimalMode()) {
+            return false;
+        }
         if (!allowedVideo) {
             const {showModal} = await this.acquireModalLock();
             allowedVideo = await showModal(SecurityModals.RecordVideo);
@@ -373,6 +481,9 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {Promise<boolean>} True if the clipboard can be read
      */
     async canReadClipboard () {
+        if (isMinimalMode()) {
+            return false;
+        }
         if (!allowedReadClipboard) {
             const {showModal} = await this.acquireModalLock();
             allowedReadClipboard = await showModal(SecurityModals.ReadClipboard);
@@ -384,6 +495,9 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {Promise<boolean>} True if the notifications are allowed
      */
     async canNotify () {
+        if (isMinimalMode()) {
+            return false;
+        }
         if (!allowedNotify) {
             const {showModal} = await this.acquireModalLock();
             allowedNotify = await showModal(SecurityModals.Notify);
@@ -395,6 +509,9 @@ class TWSecurityManagerComponent extends React.Component {
      * @returns {Promise<boolean>} True if geolocation is allowed.
      */
     async canGeolocate () {
+        if (isMinimalMode()) {
+            return false;
+        }
         if (!allowedGeolocation) {
             const {showModal} = await this.acquireModalLock();
             allowedGeolocation = await showModal(SecurityModals.Geolocate);
@@ -410,6 +527,9 @@ class TWSecurityManagerComponent extends React.Component {
         const parsed = parseURL(url, FETCHABLE_PROTOCOLS);
         if (!parsed) {
             return false;
+        }
+        if (isMinimalMode()) {
+            return isAllowedInReducedEditor(parsed);
         }
         const host = (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.host : null;
         const {showModal, releaseLock} = await this.acquireModalLock();
@@ -488,6 +608,8 @@ const ConnectedSecurityManagerComponent = connect(
 
 export {
     ConnectedSecurityManagerComponent as default,
+    TWSecurityManagerComponent,
     manuallyTrustExtension,
-    isTrustedExtension
+    isTrustedExtension,
+    reducedEditorOrigins
 };

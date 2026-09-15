@@ -1,3 +1,4 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
 import keyMirror from 'keymirror';
 
 const DONE_CREATING_COPY = 'scratch-gui/project-state/DONE_CREATING_COPY';
@@ -365,7 +366,7 @@ const createProject = () => ({
 });
 
 const doneCreatingProject = (id, loadingState) => {
-    window.parent.postMessage({type: 'block-compiler-action', action: 'doneCreatingProject', projectID: id}, '*');
+    postMessageToParent({type: 'block-compiler-action', action: 'doneCreatingProject', projectID: id});
 
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.has('new_project')) searchParams.delete('new_project');

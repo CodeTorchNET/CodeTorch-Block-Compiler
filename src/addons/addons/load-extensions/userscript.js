@@ -7,7 +7,12 @@ export default async function ({ addon, console }) {
     for (let ext of EXTENSIONS) {
       // Check if setting enabled and it's not already loaded
       if (addon.settings.get(ext) && !vm.extensionManager.isExtensionLoaded(ext)) {
-        vm.extensionManager.loadExtensionIdSync(ext);
+        try {
+          vm.extensionManager.loadExtensionIdSync(ext);
+        } catch (e) {
+          // The editor may refuse an extension. Keep going with the rest of the list.
+          console.warn(e);
+        }
       }
     }
   };

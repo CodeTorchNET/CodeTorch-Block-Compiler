@@ -47,6 +47,7 @@ import AddonHooks from '../addons/hooks.js';
 import LoadScratchBlocksHOC from '../lib/tw-load-scratch-blocks-hoc.jsx';
 import {findTopBlock} from '../lib/backpack/code-payload.js';
 import {gentlyRequestPersistentStorage} from '../lib/tw-persistent-storage.js';
+import {isMinimalMode} from '../lib/ct-url-flags';
 import SettingsStore from '../addons/settings-store-singleton';
 
 const showAI = SettingsStore.store['ai-integration'] &&
@@ -200,6 +201,9 @@ class Blocks extends React.Component {
             }
         });
         toolboxWorkspace.registerButtonCallback('OPEN_ACHIEVEMENT_POPUP', () => {
+            if (isMinimalMode()) {
+                return;
+            }
             const trustedOrigin = TRUSTED_IFRAME_HOST;
             window.parent.postMessage(
                 {type: 'block-compiler-action', action: 'show_achievement_setup_popup', canSave: this.props.canSave}

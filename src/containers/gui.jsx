@@ -1,3 +1,4 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
 import PropTypes from 'prop-types';
 import React from 'react';
 import {compose} from 'redux';
@@ -87,10 +88,10 @@ class GUI extends React.Component {
             // const intl = this.props.intl;
             const loadedExtensionIds = vm.getLoadedExtensionsInfo();
 
-            window.parent.postMessage({
+            postMessageToParent({
                 type: 'codetorch-extensions-loaded',
                 payload: loadedExtensionIds
-            }, '*');
+            });
         }
     }
     componentWillUnmount () {

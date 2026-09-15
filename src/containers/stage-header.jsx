@@ -1,3 +1,4 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
 import PropTypes from 'prop-types';
 import React from 'react';
 import bindAll from 'lodash.bindall';
@@ -102,20 +103,20 @@ const mapDispatchToProps = dispatch => ({
         if (window.location.pathname === '/' ||
             window.location.pathname.includes('/index.html') ||
             window.location.pathname === '/build/') {
-            window.parent.postMessage({
+            postMessageToParent({
                 type: 'block-compiler-action',
                 action: 'REQUEST_FULLSCREEN'
-            }, '*');
+            });
             dispatch(setFullScreen(true));
         } else {
             dispatch(setFullScreen(true));
         }
     },
     onSetStageUnFullScreen: () => {
-        window.parent.postMessage({
+        postMessageToParent({
             type: 'block-compiler-action',
             action: 'CANCEL_FULLSCREEN'
-        }, '*');
+        });
         dispatch(setFullScreen(false));
     },
     onOpenSettings: () => dispatch(openSettingsModal())

@@ -7,6 +7,7 @@ import log from './log';
 import {defineMessages, intlShape, injectIntl} from 'react-intl';
 
 import {
+    initialState as twInitialState,
     setUsername
 } from '../reducers/tw';
 import {
@@ -19,6 +20,7 @@ import {
     setFullScreen
 } from '../reducers/mode';
 import {setSearchParams} from './tw-navigation-utils';
+import {isJITDisabledByURL} from './ct-url-flags';
 import {defaultStageSize} from '../reducers/custom-stage-size';
 
 /* eslint-disable no-alert */
@@ -343,6 +345,17 @@ const TWStateManager = function (WrappedComponent) {
                 this.props.vm.setCompilerOptions({
                     enabled: false
                 });
+            } else if (
+                isJITDisabledByURL() &&
+                this.props.compilerOptions.enabled === twInitialState.compilerOptions.enabled
+            ) {
+                // ?useJIT=false behaves like ?nocompile, except that a compiler setting that was
+                // already chosen explicitly for this session or URL wins over the flag. Options
+                // stored inside the project are applied while the project loads, which happens
+                // after this, so those win over the flag as well.
+                this.props.vm.setCompilerOptions({
+                    enabled: false
+                });
             }
 
             if (urlParams.has('clones')) {
@@ -369,7 +382,10 @@ const TWStateManager = function (WrappedComponent) {
             }
 
             for (const extension of urlParams.getAll('extension')) {
-                this.props.vm.extensionManager.loadExtensionURL(extension);
+                this.props.vm.extensionManager.loadExtensionURL(extension)
+                    .catch(err => {
+                        log.error(err);
+                    });
             }
 
             const routerCallbacks = {

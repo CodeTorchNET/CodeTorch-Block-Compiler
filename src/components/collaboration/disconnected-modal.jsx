@@ -1,3 +1,4 @@
+import {postMessageToParent} from '../../lib/ct-parent-message';
 import React from 'react';
 import bindAll from 'lodash.bindall';
 import Modal from '../../containers/modal.jsx';
@@ -16,7 +17,7 @@ class DisconnectedModal extends React.Component {
         if (window.top === window.self) {
             window.location.reload();
         } else {
-            window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
+            postMessageToParent({type: 'block-compiler-action', action: 'reload'});
         }
     }
 

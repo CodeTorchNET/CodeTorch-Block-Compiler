@@ -1,3 +1,4 @@
+import {isCursorChatEnabled} from '../../../../lib/ct-url-flags.js';
 import * as constants from './constants.js';
 import * as presence from './presence.js';
 import * as helper from './helper.js';
@@ -244,7 +245,8 @@ export function createOrUpdateRemoteCursor(clientID, state, layer, debugging = f
 
     const user = state.user;
     const remoteCursorPos = state.cursor;
-    const remoteChatMessage = state.chatMessage;
+    // Chat bubbles from other people are not rendered when chat is turned off.
+    const remoteChatMessage = isCursorChatEnabled() ? state.chatMessage : null;
 
     let cursorData = cursorElements.get(clientID);
 
@@ -460,6 +462,7 @@ function resetChatMessageTimeout() {
 }
 
 export const handleGlobalKeyDown = (event) => {
+    if (!isCursorChatEnabled()) return;
     if (!constants.mutableRefs.yjsAwarenessInstance || !constants.mutableRefs.BlocklyInstance || !constants.mutableRefs.localChatElementsRef?.group || !constants.mutableRefs.currentWorkspaceSvg) return;
 
     const activeElement = document.activeElement;

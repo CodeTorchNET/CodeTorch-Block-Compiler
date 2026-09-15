@@ -1,3 +1,5 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
+
 const SET_FULL_SCREEN = 'scratch-gui/mode/SET_FULL_SCREEN';
 const SET_PLAYER = 'scratch-gui/mode/SET_PLAYER';
 const EXTERNAL_NAVIGATION = 'scratch-gui/mode/EXTERNAL_NAVIGATION';
@@ -33,11 +35,11 @@ const setFullScreen = function (isFullScreen) {
     };
 };
 const setPlayer = function () {
-    window.parent.postMessage({
+    postMessageToParent({
         type: 'block-compiler-action',
         action: 'communityPage',
         projectID: window.location.hash.replace('#', '')
-    }, '*');
+    });
     return {
         type: EXTERNAL_NAVIGATION
     };

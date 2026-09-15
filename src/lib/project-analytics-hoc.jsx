@@ -1,3 +1,4 @@
+import {postMessageToParent} from './ct-parent-message';
 import bindAll from 'lodash.bindall';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -72,10 +73,7 @@ const ProjectAnalyticsHOC = function (WrappedComponent) {
 
             const now = Date.now();
 
-            window.parent.postMessage(
-                {type: 'block-compiler-action', action: 'greenFlagClicked'},
-                '*'
-            );
+            postMessageToParent({type: 'block-compiler-action', action: 'greenFlagClicked'});
 
             if (!this.sessionStartTimestamp) {
                 this.sessionStartTimestamp = now;
@@ -95,12 +93,12 @@ const ProjectAnalyticsHOC = function (WrappedComponent) {
                 pureTime += now - this.lastRunStartTimestamp;
             }
 
-            window.parent.postMessage({
+            postMessageToParent({
                 type: 'block-compiler-action',
                 action: 'report_stats',
                 totalTimeMs: totalTime,
                 pureTimeMs: pureTime
-            }, '*');
+            });
         }
 
         sendStatsBeforeUnload () {

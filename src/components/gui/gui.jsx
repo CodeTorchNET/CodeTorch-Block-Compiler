@@ -32,6 +32,7 @@ import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
 import TWSettingsModal from '../../containers/tw-settings-modal.jsx';
 import TWSecurityManager from '../../containers/tw-security-manager.jsx';
 import TWCustomExtensionModal from '../../containers/tw-custom-extension-modal.jsx';
+import {isMinimalMode} from '../../lib/ct-url-flags';
 import TWFontsModal from '../../containers/tw-fonts-modal.jsx';
 import TWUnknownPlatformModal from '../../containers/tw-unknown-platform-modal.jsx';
 import TWInvalidProjectModal from '../../containers/tw-invalid-project-modal.jsx';
@@ -201,7 +202,7 @@ const GUIComponent = props => {
                 {isCollabDisconnected && <DisconnectedModal />}
                 <TWSecurityManager securityManager={securityManager} />
                 {settingsModalVisible && <TWSettingsModal canSave={canSave} />}
-                {customExtensionModalVisible && <TWCustomExtensionModal />}
+                {customExtensionModalVisible && !isMinimalMode() && <TWCustomExtensionModal />}
                 {fontsModalVisible && <TWFontsModal />}
                 {unknownPlatformModalVisible && <TWUnknownPlatformModal />}
                 {invalidProjectModalVisible && <TWInvalidProjectModal />}

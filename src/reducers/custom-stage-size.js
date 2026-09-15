@@ -1,3 +1,5 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
+
 const SET_CUSTOM_STAGE_SIZE = 'tw/custom-stage-size/SET';
 
 const getDimensions = () => {
@@ -51,7 +53,7 @@ const reducer = function (state, action) {
 };
 
 const setCustomStageSize = function (width, height) {
-    window.parent.postMessage({ type: "block-compiler-action", action: "resizedStage",width: width, height: height}, "*");
+    postMessageToParent({type: 'block-compiler-action', action: 'resizedStage', width: width, height: height});
     return {
         type: SET_CUSTOM_STAGE_SIZE,
         width,

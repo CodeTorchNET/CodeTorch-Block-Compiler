@@ -1,3 +1,4 @@
+import {postMessageToParent} from './ct-parent-message';
 import React from 'react';
 import log from './log';
 import LazyScratchBlocks from './tw-lazy-scratch-blocks';
@@ -31,7 +32,7 @@ const LoadScratchBlocksHOC = function (WrappedComponent) {
             if (window.top === window.self) { // if not in iframe
                 location.reload();
             } else {
-                window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
+                postMessageToParent({type: 'block-compiler-action', action: 'reload'});
             }
         }
         render () {

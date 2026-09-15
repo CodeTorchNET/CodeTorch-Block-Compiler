@@ -1,3 +1,4 @@
+import {postMessageToParent} from '../lib/ct-parent-message';
 import React from 'react';
 import PropTypes from 'prop-types';
 import CrashMessageComponent from '../components/crash-message/crash-message.jsx';
@@ -51,7 +52,7 @@ class ErrorBoundary extends React.Component {
         if (window.top === window.self) { // if not in iframe
             window.location.replace(window.location.origin + window.location.pathname);
         } else {
-            window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
+            postMessageToParent({type: 'block-compiler-action', action: 'reload'});
         }
     }
 

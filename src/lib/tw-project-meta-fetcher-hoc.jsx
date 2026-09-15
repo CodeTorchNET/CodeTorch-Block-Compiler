@@ -1,3 +1,4 @@
+import {postMessageToParent} from './ct-parent-message';
 import React from 'react';
 import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
@@ -150,7 +151,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                         
                         if (isScratch) {
                             this.props.onSetCollaborationSession({room: null});
-                            window.parent.postMessage({
+                            postMessageToParent({
                                 type: 'block-compiler-action',
                                 action: 'scratch-project-description',
                                 payload: {
@@ -159,7 +160,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                                     username: data.author.username,
                                     title: data.title
                                 }
-                            }, '*');
+                            });
                         } else {
                             storage.setCloudOTT(data?.cloudDataOTT);
                             storage.setCustomAchievements(data?.customAchievements);

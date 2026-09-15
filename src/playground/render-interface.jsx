@@ -14,6 +14,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import {postMessageToParent} from '../lib/ct-parent-message';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -44,7 +45,7 @@ const handleClickAddonSettings = () => {
     /* const path = process.env.ROUTING_STYLE === 'wildcard' ? 'addons' : 'addons.html';
     const url = `${process.env.ROOT}${path}${typeof addonId === 'string' ? `#${addonId}` : ''}`;
     window.open(url); */
-    window.parent.postMessage({type: 'block-compiler-action', action: 'addonsPage'}, '*');
+    postMessageToParent({type: 'block-compiler-action', action: 'addonsPage'});
 };
 
 const messages = defineMessages({
@@ -59,7 +60,7 @@ if (AddonChannels.reloadChannel) {
     AddonChannels.reloadChannel.addEventListener('message', () => {
         // eslint-disable-next-line no-negated-condition
         if (window.top !== window.self) { // if in iframe
-            window.parent.postMessage({type: 'block-compiler-action', action: 'reload'}, '*');
+            postMessageToParent({type: 'block-compiler-action', action: 'reload'});
         } else {
             location.reload();
         }

@@ -17,9 +17,24 @@
 import addons from './generated/addon-manifests';
 import upstreamMeta from './generated/upstream-meta.json';
 import EventTargetShim from './event-target';
+import {isMinimalMode} from '../lib/ct-url-flags';
 
 const SETTINGS_KEY = 'tw:addons';
 const VERSION = 5;
+
+/**
+ * Addons that are not available in the reduced editor.
+ * @type {string[]}
+ */
+const RESTRICTED_ADDONS = [
+    'ai-integration'
+];
+
+/**
+ * @param {string} addonId ID of an addon
+ * @returns {boolean} True if the addon may be used at all
+ */
+const isAddonAvailable = addonId => !(isMinimalMode() && RESTRICTED_ADDONS.includes(addonId));
 
 const migrateSettings = settings => {
     const oldVersion = settings._;
@@ -209,7 +224,7 @@ class SettingsStore extends EventTargetShim {
 
     getAddonEnabled (addonId) {
         const manifest = this.getAddonManifest(addonId);
-        if (manifest.unsupported) {
+        if (manifest.unsupported || !isAddonAvailable(addonId)) {
             return false;
         }
         const storage = this.getAddonStorage(addonId);
@@ -245,6 +260,9 @@ class SettingsStore extends EventTargetShim {
     }
 
     setAddonEnabled (addonId, enabled) {
+        if (!isAddonAvailable(addonId)) {
+            return;
+        }
         const storage = this.getAddonStorage(addonId);
         const manifest = this.getAddonManifest(addonId);
         const oldValue = this.getAddonEnabled(addonId);

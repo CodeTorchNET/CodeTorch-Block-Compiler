@@ -15,6 +15,8 @@ import * as scheduler from './helpers/refreshScheduler.js';
 import * as recorder from './helpers/recorder.js';
 import * as session from './helpers/session.js';
 import * as collabSnapshot from '../../../lib/collab-snapshot.js';
+import {isCursorChatEnabled} from '../../../lib/ct-url-flags.js';
+import {isExtensionAllowed, reportRefusedExtension} from '../../../lib/ct-extension-restrictions.js';
 import {onArtChanged} from '../../../lib/collab-art-bus.js';
 import {setShapeReporting, setLiveResync, setDragReporter} from 'scratch-paint/src/helper/collab-live.js';
 import {syncRemoteFloats} from 'scratch-paint/src/helper/bit-replay.js';
@@ -259,7 +261,12 @@ function attachYjsProvider() {
                 const extURL = extObj.URL || extObj;
                 const extName = extObj.name || extObj;
                 if (typeof extURL === 'string' && !constants.mutableRefs.vm.extensionManager.isExtensionLoaded(extName)) {
-                    constants.mutableRefs.vm.extensionManager.loadExtensionURL(extURL, false);
+                    if (!isExtensionAllowed(extURL)) {
+                        reportRefusedExtension(extURL);
+                        return;
+                    }
+                    constants.mutableRefs.vm.extensionManager.loadExtensionURL(extURL, false)
+                        .catch(err => console.warn('[collaboration] could not load a shared extension', err));
                 }
             });
         });
@@ -1393,7 +1400,9 @@ function attachYjsProvider() {
         window.removeEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('keydown', collabUI.handleGlobalKeyDown);
-        window.addEventListener('keydown', collabUI.handleGlobalKeyDown);
+        if (isCursorChatEnabled()) {
+            window.addEventListener('keydown', collabUI.handleGlobalKeyDown);
+        }
 
         const cleanup = () => {
 
