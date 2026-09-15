@@ -1,4 +1,5 @@
 import {postMessageToParent} from '../lib/ct-parent-message';
+import {installTestMessageListener} from '../lib/ct-test-messages';
 import PropTypes from 'prop-types';
 import React from 'react';
 import {compose} from 'redux';
@@ -71,6 +72,8 @@ class GUI extends React.Component {
         if (window.location.pathname === '/' || window.location.pathname.indexOf('index.html') !== -1) {
             window.addEventListener('message', this.handleMessage);
         }
+
+        this.removeTestMessageListener = installTestMessageListener(this.props.vm);
     }
     componentDidUpdate (prevProps) {
         if (this.props.projectId !== prevProps.projectId) {
@@ -96,6 +99,10 @@ class GUI extends React.Component {
     }
     componentWillUnmount () {
         window.removeEventListener('message', this.handleMessage);
+        if (this.removeTestMessageListener) {
+            this.removeTestMessageListener();
+            this.removeTestMessageListener = null;
+        }
     }
     handleMessage (event) {
         if (event.data === 'REQUEST_SCREENSHOT') {

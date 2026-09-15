@@ -10,6 +10,9 @@ import penInsetIconURL from './pen/pen-small.svg';
 import customAchievementsURL from './customAchievements/achievements.png';
 import customAchievementsIconURL from './customAchievements/achievements-small.svg';
 
+import ctTestsIconURL from './ctTests/tests.svg';
+import ctTestsInsetIconURL from './ctTests/tests-small.svg';
+
 import videoSensingIconURL from './videoSensing/video-sensing.png';
 import videoSensingInsetIconURL from './videoSensing/video-sensing-small.svg';
 
@@ -56,7 +59,7 @@ import twIcon from './tw/tw.svg';
 import customExtensionIcon from './custom/custom.svg';
 import returnIcon from './custom/return.svg';
 import galleryIcon from './gallery/gallery.svg';
-import {APP_NAME} from '../../brand';
+import {APP_NAME, EXTENSION_HOST} from '../../brand';
 
 export default [
     {
@@ -125,6 +128,27 @@ export default [
     {
         name: (
             <FormattedMessage
+                defaultMessage="Tests"
+                description="Name for the 'Tests' extension"
+                id="gui.extension.ctTests.name"
+            />
+        ),
+        extensionId: 'ctTests',
+        iconURL: ctTestsIconURL,
+        insetIconURL: ctTestsInsetIconURL,
+        description: (
+            <FormattedMessage
+                defaultMessage="Check that a project does what it should."
+                description="Description for the 'Tests' extension"
+                id="gui.extension.ctTests.description"
+            />
+        ),
+        tags: ['scratch'],
+        featured: true
+    },
+    {
+        name: (
+            <FormattedMessage
                 defaultMessage="Video Sensing"
                 description="Name for the 'Video Sensing' extension"
                 id="gui.extension.videosensing.name"
@@ -152,7 +176,7 @@ export default [
             />
         ),
         extensionId: 'faceSensing',
-        extensionURL: 'https://blockextensions.codetorch.net/extensions/lab/face-sensing.js',
+        extensionURL: `${EXTENSION_HOST}/extensions/lab/face-sensing.js`,
         iconURL: faceSensingIconURL,
         insetIconURL: faceSensingInsetIconURL,
         description: (

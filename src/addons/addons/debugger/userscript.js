@@ -518,6 +518,9 @@ export default async function ({ addon, console, msg }) {
     console,
   };
   logsTab = await createLogsTab(api);
+  vm.runtime.on("CT_TEST_LOG", ({ text, type, thread }) => {
+    logMessage(text, thread, type || "log");
+  });
   const threadsTab = await createThreadsTab(api);
   const performanceTab = await createPerformanceTab(api);
   const allTabs = [logsTab, threadsTab, performanceTab];
