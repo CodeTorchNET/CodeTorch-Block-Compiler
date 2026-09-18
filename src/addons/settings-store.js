@@ -521,3 +521,4 @@ class SettingsStore extends EventTargetShim {
 }
 
 export default SettingsStore;
+export {isAddonAvailable};

@@ -26,6 +26,7 @@ import settingsTranslationsOther from './translations.json';
 import upstreamMeta from '../generated/upstream-meta.json';
 import {detectLocale} from '../../lib/detect-locale';
 import SettingsStore from '../settings-store-singleton';
+import {isAddonAvailable} from '../settings-store';
 import Channels from '../channels';
 import extensionImage from './icons/extension.svg';
 import brushImage from './icons/brush.svg';
@@ -78,6 +79,9 @@ const filterAddonsBySupport = () => {
     const supported = {};
     const unsupported = {};
     for (const [id, manifest] of Object.entries(importedAddons)) {
+        if (!isAddonAvailable(id)) {
+            continue;
+        }
         if (manifest.unsupported) {
             unsupported[id] = manifest;
         } else {
@@ -129,7 +133,7 @@ const getInitialSearch = () => {
     
     // If the query is an addon ID, it's a better user experience to show the name of the addon
     // in the search bar instead of a ID they won't understand.
-    if (Object.prototype.hasOwnProperty.call(importedAddons, hash)) {
+    if (Object.prototype.hasOwnProperty.call(importedAddons, hash) && isAddonAvailable(hash)) {
         const manifest = importedAddons[hash];
         return addonTranslations[`${hash}/@name`] || manifest.name;
     }
