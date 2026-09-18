@@ -18,7 +18,7 @@ import * as collabSnapshot from '../../../lib/collab-snapshot.js';
 import {isCursorChatEnabled} from '../../../lib/ct-url-flags.js';
 import {isExtensionAllowed, reportRefusedExtension} from '../../../lib/ct-extension-restrictions.js';
 import {onArtChanged} from '../../../lib/collab-art-bus.js';
-import {setShapeReporting, setLiveResync, setDragReporter} from 'scratch-paint/src/helper/collab-live.js';
+import {setShapeReporting, setLiveResync, setDragReporter, setStampReporter} from 'scratch-paint/src/helper/collab-live.js';
 import {syncRemoteFloats} from 'scratch-paint/src/helper/bit-replay.js';
 import {syncRemoteGhosts} from 'scratch-paint/src/helper/vector-ghost.js';
 import {setCursorReporter, setRemoteCursors} from 'scratch-paint/src/helper/collab-cursors.js';
@@ -490,6 +490,7 @@ function attachYjsProvider() {
         unsubscribeArt = onArtChanged(costumeArtSync.publishFromEditor);
         setShapeReporting(true);
         setLiveResync(costumeArtSync.resyncOpenCostume);
+        setStampReporter(costumeArtSync.noteStamped);
 
         setCursorReporter(point => {
             const awareness = constants.mutableRefs.yjsAwarenessInstance;
@@ -1413,6 +1414,7 @@ function attachYjsProvider() {
             constants.mutableRefs.redrawCostumeArt = null;
             setShapeReporting(false);
             setLiveResync(null);
+            setStampReporter(null);
             setDragReporter(null);
             syncRemoteFloats([]);
             syncRemoteGhosts([]);

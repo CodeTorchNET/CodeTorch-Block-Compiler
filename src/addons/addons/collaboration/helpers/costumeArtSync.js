@@ -3,7 +3,7 @@ import * as constants from './constants.js';
 import * as helper from './helper.js';
 import * as recorder from './recorder.js';
 import {compose} from 'scratch-paint/src/helper/collab-art.js';
-import {applyLive, canApplyLive, replayBitmap, canReplayBitmap, setLiveResync} from 'scratch-paint/src/helper/collab-live.js';
+import {applyLive, canApplyLive, replayBitmap, canReplayBitmap, setLiveResync, isRestoringHistory} from 'scratch-paint/src/helper/collab-live.js';
 import {bitmapDigest, bitmapSnapshot} from 'scratch-paint/src/helper/bit-replay.js';
 
 const MINT_IDLE_MS = 1000;
@@ -11,6 +11,17 @@ const MINT_IDLE_MS = 1000;
 const mintTimers = new Map();
 
 const published = new Map();
+
+const owned = new Map();
+
+function own(key, id) {
+    let ids = owned.get(key);
+    if (!ids) {
+        ids = new Set();
+        owned.set(key, ids);
+    }
+    ids.add(id);
+}
 
 let floatingCostume = null;
 
@@ -73,6 +84,12 @@ export function isDocBacked(costumeId) {
 
 function assignIds(costumeId, shapes, items, seeding) {
     const clientId = constants.mutableRefs.ydoc ? constants.mutableRefs.ydoc.clientID : 'x';
+    const claimed = new Set();
+    for (const shape of shapes) {
+        if (!shape.id) continue;
+        if (claimed.has(shape.id)) shape.id = null;
+        else claimed.add(shape.id);
+    }
 
     const existing = artFor(costumeId, false);
     if (existing && !seeding) {
@@ -87,17 +104,29 @@ function assignIds(costumeId, shapes, items, seeding) {
         }
         for (const shape of shapes) {
             if (shape.id) continue;
-            const candidates = byContent.get(contentHash(signature(shape)));
-            if (candidates && candidates.length) shape.id = candidates.shift();
+            const candidates = byContent.get(contentHash(signature(shape))) || [];
+            while (candidates.length) {
+                const candidate = candidates.shift();
+                if (claimed.has(candidate)) continue;
+                shape.id = candidate;
+                claimed.add(candidate);
+                break;
+            }
         }
     }
 
+    const seeded = new Map();
     for (let index = 0; index < shapes.length; index++) {
         if (!shapes[index].id) {
-
-            shapes[index].id = seeding ?
-                `${costumeId}~${contentHash(signature(shapes[index]))}` :
-                `${clientId}-${Math.random().toString(36).slice(2, 9)}`;
+            if (seeding) {
+                const hash = contentHash(signature(shapes[index]));
+                const nth = (seeded.get(hash) || 0) + 1;
+                seeded.set(hash, nth);
+                shapes[index].id = nth === 1 ? `${costumeId}~${hash}` : `${costumeId}~${hash}~${nth}`;
+            } else {
+                shapes[index].id = `${clientId}-${Math.random().toString(36).slice(2, 9)}`;
+            }
+            claimed.add(shapes[index].id);
         }
         const item = items && items[index];
         if (item) {
@@ -192,12 +221,17 @@ export function publishLocalArt(art) {
     const after = new Map();
     for (const shape of art.shapes) after.set(shape.id, signature(shape));
 
+    const restoring = isRestoringHistory();
+    const mine = owned.get(key) || new Set();
+    const touchable = id => !restoring || mine.has(id) || !before.has(id);
+
     constants.mutableRefs.ydoc.transact(() => {
         const store = artFor(costume.id, true);
         if (!store) return;
 
         for (const shape of art.shapes) {
             if (before.get(shape.id) === after.get(shape.id)) continue;
+            if (!touchable(shape.id)) continue;
             const entry = new Y.Map();
             entry.set('tag', shape.tag);
             entry.set('attrs', shape.attrs);
@@ -205,10 +239,12 @@ export function publishLocalArt(art) {
             if (shape.text !== undefined) entry.set('text', shape.text);
             if (shape.defs) entry.set('defs', shape.defs);
             store.shapes.set(shape.id, entry);
+            own(key, shape.id);
         }
 
         for (const id of before.keys()) {
-            if (!after.has(id)) store.shapes.delete(id);
+            if (after.has(id) || !touchable(id)) continue;
+            store.shapes.delete(id);
         }
 
         const wantOrder = art.shapes.map(shape => shape.id);
@@ -219,7 +255,7 @@ export function publishLocalArt(art) {
 
         for (let index = haveOrder.length - 1; index >= 0; index--) {
             const id = haveOrder[index];
-            if (!wantSet.has(id) && before.has(id)) store.order.delete(index, 1);
+            if (!wantSet.has(id) && before.has(id) && touchable(id)) store.order.delete(index, 1);
         }
         for (let index = 0; index < wantOrder.length; index++) {
             const id = wantOrder[index];
@@ -235,14 +271,27 @@ export function publishLocalArt(art) {
         const mutualThere = wantOrder.filter(id => haveSet.has(id));
         if (mutualHere.length === mutualThere.length &&
             mutualHere.some((id, index) => id !== mutualThere[index])) {
-
-            const rebuilt = wantOrder.slice();
-            settled.forEach((id, index) => {
-                if (wantSet.has(id)) return;
-                rebuilt.splice(Math.min(index, rebuilt.length), 0, id);
-            });
-            store.order.delete(0, store.order.length);
-            store.order.insert(0, rebuilt);
+            const wantAt = new Map(mutualThere.map((id, index) => [id, index]));
+            const stays = new Set(longestOrdered(mutualHere.map(id => wantAt.get(id)))
+                .map(index => mutualHere[index]));
+            const current = store.order.toArray();
+            for (let index = current.length - 1; index >= 0; index--) {
+                const id = current[index];
+                if (wantAt.has(id) && !stays.has(id)) store.order.delete(index, 1);
+            }
+            for (const id of mutualThere) {
+                if (stays.has(id)) continue;
+                const now = store.order.toArray();
+                let at = 0;
+                for (let index = wantAt.get(id) - 1; index >= 0; index--) {
+                    const position = now.indexOf(mutualThere[index]);
+                    if (position !== -1) {
+                        at = position + 1;
+                        break;
+                    }
+                }
+                store.order.insert(at, [id]);
+            }
         }
 
         for (const [name, value] of Object.entries(art.view)) {
@@ -252,7 +301,13 @@ export function publishLocalArt(art) {
         if (Number.isFinite(art.rotationCenterY)) store.view.set('rotationCenterY', art.rotationCenterY);
     }, constants.LOCAL_EVENT_SYNC_ORIGIN);
 
-    published.set(key, after);
+    if (restoring) {
+        const kept = new Map(after);
+        for (const [id, sig] of before) if (!touchable(id)) kept.set(id, sig);
+        published.set(key, kept);
+    } else {
+        published.set(key, after);
+    }
     scheduleMint(art.targetId, costume.id);
 
     if (recorder.isRecording()) {
@@ -268,6 +323,24 @@ export function publishLocalArt(art) {
             costume: costume.id, changed, removed, total: after.size, seeding
         });
     }
+}
+
+function longestOrdered(values) {
+    const best = values.map(() => 1);
+    const previous = values.map(() => -1);
+    let end = 0;
+    for (let index = 0; index < values.length; index++) {
+        for (let earlier = 0; earlier < index; earlier++) {
+            if (values[earlier] < values[index] && best[earlier] + 1 > best[index]) {
+                best[index] = best[earlier] + 1;
+                previous[index] = earlier;
+            }
+        }
+        if (best[index] > best[end]) end = index;
+    }
+    const out = [];
+    for (let index = values.length ? end : -1; index !== -1; index = previous[index]) out.push(index);
+    return out.reverse();
 }
 
 function scheduleMint(targetId, costumeId) {
@@ -339,9 +412,15 @@ export function composeFromDoc(costumeId) {
     return {
         svg: compose(view, shapes),
         ids: shapes.map(shape => shape.id),
+        baseline: new Map(shapes.map(shape => [shape.id, signature(shape)])),
         rotationCenterX: view.rotationCenterX,
         rotationCenterY: view.rotationCenterY
     };
+}
+
+export function noteStamped(token) {
+    if (!token || !token.key || !token.baseline) return;
+    published.set(token.key, token.baseline);
 }
 
 function isOpenInEditor(target, index) {
@@ -435,7 +514,8 @@ export function applyRemoteArt(costumeId) {
 
         const index = target ? target.getCostumes().indexOf(costume) : -1;
         if (index >= 0 && isOpenInEditor(target, index)) {
-            applyLive(rebuilt.svg, centerX, centerY, rebuilt.ids);
+            applyLive(rebuilt.svg, centerX, centerY, rebuilt.ids,
+                {key: artKey(target.id, costumeId), baseline: rebuilt.baseline});
             live = true;
         }
     } catch (e) {
@@ -814,6 +894,7 @@ export function reset() {
     for (const timer of pendingApply.values()) clearTimeout(timer);
     pendingApply.clear();
     published.clear();
+    owned.clear();
     replayedOps.clear();
     for (const timer of digestTimers.values()) clearTimeout(timer);
     digestTimers.clear();

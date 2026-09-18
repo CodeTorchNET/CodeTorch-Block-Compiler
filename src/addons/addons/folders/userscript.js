@@ -60,19 +60,15 @@ export default async function ({ addon, console, msg }) {
 
   let folderUIPatched = false;
 
-  const findInstanceBelow = (el, verify) => {
+  const findInstanceBelow = (el, accepts) => {
     const root = el && el[reactInternalKey];
     if (!root) return null;
     const queue = [[root, 0]];
     while (queue.length) {
       const [fiber, depth] = queue.shift();
       const instance = fiber.stateNode;
-      if (instance && instance.props) {
-        try {
-          verify(instance);
-          return instance;
-        } catch (e) {
-        }
+      if (instance && instance.props && accepts(instance)) {
+        return instance;
       }
       if (depth >= 12) continue;
       if (fiber.child) queue.push([fiber.child, depth + 1]);
@@ -88,14 +84,10 @@ export default async function ({ addon, console, msg }) {
     } catch (e) {
       instance = null;
     }
-    if (instance) {
-      try {
-        verifySortableHOC(instance);
-        return instance;
-      } catch (e) {
-      }
+    if (instance && instance.props && isSortableHOC(instance)) {
+      return instance;
     }
-    return findInstanceBelow(el, verifySortableHOC);
+    return findInstanceBelow(el, isSortableHOC);
   };
 
   const getSortableHOCFromElement = (el) => {
@@ -115,7 +107,16 @@ export default async function ({ addon, console, msg }) {
   const getBackpackFromElement = (el) => {
     const gui = el.closest('[class*="gui_editor-wrapper"]');
     if (!gui) throw new Error("cannot find Backpack");
-    return gui[reactInternalKey].child.sibling.child.child.stateNode;
+    let instance = null;
+    try {
+      instance = gui[reactInternalKey].child.sibling.child.child.stateNode;
+    } catch (e) {
+      instance = null;
+    }
+    if (instance && instance.props && isBackpack(instance)) return instance;
+    const found = findInstanceBelow(gui, isBackpack);
+    if (found) return found;
+    throw new Error("cannot find Backpack");
   };
 
   const clamp = (n, min, max) => {
@@ -240,26 +241,33 @@ export default async function ({ addon, console, msg }) {
     }
   };
 
-  const verifySortableHOC = (sortableHOCInstance) => {
+  const isSortableHOC = (sortableHOCInstance) => {
     const SortableHOC = sortableHOCInstance.constructor;
-    if (
+    return (
       Array.isArray(sortableHOCInstance.props.items) &&
       (typeof sortableHOCInstance.props.selectedId === "string" ||
         typeof sortableHOCInstance.props.selectedItemIndex === "number") &&
       typeof sortableHOCInstance.containerBox !== "undefined" &&
-      typeof SortableHOC.prototype.componentDidMount === "undefined" &&
-      typeof SortableHOC.prototype.componentDidUpdate === "undefined" &&
       typeof SortableHOC.prototype.handleAddSortable === "function" &&
       typeof SortableHOC.prototype.handleRemoveSortable === "function" &&
       typeof SortableHOC.prototype.setRef === "function"
+    );
+  };
+
+  const verifySortableHOC = (sortableHOCInstance) => {
+    const SortableHOC = sortableHOCInstance.constructor;
+    if (
+      isSortableHOC(sortableHOCInstance) &&
+      typeof SortableHOC.prototype.componentDidMount === "undefined" &&
+      typeof SortableHOC.prototype.componentDidUpdate === "undefined"
     )
       return;
     throw new Error("Can not comprehend SortableHOC");
   };
 
-  const verifySpriteSelectorItem = (spriteSelectorItemInstance) => {
+  const isSpriteSelectorItem = (spriteSelectorItemInstance) => {
     const SpriteSelectorItem = spriteSelectorItemInstance.constructor;
-    if (
+    return (
       typeof spriteSelectorItemInstance.props.asset === "object" &&
       typeof spriteSelectorItemInstance.props.name === "string" &&
       typeof spriteSelectorItemInstance.props.dragType === "string" &&
@@ -270,9 +278,7 @@ export default async function ({ addon, console, msg }) {
       typeof SpriteSelectorItem.prototype.handleDelete === "function" &&
       typeof SpriteSelectorItem.prototype.handleDuplicate === "function" &&
       typeof SpriteSelectorItem.prototype.handleExport === "function"
-    )
-      return;
-    throw new Error("Can not comprehend SpriteSelectorItem");
+    );
   };
 
   const verifyVM = (vm) => {
@@ -289,12 +295,13 @@ export default async function ({ addon, console, msg }) {
     throw new Error("Can not comprehend VM");
   };
 
+  const isBackpack = (backpackInstance) =>
+    typeof backpackInstance.constructor.prototype.handleDrop === "function" &&
+    typeof backpackInstance.props.host === "string";
+
   const verifyBackpack = (backpackInstance) => {
     const Backpack = backpackInstance.constructor;
-    if (
-      typeof Backpack.prototype.handleDrop === "function" &&
-      typeof Backpack.prototype.componentDidUpdate === "undefined"
-    ) {
+    if (isBackpack(backpackInstance) && typeof Backpack.prototype.componentDidUpdate === "undefined") {
       return;
     }
     throw new Error("Can not comprehend Backpack");
@@ -847,6 +854,11 @@ export default async function ({ addon, console, msg }) {
     for (const method of ["handleDelete", "handleDuplicate", "handleExport"]) {
       const original = SpriteSelectorItem.prototype[method];
       SpriteSelectorItem.prototype[method] = function (...args) {
+        const folderData = getItemData(this.props);
+        if (folderData && typeof folderData.folder === "string") {
+          if (args[0] && typeof args[0].stopPropagation === "function") args[0].stopPropagation();
+          return undefined;
+        }
         if (typeof this.props.id === "number") {
           const itemData = getItemData(this.props);
           if (itemData) {
@@ -1103,8 +1115,14 @@ export default async function ({ addon, console, msg }) {
 
       return true;
     };
+    const originalReorderTarget = vm.constructor.prototype.reorderTarget;
+    const originalReorderCostume = RenderedTarget.prototype.reorderCostume;
+    const originalReorderSound = RenderedTarget.prototype.reorderSound;
 
     vm.constructor.prototype.reorderTarget = function (targetIndex, newIndex) {
+      if (!Array.isArray(currentSpriteItems)) {
+        return originalReorderTarget.call(this, targetIndex, newIndex);
+      }
       return abstractReorder(
         {
           getAll: () => {
@@ -1157,6 +1175,9 @@ export default async function ({ addon, console, msg }) {
     };
 
     RenderedTarget.prototype.reorderCostume = function (costumeIndex, newIndex) {
+      if (!Array.isArray(currentAssetItems)) {
+        return originalReorderCostume.call(this, costumeIndex, newIndex);
+      }
       return abstractReorder(
         {
           getAll: () => {
@@ -1181,6 +1202,9 @@ export default async function ({ addon, console, msg }) {
     };
 
     RenderedTarget.prototype.reorderSound = function (soundIndex, newIndex) {
+      if (!Array.isArray(currentAssetItems)) {
+        return originalReorderSound.call(this, soundIndex, newIndex);
+      }
       return abstractReorder(
         {
           getAll: () => {
@@ -1202,6 +1226,49 @@ export default async function ({ addon, console, msg }) {
         soundIndex,
         newIndex
       );
+    };
+
+    const announceMoves = (before, after, announce) => {
+      for (let index = 0; index < after.length; index++) {
+        if (before.indexOf(after[index]) !== index) announce(after[index], index);
+      }
+    };
+
+    const originalVMReorderCostume = vm.constructor.prototype.reorderCostume;
+    vm.constructor.prototype.reorderCostume = function (targetId, costumeIndex, newIndex) {
+      if (!Array.isArray(currentAssetItems)) {
+        return originalVMReorderCostume.call(this, targetId, costumeIndex, newIndex);
+      }
+      const target = this.runtime.getTargetById(targetId);
+      if (!target) return false;
+      const before = target.sprite.costumes.slice();
+      const current = target.getCurrentCostume();
+      if (!target.reorderCostume(costumeIndex, newIndex)) return false;
+      const after = target.sprite.costumes;
+      const selected = current ? after.indexOf(current) : -1;
+      if (selected >= 0) target.currentCostume = selected;
+      this.runtime.emitTargetSimplePropertyChanged([[target.id, { currentCostume: target.currentCostume }]]);
+      announceMoves(before, after, (costume, index) =>
+        this.runtime.emitTargetCostumeChanged(target.id, ["reorder", { id: costume.id, currentIndex: index }])
+      );
+      this.runtime.emitProjectChanged();
+      return true;
+    };
+
+    const originalVMReorderSound = vm.constructor.prototype.reorderSound;
+    vm.constructor.prototype.reorderSound = function (targetId, soundIndex, newIndex) {
+      if (!Array.isArray(currentAssetItems)) {
+        return originalVMReorderSound.call(this, targetId, soundIndex, newIndex);
+      }
+      const target = this.runtime.getTargetById(targetId);
+      if (!target) return false;
+      const before = target.sprite.sounds.slice();
+      if (!target.reorderSound(soundIndex, newIndex)) return false;
+      announceMoves(before, target.sprite.sounds, (sound, index) =>
+        this.runtime.emitTargetSoundsChanged(target.originalTargetId, ["reorder", [{ id: sound.id, currentIndex: index }]])
+      );
+      this.runtime.emitProjectChanged();
+      return true;
     };
 
     const originalShareSoundToTarget = vm.shareSoundToTarget;
@@ -1295,7 +1362,7 @@ export default async function ({ addon, console, msg }) {
     try {
       const sortableHOCInstance = getSortableHOCFromElement(spriteSelectorItemElement);
       const spriteSelectorItemInstance =
-        findInstanceBelow(spriteSelectorItemElement, verifySpriteSelectorItem);
+        findInstanceBelow(spriteSelectorItemElement, isSpriteSelectorItem);
       if (!spriteSelectorItemInstance) throw new Error("Can not find SpriteSelectorItem");
       verifySortableHOC(sortableHOCInstance);
       patchSpriteSelectorItem(spriteSelectorItemInstance.constructor);
