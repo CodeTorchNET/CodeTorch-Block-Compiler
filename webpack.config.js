@@ -30,6 +30,16 @@ const htmlWebpackPluginCommon = {
 // When this changes, the path for all JS files will change, bypassing any HTTP caches
 const CACHE_EPOCH = 'pentapod';
 
+/*
+ * scratch-storage resolves to its source (the alias below), and its source requires three files
+ * it falls back to when an asset cannot be loaded -- the grey question mark, the empty vector,
+ * the silent sound -- expecting arraybuffers, as its own build gives it. This config's url-loader
+ * would hand it data-URI strings instead, and Buffer.from(string) makes a "default costume" out of
+ * the text of a data URI, which is not an SVG. Every project with one missing costume then
+ * failed to load outright, where it used to show a blank costume.
+ */
+const STORAGE_BUILTINS = /scratch-storage[\\/]src[\\/]builtins[\\/]/;
+
 const base = {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     devtool: process.env.SOURCEMAP || (process.env.NODE_ENV === 'production' ? false : 'cheap-module-source-map'),
@@ -92,6 +102,11 @@ const base = {
                 ],
                 presets: ['@babel/preset-env', '@babel/preset-react']
             }
+        },
+        {
+            test: /\.(png|svg|wav)$/,
+            include: STORAGE_BUILTINS,
+            loader: 'arraybuffer-loader'
         },
         {
             test: /\.css$/,
@@ -163,6 +178,7 @@ module.exports = [
             rules: base.module.rules.concat([
                 {
                     test: /\.(svg|png|wav|mp3|gif|jpg|woff2|hex|mp4)$/,
+                    exclude: STORAGE_BUILTINS,
                     loader: 'url-loader',
                     options: {
                         limit: 2048,
@@ -287,6 +303,7 @@ module.exports = [
                 rules: base.module.rules.concat([
                     {
                         test: /\.(svg|png|wav|mp3|gif|jpg|woff2|hex|mp4)$/,
+                        exclude: STORAGE_BUILTINS,
                         loader: 'url-loader',
                         options: {
                             limit: 2048,
