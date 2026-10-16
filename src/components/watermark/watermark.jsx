@@ -9,6 +9,7 @@ const Watermark = props => (
         loading="lazy"
         src={props.costumeURL}
         draggable={false}
+        alt="Costume Watermark"
     />
 );
 
