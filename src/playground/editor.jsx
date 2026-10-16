@@ -20,5 +20,6 @@ import React from 'react';
 
 import Interface from './render-interface.jsx';
 import render from './app-target';
+import {isLessonMode} from '../lib/ct-url-flags';
 
-render(<Interface />);
+render(<Interface lessonMode={isLessonMode()} />);

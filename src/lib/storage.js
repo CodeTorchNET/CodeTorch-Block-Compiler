@@ -69,7 +69,18 @@ class Storage extends ScratchStorage {
         const customAchievements = this.customAchievements ? this.customAchievements : {};
         return {accessToken, customAchievements};
     }
-    async loadAccessToken () {
+    /**
+     * Ask the embedding page for the user's credentials.
+     * @param {object} [options] Options
+     * @param {boolean} [options.acceptSignedOut] Also settle on an answer with an empty token
+     * (the user is not signed in) instead of waiting for one with a token
+     * @param {number} [options.timeoutMs] Reject with Error('auth-timeout') after this long; the
+     * message listener is removed then too
+     * @returns {Promise<{token: string, username: string, accessKey: ?string}>} The credentials
+     */
+    async loadAccessToken (options) {
+        const acceptSignedOut = !!(options && options.acceptSignedOut);
+        const timeoutMs = options && options.timeoutMs;
         let creds = null;
         // eslint-disable-next-line no-negated-condition
         if (!isStandAlone) {
@@ -77,18 +88,22 @@ class Storage extends ScratchStorage {
 
             window.parent.postMessage({type: 'block-compiler-action', action: 'JWT_AUTH_REQUEST'}, trustedOrigin);
 
-            creds = await new Promise(resolve => {
-            // eslint-disable-next-line require-jsdoc, func-style
+            creds = await new Promise((resolve, reject) => {
+                let timer = null;
+                // eslint-disable-next-line require-jsdoc, func-style
                 function handleMessage (event) {
                     if (event.origin !== trustedOrigin) {
                         console.warn('Ignored message from untrusted origin:', event.origin);
                         return;
                     }
 
-                    if (event.data?.type === 'JWT_AUTH CREDS' && event.data?.token) {
+                    if (event.data?.type === 'JWT_AUTH CREDS' && (event.data?.token || acceptSignedOut)) {
                         window.removeEventListener('message', handleMessage);
+                        if (timer !== null) {
+                            clearTimeout(timer);
+                        }
                         resolve({
-                            token: event.data.token,
+                            token: event.data.token || '',
                             username: event.data.username || '',
                             accessKey: event.data.accessKey || null
                         });
@@ -96,6 +111,12 @@ class Storage extends ScratchStorage {
                 }
 
                 window.addEventListener('message', handleMessage);
+                if (typeof timeoutMs === 'number') {
+                    timer = setTimeout(() => {
+                        window.removeEventListener('message', handleMessage);
+                        reject(new Error('auth-timeout'));
+                    }, timeoutMs);
+                }
             });
         } else {
             creds = {
@@ -110,9 +131,13 @@ class Storage extends ScratchStorage {
         this.accessKey = creds.accessKey;
         return creds;
     }
-    async getProjectToken () {
+    /**
+     * @param {object} [options] Passed to loadAccessToken when there is no token yet
+     * @returns {Promise<string>} The token; may be '' only with options.acceptSignedOut
+     */
+    async getProjectToken (options) {
         if (!this.projectToken) {
-            await this.loadAccessToken();
+            await this.loadAccessToken(options);
         }
         return this.projectToken;
     }

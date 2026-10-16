@@ -78,6 +78,7 @@ const StageHeaderComponent = function (props) {
         onSetStageFull,
         onOpenSettings,
         isEmbedded,
+        isCodeEmbed,
         stageSize,
         stageSizeMode,
         vm
@@ -159,7 +160,7 @@ const StageHeaderComponent = function (props) {
         );
     } else {
         const stageControls =
-            isPlayerOnly ? (
+            isPlayerOnly || isCodeEmbed ? (
                 []
             ) : (
                 <div className={styles.stageSizeToggleGroup}>
@@ -270,6 +271,7 @@ StageHeaderComponent.propTypes = {
     onSetStageFull: PropTypes.func.isRequired,
     onOpenSettings: PropTypes.func.isRequired,
     isEmbedded: PropTypes.bool.isRequired,
+    isCodeEmbed: PropTypes.bool,
     stageSize: PropTypes.oneOf(Object.keys(STAGE_DISPLAY_SIZES)),
     stageSizeMode: PropTypes.oneOf(Object.keys(STAGE_SIZE_MODES)),
     vm: PropTypes.instanceOf(VM).isRequired

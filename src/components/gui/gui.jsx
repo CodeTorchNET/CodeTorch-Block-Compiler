@@ -20,6 +20,7 @@ import MenuBar from '../menu-bar/menu-bar.jsx';
 import CostumeLibrary from '../../containers/costume-library.jsx';
 import BackdropLibrary from '../../containers/backdrop-library.jsx';
 import Watermark from '../../containers/watermark.jsx';
+import CodeEmbedLayout from './code-embed-layout.jsx';
 
 import Backpack from '../../containers/backpack.jsx';
 import BrowserModal from '../browser-modal/browser-modal.jsx';
@@ -37,7 +38,12 @@ import TWFontsModal from '../../containers/tw-fonts-modal.jsx';
 import TWUnknownPlatformModal from '../../containers/tw-unknown-platform-modal.jsx';
 import TWInvalidProjectModal from '../../containers/tw-invalid-project-modal.jsx';
 
-import {STAGE_SIZE_MODES, FIXED_WIDTH, UNCONSTRAINED_NON_STAGE_WIDTH} from '../../lib/layout-constants';
+import {
+    STAGE_SIZE_MODES,
+    STAGE_DISPLAY_SIZES,
+    FIXED_WIDTH,
+    UNCONSTRAINED_NON_STAGE_WIDTH
+} from '../../lib/layout-constants';
 import {resolveStageSize} from '../../lib/screen-utils';
 import {Theme} from '../../lib/themes';
 
@@ -119,6 +125,8 @@ const GUIComponent = props => {
         intl,
         isCreating,
         isCollabDisconnected,
+        isCodeEmbed,
+        isBlocksOnlyEmbed,
         isEmbedded,
         isFullScreen,
         isPlayerOnly,
@@ -127,6 +135,7 @@ const GUIComponent = props => {
         isWindowFullScreen,
         isTelemetryEnabled,
         isTotallyNormal,
+        lessonMode,
         loading,
         logo,
         renderLogin,
@@ -208,6 +217,28 @@ const GUIComponent = props => {
                 {invalidProjectModalVisible && <TWInvalidProjectModal />}
             </React.Fragment>
         );
+
+        if (isCodeEmbed) {
+            return (
+                <CodeEmbedLayout
+                    alertsVisible={alertsVisible}
+                    basePath={basePath}
+                    blocksId={blocksId}
+                    canSave={canSave}
+                    canUseCloud={canUseCloud}
+                    connectionModalVisible={connectionModalVisible}
+                    isFullScreen={isFullScreen}
+                    isRtl={isRtl}
+                    loading={loading}
+                    modals={alwaysEnabledModals}
+                    onOpenCustomExtensionModal={onOpenCustomExtensionModal}
+                    showStage={!isBlocksOnlyEmbed}
+                    stageSize={isUnconstrained ? STAGE_DISPLAY_SIZES.large : STAGE_DISPLAY_SIZES.small}
+                    theme={theme}
+                    vm={vm}
+                />
+            );
+        }
 
         return isPlayerOnly ? (
             <React.Fragment>
@@ -324,6 +355,7 @@ const GUIComponent = props => {
                     enableCommunity={enableCommunity}
                     isShared={isShared}
                     isTotallyNormal={isTotallyNormal}
+                    lessonMode={lessonMode}
                     logo={logo}
                     renderLogin={renderLogin}
                     showComingSoon={showComingSoon}
@@ -509,6 +541,8 @@ GUIComponent.propTypes = {
     enableCommunity: PropTypes.bool,
     intl: intlShape.isRequired,
     isCreating: PropTypes.bool,
+    isCodeEmbed: PropTypes.bool,
+    isBlocksOnlyEmbed: PropTypes.bool,
     isEmbedded: PropTypes.bool,
     isFullScreen: PropTypes.bool,
     isPlayerOnly: PropTypes.bool,
@@ -516,6 +550,7 @@ GUIComponent.propTypes = {
     isShared: PropTypes.bool,
     isWindowFullScreen: PropTypes.bool,
     isTotallyNormal: PropTypes.bool,
+    lessonMode: PropTypes.bool,
     loading: PropTypes.bool,
     logo: PropTypes.string,
     onActivateCostumesTab: PropTypes.func,

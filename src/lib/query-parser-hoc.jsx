@@ -17,7 +17,7 @@ const QueryParserHOC = function (WrappedComponent) {
         constructor (props) {
             super(props);
             const queryParams = queryString.parse(location.search);
-            const tutorialId = detectTutorialId(queryParams);
+            const tutorialId = props.lessonMode ? null : detectTutorialId(queryParams);
             if (tutorialId) {
                 if (tutorialId === 'all') {
                     this.openTutorials();
@@ -46,6 +46,7 @@ const QueryParserHOC = function (WrappedComponent) {
         }
     }
     QueryParserComponent.propTypes = {
+        lessonMode: PropTypes.bool,
         onOpenTipsLibrary: PropTypes.func,
         onUpdateReduxDeck: PropTypes.func
     };

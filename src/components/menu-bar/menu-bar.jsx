@@ -348,7 +348,9 @@ class MenuBar extends React.Component {
                 }
             } else if (event.key.toLowerCase() === 'o') {
                 event.preventDefault();
-                this.props.onStartSelectingFileUpload();
+                if (!this.props.lessonMode) {
+                    this.props.onStartSelectingFileUpload();
+                }
             }
         }
     }
@@ -596,12 +598,14 @@ class MenuBar extends React.Component {
                                     open={this.props.fileMenuOpen}
                                     place={this.props.isRtl ? 'left' : 'right'}
                                 >
-                                    <MenuItem
-                                        isRtl={this.props.isRtl}
-                                        onClick={this.handleClickNew}
-                                    >
-                                        {newProjectMessage}
-                                    </MenuItem>
+                                    {!this.props.lessonMode && (
+                                        <MenuItem
+                                            isRtl={this.props.isRtl}
+                                            onClick={this.handleClickNew}
+                                        >
+                                            {newProjectMessage}
+                                        </MenuItem>
+                                    )}
                                     {this.props.onClickNewWindow && (
                                         <MenuItem
                                             isRtl={this.props.isRtl}
@@ -635,11 +639,13 @@ class MenuBar extends React.Component {
                                         </MenuSection>
                                     )}
                                     <MenuSection>
-                                        <MenuItem
-                                            onClick={this.props.onStartSelectingFileUpload}
-                                        >
-                                            {this.props.intl.formatMessage(sharedMessages.loadFromComputerTitle)}
-                                        </MenuItem>
+                                        {!this.props.lessonMode && (
+                                            <MenuItem
+                                                onClick={this.props.onStartSelectingFileUpload}
+                                            >
+                                                {this.props.intl.formatMessage(sharedMessages.loadFromComputerTitle)}
+                                            </MenuItem>
+                                        )}
                                         <SB3Downloader
                                             showSaveFilePicker={this.props.showSaveFilePicker}
                                         >
@@ -970,6 +976,7 @@ MenuBar.propTypes = {
     isTotallyNormal: PropTypes.bool,
     isUpdating: PropTypes.bool,
     isCollabActive: PropTypes.bool,
+    lessonMode: PropTypes.bool,
     locale: PropTypes.string.isRequired,
     mode2020: PropTypes.bool,
 

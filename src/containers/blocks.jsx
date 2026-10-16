@@ -179,7 +179,7 @@ class Blocks extends React.Component {
         // Register buttons under new callback keys for creating variables,
         // lists, and procedures from extensions.
 
-        const toolboxWorkspace = this.workspace.getFlyout().getWorkspace();
+        const toolboxWorkspace = this.getFlyoutWorkspace();
 
         const varListButtonCallback = type =>
             (() => this.ScratchBlocks.Variables.createVariable(this.workspace, null, type));
@@ -187,32 +187,34 @@ class Blocks extends React.Component {
             this.ScratchBlocks.Procedures.createProcedureDefCallback_(this.workspace);
         };
 
-        toolboxWorkspace.registerButtonCallback('MAKE_A_VARIABLE', varListButtonCallback(''));
-        toolboxWorkspace.registerButtonCallback('MAKE_A_LIST', varListButtonCallback('list'));
-        toolboxWorkspace.registerButtonCallback('MAKE_A_PROCEDURE', procButtonCallback);
-        toolboxWorkspace.registerButtonCallback('EXTENSION_CALLBACK', block => {
-            this.props.vm.handleExtensionButtonPress(block.callbackData_);
-        });
-        toolboxWorkspace.registerButtonCallback('OPEN_EXTENSION_DOCS', block => {
-            const docsURI = block.callbackData_;
-            const url = new URL(docsURI);
-            if (url.protocol === 'http:' || url.protocol === 'https:') {
-                window.open(docsURI, '_blank');
-            }
-        });
-        toolboxWorkspace.registerButtonCallback('OPEN_ACHIEVEMENT_POPUP', () => {
-            if (isMinimalMode()) {
-                return;
-            }
-            const trustedOrigin = TRUSTED_IFRAME_HOST;
-            window.parent.postMessage(
-                {type: 'block-compiler-action', action: 'show_achievement_setup_popup', canSave: this.props.canSave}
-                , trustedOrigin);
-        });
+        if (toolboxWorkspace) {
+            toolboxWorkspace.registerButtonCallback('MAKE_A_VARIABLE', varListButtonCallback(''));
+            toolboxWorkspace.registerButtonCallback('MAKE_A_LIST', varListButtonCallback('list'));
+            toolboxWorkspace.registerButtonCallback('MAKE_A_PROCEDURE', procButtonCallback);
+            toolboxWorkspace.registerButtonCallback('EXTENSION_CALLBACK', block => {
+                this.props.vm.handleExtensionButtonPress(block.callbackData_);
+            });
+            toolboxWorkspace.registerButtonCallback('OPEN_EXTENSION_DOCS', block => {
+                const docsURI = block.callbackData_;
+                const url = new URL(docsURI);
+                if (url.protocol === 'http:' || url.protocol === 'https:') {
+                    window.open(docsURI, '_blank');
+                }
+            });
+            toolboxWorkspace.registerButtonCallback('OPEN_ACHIEVEMENT_POPUP', () => {
+                if (isMinimalMode()) {
+                    return;
+                }
+                const trustedOrigin = TRUSTED_IFRAME_HOST;
+                window.parent.postMessage(
+                    {type: 'block-compiler-action', action: 'show_achievement_setup_popup', canSave: this.props.canSave}
+                    , trustedOrigin);
+            });
 
-        toolboxWorkspace.registerButtonCallback('OPEN_RETURN_DOCS', () => {
-            window.open('https://docs.turbowarp.org/return', '_blank');
-        });
+            toolboxWorkspace.registerButtonCallback('OPEN_RETURN_DOCS', () => {
+                window.open('https://docs.turbowarp.org/return', '_blank');
+            });
+        }
 
         // Store the xml of the toolbox that is actually rendered.
         // This is used in componentDidUpdate instead of prevProps, because
@@ -314,6 +316,13 @@ class Blocks extends React.Component {
 
         AddonHooks.blocklyWorkspace = null;
     }
+    /**
+     * @returns {?object} The palette's workspace, or null for a read-only workspace, which has none
+     */
+    getFlyoutWorkspace () {
+        const flyout = this.workspace && this.workspace.getFlyout();
+        return flyout ? flyout.getWorkspace() : null;
+    }
     requestToolboxUpdate () {
         clearTimeout(this.toolboxUpdateTimeout);
         this.toolboxUpdateTimeout = setTimeout(() => {
@@ -325,17 +334,18 @@ class Blocks extends React.Component {
         this.props.vm.setLocale(this.props.locale, this.props.messages)
             .then(() => {
                 if (this.unmounted) return;
-                this.workspace.getFlyout().setRecyclingEnabled(false);
+                if (this.workspace.getFlyout()) this.workspace.getFlyout().setRecyclingEnabled(false);
                 this.props.vm.refreshWorkspace();
                 this.requestToolboxUpdate();
                 this.withToolboxUpdates(() => {
-                    this.workspace.getFlyout().setRecyclingEnabled(true);
+                    if (this.workspace.getFlyout()) this.workspace.getFlyout().setRecyclingEnabled(true);
                 });
             });
     }
 
     updateToolbox () {
         this.toolboxUpdateTimeout = false;
+        if (!this.workspace.toolbox_) return;
 
         const categoryId = this.workspace.toolbox_.getSelectedCategoryId();
         const offset = this.workspace.toolbox_.getCategoryScrollOffset();
@@ -371,11 +381,11 @@ class Blocks extends React.Component {
 
     attachVM () {
         this.workspace.addChangeListener(this.props.vm.blockListener);
-        this.flyoutWorkspace = this.workspace
-            .getFlyout()
-            .getWorkspace();
-        this.flyoutWorkspace.addChangeListener(this.props.vm.flyoutBlockListener);
-        this.flyoutWorkspace.addChangeListener(this.props.vm.monitorBlockListener);
+        this.flyoutWorkspace = this.getFlyoutWorkspace();
+        if (this.flyoutWorkspace) {
+            this.flyoutWorkspace.addChangeListener(this.props.vm.flyoutBlockListener);
+            this.flyoutWorkspace.addChangeListener(this.props.vm.monitorBlockListener);
+        }
         this.props.vm.addListener('SCRIPT_GLOW_ON', this.onScriptGlowOn);
         this.props.vm.addListener('SCRIPT_GLOW_OFF', this.onScriptGlowOff);
         this.props.vm.addListener('BLOCK_GLOW_ON', this.onBlockGlowOn);
@@ -405,11 +415,10 @@ class Blocks extends React.Component {
     }
 
     updateToolboxBlockValue (id, value) {
+        const flyoutWorkspace = this.getFlyoutWorkspace();
+        if (!flyoutWorkspace) return;
         this.withToolboxUpdates(() => {
-            const block = this.workspace
-                .getFlyout()
-                .getWorkspace()
-                .getBlockById(id);
+            const block = flyoutWorkspace.getBlockById(id);
             if (block) {
                 block.inputList[0].fieldRow[0].setValue(value);
             }
@@ -546,6 +555,7 @@ class Blocks extends React.Component {
         // TODO: What about monitors that have fields? See todo in scratch-vm blocks.js changeBlock:
         // https://github.com/LLK/scratch-vm/blob/2373f9483edaf705f11d62662f7bb2a57fbb5e28/src/engine/blocks.js#L569-L576
         const flyout = this.workspace.getFlyout();
+        if (!flyout) return;
         for (const monitor of monitors.values()) {
             const blockId = monitor.get('id');
             const isVisible = monitor.get('visible');

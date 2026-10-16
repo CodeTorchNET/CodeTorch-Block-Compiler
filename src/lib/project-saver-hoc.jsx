@@ -9,6 +9,7 @@ import log from '../lib/log';
 import storage from '../lib/storage';
 import dataURItoBlob from '../lib/data-uri-to-blob';
 import saveProjectToServer from '../lib/save-project-to-server';
+import {reportLessonSaveResult} from '../lib/ct-lesson-messages';
 
 import {
     showAlertWithTimeout,
@@ -160,22 +161,31 @@ const ProjectSaverHOC = function (WrappedComponent) {
                     // it, because there are no values contained in it that we care about
                     this.props.onUpdatedProject(this.props.loadingState);
                     this.props.onShowSaveSuccessAlert();
+                    reportLessonSaveResult({kind: 'update', ok: true, projectId: this.props.reduxProjectId});
                 })
                 .catch(err => {
                     // Always show the savingError alert because it gives the
                     // user the chance to download or retry the save manually.
                     this.props.onShowAlert('savingError');
                     this.props.onProjectError(err);
+                    reportLessonSaveResult({kind: 'update', ok: false, error: err});
                 });
         }
         createNewProjectToStorage () {
-            return this.storeProject(null)
+            // In a lesson the project already has its lesson title, which the server should keep.
+            const requestParams = this.props.lessonMode && this.props.reduxProjectTitle ?
+                {title: this.props.reduxProjectTitle} :
+                null;
+            return this.storeProject(null, requestParams)
                 .then(response => {
-                    this.props.onCreatedProject(response.id.toString(), this.props.loadingState);
+                    const projectId = response.id.toString();
+                    this.props.onCreatedProject(projectId, this.props.loadingState);
+                    reportLessonSaveResult({kind: 'create', ok: true, projectId: projectId});
                 })
                 .catch(err => {
                     this.props.onShowAlert('creatingError');
                     this.props.onProjectError(err);
+                    reportLessonSaveResult({kind: 'create', ok: false, error: err});
                 });
         }
         createCopyToStorage () {
@@ -188,10 +198,12 @@ const ProjectSaverHOC = function (WrappedComponent) {
                 .then(response => {
                     this.props.onCreatedProject(response.id.toString(), this.props.loadingState);
                     this.props.onShowCopySuccessAlert();
+                    reportLessonSaveResult({kind: 'copy', ok: true, projectId: response.id.toString()});
                 })
                 .catch(err => {
                     this.props.onShowAlert('creatingError');
                     this.props.onProjectError(err);
+                    reportLessonSaveResult({kind: 'copy', ok: false, error: err});
                 });
         }
         createRemixToStorage () {
@@ -217,10 +229,12 @@ const ProjectSaverHOC = function (WrappedComponent) {
                 .then(response => {
                     this.props.onCreatedProject(response.id.toString(), this.props.loadingState);
                     this.props.onShowRemixSuccessAlert();
+                    reportLessonSaveResult({kind: 'remix', ok: true, projectId: response.id.toString()});
                 })
                 .catch(err => {
                     this.props.onShowAlert('creatingError');
                     this.props.onProjectError(err);
+                    reportLessonSaveResult({kind: 'remix', ok: false, error: err});
                 });
         }
         /**
@@ -384,6 +398,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
         isShowingWithId: PropTypes.bool,
         isShowingWithoutId: PropTypes.bool,
         isUpdating: PropTypes.bool,
+        lessonMode: PropTypes.bool,
         loadingState: PropTypes.oneOf(LoadingStates),
         locale: PropTypes.string.isRequired,
         onAutoUpdateProject: PropTypes.func,

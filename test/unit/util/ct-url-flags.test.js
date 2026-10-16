@@ -28,7 +28,8 @@ describe('ct-url-flags', () => {
             expect(flagsFor('')).toEqual({
                 useJIT: true,
                 minimal: false,
-                chat: true
+                chat: true,
+                lesson: false
             });
         });
 
@@ -55,8 +56,16 @@ describe('ct-url-flags', () => {
             expect(flagsFor('?minimal=true&chat=false&useJIT=false')).toEqual({
                 useJIT: false,
                 minimal: true,
-                chat: false
+                chat: false,
+                lesson: false
             });
+        });
+
+        test('lesson=1 turns lesson mode on', () => {
+            expect(flagsFor('?lesson=1').lesson).toBe(true);
+            expect(flagsFor('?lesson').lesson).toBe(true);
+            expect(flagsFor('?lesson=0').lesson).toBe(false);
+            expect(flagsFor('?lesson=maybe').lesson).toBe(false);
         });
     });
 });

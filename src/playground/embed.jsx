@@ -5,6 +5,8 @@ import {compose} from 'redux';
 import AppStateHOC from '../lib/app-state-hoc.jsx';
 import TWEmbedFullScreenHOC from '../lib/tw-embed-fullscreen-hoc.jsx';
 import TWStateManagerHOC from '../lib/tw-state-manager-hoc.jsx';
+import CTEmbedViewHOC from '../lib/ct-embed-view-hoc.jsx';
+import {readEmbedViewFromParams} from '../lib/ct-embed-view';
 import runAddons from '../addons/entry';
 import {Theme} from '../lib/themes/index.js';
 
@@ -57,11 +59,13 @@ const onProjectLoaded = () => {
 const WrappedGUI = compose(
     AppStateHOC,
     TWStateManagerHOC,
-    TWEmbedFullScreenHOC
+    TWEmbedFullScreenHOC,
+    CTEmbedViewHOC
 )(GUI);
 
 render(<WrappedGUI
     isEmbedded
+    embedView={readEmbedViewFromParams(urlParams)}
     projectId={projectId}
     onVmInit={onVmInit}
     onProjectLoaded={onProjectLoaded}

@@ -11,7 +11,7 @@ import hoveredTargetReducer, {hoveredTargetInitialState} from './hovered-target'
 import menuReducer, {menuInitialState} from './menus';
 import micIndicatorReducer, {micIndicatorInitialState} from './mic-indicator';
 import modalReducer, {modalsInitialState} from './modals';
-import modeReducer, {modeInitialState} from './mode';
+import modeReducer, {modeInitialState, applyEmbedView} from './mode';
 import monitorReducer, {monitorsInitialState} from './monitors';
 import monitorLayoutReducer, {monitorLayoutInitialState} from './monitor-layout';
 import projectChangedReducer, {projectChangedInitialState} from './project-changed';
@@ -80,6 +80,8 @@ const initPlayer = function (currentState) {
             isEmbedded: false,
             isFullScreen: currentState.mode.isFullScreen,
             isPlayerOnly: true,
+            isCodeEmbed: false,
+            isBlocksOnlyEmbed: false,
             // When initializing in player mode, make sure to reset
             // hasEverEnteredEditorMode
             hasEverEnteredEditor: false
@@ -94,22 +96,26 @@ const initFullScreen = function (currentState) {
             isEmbedded: false,
             isFullScreen: true,
             isPlayerOnly: currentState.mode.isPlayerOnly,
+            isCodeEmbed: false,
+            isBlocksOnlyEmbed: false,
             hasEverEnteredEditor: currentState.mode.hasEverEnteredEditor
         }}
     );
 };
 
-const initEmbedded = function (currentState) {
+const initEmbedded = function (currentState, view) {
     return Object.assign(
         {},
         currentState,
-        {mode: {
+        {mode: applyEmbedView({
             isEmbedded: true,
             // tw: embed does not need isFullScreen anymore
             isFullScreen: false,
             isPlayerOnly: true,
+            isCodeEmbed: false,
+            isBlocksOnlyEmbed: false,
             hasEverEnteredEditor: false
-        }}
+        }, view)}
     );
 };
 

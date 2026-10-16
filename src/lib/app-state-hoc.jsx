@@ -69,7 +69,7 @@ const AppStateHOC = function (WrappedComponent, localesOnly) {
                     initializedGui = initTelemetryModal(initializedGui);
                 }
                 if (props.isEmbedded) {
-                    initializedGui = initEmbedded(initializedGui);
+                    initializedGui = initEmbedded(initializedGui, props.embedView);
                 }
                 reducers = {
                     locales: localesReducer,
@@ -110,6 +110,7 @@ const AppStateHOC = function (WrappedComponent, localesOnly) {
                 isFullScreen, // eslint-disable-line no-unused-vars
                 isPlayerOnly, // eslint-disable-line no-unused-vars
                 showTelemetryModal, // eslint-disable-line no-unused-vars
+                embedView, // eslint-disable-line no-unused-vars
                 ...componentProps
             } = this.props;
             return (
@@ -128,7 +129,8 @@ const AppStateHOC = function (WrappedComponent, localesOnly) {
         isPlayerOnly: PropTypes.bool,
         isTelemetryEnabled: PropTypes.bool,
         showTelemetryModal: PropTypes.bool,
-        isEmbedded: PropTypes.bool
+        isEmbedded: PropTypes.bool,
+        embedView: PropTypes.string
     };
     return AppStateWrapper;
 };

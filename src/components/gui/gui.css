@@ -334,3 +334,36 @@ $fade-out-distance: 15px;
     /* overridden by JS; this will be used if the browser can't understand that color */
     background-color: white;
 }
+
+.code-embed-wrapper {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background-color: $ui-primary;
+}
+
+.code-embed-wrapper * {
+    box-sizing: border-box;
+}
+
+.code-embed-editor {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.code-embed-stage {
+    flex-shrink: 0;
+    min-height: 0;
+    padding-top: $space;
+    padding-bottom: $space;
+}
+
+.code-embed-stage-hidden {
+    display: none;
+}

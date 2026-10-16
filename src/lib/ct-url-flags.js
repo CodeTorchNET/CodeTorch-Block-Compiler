@@ -37,10 +37,11 @@ const parseBooleanParam = (params, name, defaultValue) => {
 };
 
 const MINIMAL_PARAM = 'minimal';
+const LESSON_PARAM = 'lesson';
 
 /**
  * @param {URLSearchParams} params Parsed search parameters
- * @returns {{useJIT: boolean, minimal: boolean, chat: boolean}} Parsed flags
+ * @returns {{useJIT: boolean, minimal: boolean, chat: boolean, lesson: boolean}} Parsed flags
  */
 const parseFlags = params => ({
     // ?useJIT=false turns off the compiler. There is intentionally no ?useJIT=true behaviour.
@@ -48,7 +49,8 @@ const parseFlags = params => ({
     // ?minimal=true enables the reduced editor.
     minimal: parseBooleanParam(params, MINIMAL_PARAM, false),
     // ?chat=false turns off the ephemeral cursor chat bubble in collaboration.
-    chat: parseBooleanParam(params, 'chat', true)
+    chat: parseBooleanParam(params, 'chat', true),
+    lesson: parseBooleanParam(params, LESSON_PARAM, false)
 });
 
 const flags = parseFlags(readSearchParams());
@@ -69,6 +71,11 @@ const isMinimalMode = () => flags.minimal;
 const isCursorChatEnabled = () => flags.chat;
 
 /**
+ * @returns {boolean} True if the editor is running inside a Learning Path lesson.
+ */
+const isLessonMode = () => flags.lesson;
+
+/**
  * Re-apply the flags that have to survive any in-editor rewrite of the query string.
  * @param {URLSearchParams} searchParams Search parameters that are about to be written to the URL
  * @returns {URLSearchParams} The same object, for convenience
@@ -76,6 +83,9 @@ const isCursorChatEnabled = () => flags.chat;
 const applyPersistentFlags = searchParams => {
     if (flags.minimal) {
         searchParams.set(MINIMAL_PARAM, 'true');
+    }
+    if (flags.lesson) {
+        searchParams.set(LESSON_PARAM, '1');
     }
     return searchParams;
 };
@@ -86,6 +96,8 @@ export {
     isJITDisabledByURL,
     isMinimalMode,
     isCursorChatEnabled,
+    isLessonMode,
     applyPersistentFlags,
-    MINIMAL_PARAM
+    MINIMAL_PARAM,
+    LESSON_PARAM
 };
