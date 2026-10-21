@@ -131,6 +131,7 @@ class CostumeTab extends React.Component {
                 this.props.sprites[editingTarget] : this.props.stage;
             if (oldTarget.costumeCount !== target.costumeCount) {
                 this.setState({selectedCostumeIndex: target.currentCostume});
+                this.props.onSetSelectedAsset('costume', target.currentCostume, editingTarget);
             }
         } else {
             this.setState({selectedCostumeIndex: target.currentCostume});

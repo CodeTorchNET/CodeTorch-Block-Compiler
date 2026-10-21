@@ -544,6 +544,9 @@ export async function pushTargetStateToYjs(target) {
     );
     await Promise.all([...costumePromises, ...soundPromises]);
 
+    if (!constants.mutableRefs.ydoc || !constants.mutableRefs.sharedBlocks) return;
+    if (!runtime.getTargetById(targetId)) return;
+
     constants.mutableRefs.ydoc.transact(() => {
         const yTargetBlockMap = new Y.Map();
         yTargetBlockMap.set('__targetName', targetName);
@@ -582,46 +585,26 @@ export async function pushTargetStateToYjs(target) {
 }
 
 function applyYjsBlocksToTarget(target, yTargetMap) {
-    const alreadyHere = [];
+    const blocks = target.blocks;
+    const live = new Set();
     yTargetMap.forEach((yBlockMap, blockId) => {
         if (blockId === '__targetName') return;
+        live.add(blockId);
         const blockData = deserializeBlockFromYjs(yBlockMap);
-        if (target.blocks.getBlock(blockId)) {
-            alreadyHere.push([blockId, blockData]);
-            return;
+        const local = blocks.getBlock(blockId);
+        if (local) {
+            Object.assign(local, blockData);
+            blocks.updateBlock(local);
+        } else {
+            blocks.createBlock(blockData);
         }
-        target.blocks.createBlock(blockData);
     });
-    let adopted = 0;
-    alreadyHere.forEach(([blockId, blockData]) => {
-        adopted += adoptShadowIdsFromYjs(target, blockId, blockData);
+    const stale = Object.keys(blocks._blocks).filter(id => !live.has(id));
+    stale.forEach(id => {
+        blocks._deleteScript(id);
+        delete blocks._blocks[id];
     });
-    if (adopted > 0) target.blocks.resetCache();
-}
-
-function adoptShadowIdsFromYjs(target, blockId, remote) {
-    const local = target.blocks.getBlock(blockId);
-    if (!local || !local.inputs || !remote || !remote.inputs) return 0;
-
-    let adopted = 0;
-    Object.keys(remote.inputs).forEach(name => {
-        const mine = local.inputs[name];
-        const theirs = remote.inputs[name];
-        if (!mine || !theirs) return;
-        if (mine.shadow === theirs.shadow) return;
-        if (!mine.shadow || mine.block !== mine.shadow) return;
-        if (!theirs.shadow || theirs.block !== theirs.shadow) return;
-
-        const roomsShadow = target.blocks.getBlock(theirs.shadow);
-        if (!roomsShadow) return;
-
-        const invented = mine.shadow;
-        local.inputs[name] = { name, block: theirs.shadow, shadow: theirs.shadow };
-        roomsShadow.parent = blockId;
-        target.blocks.deleteBlock(invented);
-        adopted++;
-    });
-    return adopted;
+    if (stale.length > 0) blocks.resetCache();
 }
 
 function applyYjsVariablesToTarget(target, yTargetVarMap) {
@@ -663,6 +646,13 @@ function applyYjsVariablesToTarget(target, yTargetVarMap) {
 }
 
 function applyYjsCommentsToTarget(target, yTargetCommentMap) {
+    Object.keys(target.comments).forEach(commentId => {
+        if (yTargetCommentMap.has(commentId)) return;
+        const comment = target.comments[commentId];
+        const owner = comment && comment.blockId ? target.blocks.getBlock(comment.blockId) : null;
+        if (owner && owner.comment === commentId) delete owner.comment;
+        delete target.comments[commentId];
+    });
     yTargetCommentMap.forEach((yCommentMap, commentId) => {
         if (target.comments[commentId]) return;
         const commentData = deserializeCommentFromYjs(yCommentMap);

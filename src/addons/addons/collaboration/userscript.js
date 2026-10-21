@@ -773,21 +773,25 @@ function attachYjsProvider() {
             const publishTimer = setTimeout(async () => {
                 pendingSpritePublishes.delete(publishTimer);
                 if (constants.mutableRefs.isInitialRoomSync) return;
-                const targets = constants.mutableRefs.vm.runtime.targets;
-                const sharedSprites = constants.mutableRefs.sharedSprites;
-                
-                for (const target of targets) {
+                const runtime = constants.mutableRefs.vm.runtime;
+                const ydoc = constants.mutableRefs.ydoc;
+
+                for (const target of runtime.targets.slice()) {
                     if (target.isOriginal && !constants.mutableRefs.sharedBlocks.has(target.id)) {
-                        
                         await helper.pushTargetStateToYjs(target);
                     }
                 }
 
-                constants.mutableRefs.ydoc.transact(() => {
+                if (constants.mutableRefs.ydoc !== ydoc || !ydoc) return;
+                if (constants.mutableRefs.isInitialRoomSync) return;
+
+                ydoc.transact(() => {
+                    const sharedSprites = constants.mutableRefs.sharedSprites;
                     const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
                     const knownIds = new Set(sharedSprites.toArray());
-                    targets.forEach(target => {
+                    runtime.targets.forEach(target => {
                         if (!target.isOriginal) return;
+                        if (!constants.mutableRefs.sharedBlocks.has(target.id)) return;
                         if (!sharedSpriteData.has(target.id)) {
                             sharedSpriteData.set(target.id, helper.serializeSpriteForYjs(target));
                         }
