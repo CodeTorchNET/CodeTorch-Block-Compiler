@@ -1,4 +1,5 @@
 import * as constants from './constants.js';
+import * as recorder from './recorder.js';
 
 /*
 Reconciles individual blocks in the live Blockly workspace against the VM
@@ -7,6 +8,11 @@ changes don't require a full workspace reload. Returns false whenever it
 hits anything it can't safely patch so the caller can fall back to a full
 vm.emitWorkspaceUpdate() rebuild.
 */
+
+function bail(where, blockId, extra) {
+    recorder.record('applier.bail', Object.assign({where, block: blockId}, extra || {}));
+    return false;
+}
 
 function isObscuredShadow(target, vmBlock, blockId) {
     if (!vmBlock.shadow) return false;
@@ -173,10 +179,10 @@ function reconcileState(Blockly, workspace, target, blockId) {
         return !!vmBlock.shadow;
     }
 
-    if (!!vmBlock.shadow !== wsBlock.isShadow()) return false;
+    if (!!vmBlock.shadow !== wsBlock.isShadow()) return bail('shadowness', blockId);
 
-    if (!reconcileFields(target, vmBlock, wsBlock)) return false;
-    if (!reconcileConnection(workspace, target, vmBlock, wsBlock, blockId)) return false;
+    if (!reconcileFields(target, vmBlock, wsBlock)) return bail('fields', blockId);
+    if (!reconcileConnection(workspace, target, vmBlock, wsBlock, blockId)) return bail('connection', blockId);
 
     if (vmBlock.topLevel && !wsBlock.getParent()) {
         const x = Number(vmBlock.x);
@@ -198,7 +204,7 @@ export function reconcileBlocks(target, blockIds) {
     Blockly.Events.disable();
     try {
         for (const blockId of blockIds) {
-            if (!reconcileExistence(Blockly, workspace, target, blockId)) return false;
+            if (!reconcileExistence(Blockly, workspace, target, blockId)) return bail('existence', blockId);
         }
         for (const blockId of blockIds) {
             if (!reconcileState(Blockly, workspace, target, blockId)) return false;
@@ -206,7 +212,92 @@ export function reconcileBlocks(target, blockIds) {
         return true;
     } catch (e) {
         if (constants.debugging) console.warn('Collaboration: incremental block sync failed, falling back to full refresh.', e);
-        return false;
+        return bail('threw', null, {message: String(e && e.message || e)});
+    } finally {
+        Blockly.Events.enable();
+    }
+}
+
+function commentText(wsComment) {
+    if (typeof wsComment.getText === 'function') return wsComment.getText();
+    if (typeof wsComment.getContent === 'function') return wsComment.getContent();
+    return null;
+}
+
+function commentMinimized(wsComment) {
+    if (typeof wsComment.isMinimized === 'function') return !!wsComment.isMinimized();
+    return !!wsComment.isMinimized_;
+}
+
+function createComment(Blockly, workspace, vmComment) {
+    if (vmComment.blockId) {
+        const block = workspace.getBlockById(vmComment.blockId);
+        if (!block) return null;
+        if (block.comment) return block.comment.id === vmComment.id ? block.comment : null;
+        block.setCommentText(String(vmComment.text == null ? '' : vmComment.text), vmComment.id,
+            Number(vmComment.x), Number(vmComment.y), !!vmComment.minimized);
+        return block.comment || null;
+    }
+    if (typeof vmComment.toXML !== 'function') return null;
+    const dom = Blockly.Xml.textToDom(`<xml>${vmComment.toXML()}</xml>`);
+    const commentDom = dom.firstElementChild || dom.firstChild;
+    if (!commentDom) return null;
+    return Blockly.WorkspaceCommentSvg.fromXml(commentDom, workspace);
+}
+
+export function reconcileComments(target, commentIds) {
+    const Blockly = constants.mutableRefs.BlocklyInstance;
+    const workspace = constants.editorWorkspace();
+    if (!workspace || !target || !target.comments) return false;
+    // The VM holds a comment's position as an LTR workspace reports it; a mirrored workspace is
+    // rebuilt, as it was.
+    if (workspace.RTL) return bail('comments-rtl', null);
+    Blockly.Events.disable();
+    try {
+        for (const id of commentIds) {
+            const vmComment = target.comments[id];
+            let wsComment = workspace.getCommentById(id);
+            if (!vmComment) {
+                if (wsComment) wsComment.dispose();
+                continue;
+            }
+            if (!wsComment) {
+                wsComment = createComment(Blockly, workspace, vmComment);
+                if (!wsComment) return bail('comment-create', id);
+            }
+            if (vmComment.blockId) {
+                const block = workspace.getBlockById(vmComment.blockId);
+                if (!block || block.comment !== wsComment) return bail('comment-block', id);
+            }
+
+            const text = String(vmComment.text == null ? '' : vmComment.text);
+            // Not while this person is typing in it: their text is published when they blur, and
+            // the room settles it then. Overwriting the textarea under them is the report.
+            const typingHere = !!wsComment.textarea_ && document.activeElement === wsComment.textarea_;
+            if (!typingHere && commentText(wsComment) !== text) wsComment.setText(text);
+
+            const minimized = !!vmComment.minimized;
+            if (commentMinimized(wsComment) !== minimized) wsComment.setMinimized(minimized);
+
+            const width = Number(vmComment.width);
+            const height = Number(vmComment.height);
+            if (!minimized && isFinite(width) && isFinite(height)) {
+                const size = wsComment.getHeightWidth();
+                if (Math.abs(size.width - width) > 0.5 || Math.abs(size.height - height) > 0.5) {
+                    wsComment.setSize(width, height);
+                }
+            }
+
+            const x = Number(vmComment.x);
+            const y = Number(vmComment.y);
+            if (isFinite(x) && isFinite(y)) {
+                const xy = wsComment.getXY();
+                if (Math.abs(xy.x - x) > 0.5 || Math.abs(xy.y - y) > 0.5) wsComment.moveTo(x, y);
+            }
+        }
+        return true;
+    } catch (e) {
+        return bail('comments-threw', null, {message: String(e && e.message || e)});
     } finally {
         Blockly.Events.enable();
     }

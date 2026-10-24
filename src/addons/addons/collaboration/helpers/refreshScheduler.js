@@ -1,12 +1,14 @@
 import * as constants from './constants.js';
 import * as applier from './blocklyApplier.js';
 import * as helper from './helper.js';
+import * as recorder from './recorder.js';
 
 const FLUSH_DELAY_MS = 80;
 const MAX_WAIT_MS = 600;
 const DRAG_RETRY_MS = 200;
 
 const dirtyBlocksByTarget = new Map();
+const dirtyCommentsByTarget = new Map();
 const repairPending = new Set();
 let fullRefreshPending = false;
 let toolboxRefreshPending = false;
@@ -17,13 +19,55 @@ function getWorkspace() {
     return constants.editorWorkspace();
 }
 
+function holdInHand(Blockly, workspace) {
+    const held = {selectedId: Blockly.selected ? Blockly.selected.id : null, field: null};
+    const owner = Blockly.WidgetDiv.owner_;
+    const input = Blockly.FieldTextInput ? Blockly.FieldTextInput.htmlInput_ : null;
+    if (Blockly.WidgetDiv.isVisible() && input && owner && owner.sourceBlock_ && owner.name &&
+        owner.sourceBlock_.workspace === workspace) {
+        held.field = {
+            blockId: owner.sourceBlock_.id,
+            name: owner.name,
+            value: input.value,
+            start: input.selectionStart,
+            end: input.selectionEnd
+        };
+    }
+    return held;
+}
+
+function giveBack(Blockly, workspace, held) {
+    if (!workspace || !held) return;
+    if (held.selectedId && (!Blockly.selected || Blockly.selected.id !== held.selectedId)) {
+        const block = workspace.getBlockById(held.selectedId);
+        if (block && typeof block.select === 'function') block.select();
+    }
+    if (!held.field) return;
+    const block = workspace.getBlockById(held.field.blockId);
+    const field = block ? block.getField(held.field.name) : null;
+    if (!field || typeof field.showEditor_ !== 'function' || Blockly.WidgetDiv.isVisible()) return;
+    try {
+        field.showEditor_();
+        const input = Blockly.FieldTextInput.htmlInput_;
+        if (!input) return;
+        if (input.value !== held.field.value) input.value = held.field.value;
+        const length = input.value.length;
+        const start = Math.min(held.field.start == null ? length : held.field.start, length);
+        const end = Math.min(held.field.end == null ? length : held.field.end, length);
+        input.setSelectionRange(start, end);
+    } catch (e) {
+    }
+}
+
 export function rebuildWorkspace() {
     const vm = constants.mutableRefs.vm;
     if (!vm) return;
+    const Blockly = constants.mutableRefs.BlocklyInstance;
     const workspace = getWorkspace();
     const targetBefore = vm.editingTarget ? vm.editingTarget.id : null;
     const undoStack = workspace ? workspace.undoStack_.slice() : null;
     const redoStack = workspace ? workspace.redoStack_.slice() : null;
+    const held = (workspace && Blockly) ? holdInHand(Blockly, workspace) : null;
 
     vm.emitWorkspaceUpdate();
 
@@ -32,6 +76,7 @@ export function rebuildWorkspace() {
         workspace.undoStack_ = undoStack;
         workspace.redoStack_ = redoStack;
     }
+    if (held && targetAfter === targetBefore) giveBack(Blockly, getWorkspace(), held);
 }
 
 function claimsChild(parent, childId) {
@@ -82,7 +127,25 @@ export function queueBlockSync(targetId, blockIds) {
     arm();
 }
 
+export function queueCommentSync(targetId, commentIds) {
+    if (!targetId || !commentIds || commentIds.length === 0) return;
+    const editingTarget = constants.mutableRefs.vm?.editingTarget;
+    if (!editingTarget || editingTarget.id !== targetId) return;
+    let set = dirtyCommentsByTarget.get(targetId);
+    if (!set) {
+        set = new Set();
+        dirtyCommentsByTarget.set(targetId, set);
+    }
+    commentIds.forEach(id => set.add(id));
+    arm();
+}
+
 export function queueFullRefresh() {
+    if (!fullRefreshPending && recorder.isRecording()) {
+        recorder.record('refresh.queued', {
+            via: new Error().stack.split('\n').slice(2, 5).map(line => line.trim()).join(' < ')
+        });
+    }
     fullRefreshPending = true;
     arm();
 }
@@ -113,6 +176,7 @@ function flush() {
     }
 
     firstQueuedAt = 0;
+    const why = {queued: fullRefreshPending, repairs: repairPending.size, attachments: false, applier: false, comments: false};
     let needFull = fullRefreshPending;
     fullRefreshPending = false;
     const toRepair = [...repairPending];
@@ -121,6 +185,8 @@ function flush() {
     toolboxRefreshPending = false;
     const dirty = new Map(dirtyBlocksByTarget);
     dirtyBlocksByTarget.clear();
+    const dirtyComments = new Map(dirtyCommentsByTarget);
+    dirtyCommentsByTarget.clear();
 
     const previousGroup = Blockly.Events.getGroup();
     Blockly.Events.setGroup('yjs-remote-sync');
@@ -143,14 +209,28 @@ function flush() {
         if (!needFull && dirty.size > 0 && editingTarget) {
             const dirtyIds = dirty.get(editingTarget.id);
             if (dirtyIds && dirtyIds.size > 0) {
-                if (attachmentsDisagree(editingTarget, dirtyIds) ||
-                    !applier.reconcileBlocks(editingTarget, dirtyIds)) {
+                if (attachmentsDisagree(editingTarget, dirtyIds)) {
+                    why.attachments = true;
+                    needFull = true;
+                } else if (!applier.reconcileBlocks(editingTarget, dirtyIds)) {
+                    why.applier = true;
                     needFull = true;
                 }
             }
         }
 
+        if (!needFull && dirtyComments.size > 0 && editingTarget) {
+            const commentIds = dirtyComments.get(editingTarget.id);
+            if (commentIds && commentIds.size > 0 && !applier.reconcileComments(editingTarget, commentIds)) {
+                why.comments = true;
+                needFull = true;
+            }
+        }
+
         if (needFull && editingTarget) {
+            recorder.record('refresh.full', Object.assign(why, {
+                dirty: editingTarget && dirty.get(editingTarget.id) ? [...dirty.get(editingTarget.id)] : []
+            }));
             const repairedByTarget = new Map();
             vm.runtime.targets.forEach(target => {
                 if (!target.isOriginal) return;
@@ -187,4 +267,5 @@ export function reset() {
     fullRefreshPending = false;
     toolboxRefreshPending = false;
     dirtyBlocksByTarget.clear();
+    dirtyCommentsByTarget.clear();
 }

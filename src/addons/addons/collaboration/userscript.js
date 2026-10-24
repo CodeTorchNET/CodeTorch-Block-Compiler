@@ -455,12 +455,12 @@ function attachYjsProvider() {
                         return;
                     }
 
-                    if (OH.sharedComments(event)) {
-                        const editingTargetId = constants.mutableRefs.vm.editingTarget?.id;
-                        if (!targetId || targetId === editingTargetId) {
-                            scheduler.queueFullRefresh();
+                    const editingTargetId = constants.mutableRefs.vm.editingTarget?.id;
+                    OH.sharedComments(event).forEach((commentIds, touchedTargetId) => {
+                        if (touchedTargetId === editingTargetId) {
+                            scheduler.queueCommentSync(touchedTargetId, commentIds);
                         }
-                    }
+                    });
                 });
             } catch (e) {
                 console.warn('[collaboration] comment sync failed', e);

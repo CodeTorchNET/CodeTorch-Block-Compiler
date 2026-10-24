@@ -321,33 +321,42 @@ export function sharedMonitors (event) {
     }
 }
 
-export function sharedComments (event){
-    let needsWorkspaceRefresh = false;
+/*
+Applies a comments change to the VM and says which comments of which target it touched, so the
+scheduler can patch exactly those on the workspace (blocklyApplier.reconcileComments) instead of
+rebuilding it.
+*/
+export function sharedComments (event) {
+    const touched = new Map();
+    const note = (targetId, commentId) => {
+        if (!touched.has(targetId)) touched.set(targetId, []);
+        touched.get(targetId).push(commentId);
+    };
     const path = event.path;
 
     if (path.length === 0) {
         event.changes.keys.forEach((change, targetId) => {
-            if (change.action === 'add') {
-                const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-                if (!target) return;
-                const yTargetCommentMap = event.target.get(targetId);
-                yTargetCommentMap.forEach((yCommentMap, commentId) => {
-                    const commentData = helper.deserializeCommentFromYjs(yCommentMap);
-                    if (!target.comments[commentId]) {
-                        target.createComment(
-                            commentData.id, commentData.blockId, commentData.text,
-                            commentData.x, commentData.y, commentData.width,
-                            commentData.height, commentData.minimized, true
-                        );
-                        needsWorkspaceRefresh = true;
-                    }
-                });
-            }
+            if (change.action === 'delete') return;
+            const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
+            if (!target) return;
+            const yTargetCommentMap = event.target.get(targetId);
+            if (!yTargetCommentMap) return;
+            yTargetCommentMap.forEach((yCommentMap, commentId) => {
+                const commentData = helper.deserializeCommentFromYjs(yCommentMap);
+                if (!target.comments[commentId]) {
+                    target.createComment(
+                        commentData.id, commentData.blockId, commentData.text,
+                        commentData.x, commentData.y, commentData.width,
+                        commentData.height, commentData.minimized, true
+                    );
+                    note(targetId, commentId);
+                }
+            });
         });
     } else if (path.length === 1) {
         const targetId = path[0];
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-        if (!target) return needsWorkspaceRefresh;
+        if (!target) return touched;
 
         event.changes.keys.forEach((change, commentId) => {
             if (change.action === 'add' || change.action === 'update') {
@@ -374,17 +383,17 @@ export function sharedComments (event){
                 }
                 delete target.comments[commentId];
             }
+            note(targetId, commentId);
         });
-        needsWorkspaceRefresh = true;
     } else if (path.length === 2) {
         const [targetId, commentId] = path;
         const target = constants.mutableRefs.vm.runtime.getTargetById(targetId);
-        if (!target || !target.comments[commentId]) return needsWorkspaceRefresh;
+        if (!target || !target.comments[commentId]) return touched;
 
         event.changes.keys.forEach((change, key) => {
             target.comments[commentId][key] = event.target.get(key);
         });
-        needsWorkspaceRefresh = true;
+        note(targetId, commentId);
     }
-    return needsWorkspaceRefresh;
+    return touched;
 }
