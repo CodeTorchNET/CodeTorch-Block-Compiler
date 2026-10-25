@@ -50,8 +50,7 @@ import {gentlyRequestPersistentStorage} from '../lib/tw-persistent-storage.js';
 import {isMinimalMode} from '../lib/ct-url-flags';
 import SettingsStore from '../addons/settings-store-singleton';
 
-const showAI = SettingsStore.store['ai-integration'] &&
-               SettingsStore.store['ai-integration'].enabled;
+const showAI = SettingsStore.getAddonEnabled('ai-integration');
 
 // TW: Strings we add to scratch-blocks are localized here
 const messages = defineMessages({

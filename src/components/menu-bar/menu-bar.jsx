@@ -102,8 +102,7 @@ import SeeInsideButton from './tw-see-inside.jsx';
 import {APP_NAME} from '../../lib/brand.js';
 import {showStandardAlert} from '../../reducers/alerts';
 
-const isTorchyEnabled = SettingsStore.store['ai-integration'] &&
-                        SettingsStore.store['ai-integration'].enabled;
+const isTorchyEnabled = SettingsStore.getAddonEnabled('ai-integration');
 
 const twMessages = defineMessages({
     compileError: {
@@ -349,7 +348,7 @@ class MenuBar extends React.Component {
             } else if (event.key.toLowerCase() === 'o') {
                 event.preventDefault();
                 if (!this.props.lessonMode) {
-                    this.props.onStartSelectingFileUpload();
+                this.props.onStartSelectingFileUpload();
                 }
             }
         }
@@ -599,12 +598,12 @@ class MenuBar extends React.Component {
                                     place={this.props.isRtl ? 'left' : 'right'}
                                 >
                                     {!this.props.lessonMode && (
-                                        <MenuItem
-                                            isRtl={this.props.isRtl}
-                                            onClick={this.handleClickNew}
-                                        >
-                                            {newProjectMessage}
-                                        </MenuItem>
+                                    <MenuItem
+                                        isRtl={this.props.isRtl}
+                                        onClick={this.handleClickNew}
+                                    >
+                                        {newProjectMessage}
+                                    </MenuItem>
                                     )}
                                     {this.props.onClickNewWindow && (
                                         <MenuItem
@@ -640,11 +639,11 @@ class MenuBar extends React.Component {
                                     )}
                                     <MenuSection>
                                         {!this.props.lessonMode && (
-                                            <MenuItem
-                                                onClick={this.props.onStartSelectingFileUpload}
-                                            >
-                                                {this.props.intl.formatMessage(sharedMessages.loadFromComputerTitle)}
-                                            </MenuItem>
+                                        <MenuItem
+                                            onClick={this.props.onStartSelectingFileUpload}
+                                        >
+                                            {this.props.intl.formatMessage(sharedMessages.loadFromComputerTitle)}
+                                        </MenuItem>
                                         )}
                                         <SB3Downloader
                                             showSaveFilePicker={this.props.showSaveFilePicker}

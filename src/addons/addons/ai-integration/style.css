@@ -14,8 +14,9 @@
 }
 
 .content {
-    height: 100%;
-    overflow-y: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .chat-content-pane {
@@ -317,6 +318,8 @@
 .attachedFile select{
     font-size: 11px;
     color: #7b7665;
+    width: auto;
+    max-width: 180px;
     -webkit-appearance: none;
     -moz-appearance: none;
     background: transparent;
@@ -389,8 +392,21 @@
 
 #closePopup {
     height: 19px;
+    width: 19px;
+    padding: 0;
+    border: none;
+    background: none;
     color: var(--text-primary);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+#closePopup svg {
+    width: 19px;
+    height: 19px;
 }
 
 .errorMessage {
@@ -443,11 +459,7 @@
 .no_api_key {
     display: flex;
     flex-direction: column;
-}
-
-.no_api_key .a {
-    padding: 5px;
-    display: flex;
+    height: 100%;
 }
 
 .no_api_key .b {
@@ -724,4 +736,141 @@
 .raw-code-block pre {
     margin: 0;
     font-family: inherit;
+}
+
+.torchy-dock {
+    flex: 0 0 auto;
+    width: var(--torchy-dock-width, 380px);
+    min-width: 300px;
+    max-width: 60vw;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--ui-tertiary);
+    background: var(--ui-primary);
+    position: relative;
+}
+
+.torchy-dock > .container {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    border: none;
+    border-radius: 0;
+}
+
+.torchy-dock .drag-handle {
+    display: none;
+}
+
+[class*='gui_flex-wrapper_'].torchy-has-dock > [class*='gui_editor-wrapper_'] {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.torchy-mode-toggle {
+    width: 19px;
+    height: 19px;
+    padding: 0;
+    margin-right: 6px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.torchy-mode-toggle svg {
+    width: 17px;
+    height: 17px;
+}
+
+.torchy-mode-toggle:hover {
+    color: #4c97ff;
+}
+
+.send-button,
+.stop-button {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.stop-button {
+    display: none;
+}
+
+.input-container.streaming .send-button {
+    display: none;
+}
+
+.input-container.streaming .stop-button {
+    display: flex;
+}
+
+.ai-message.errorMessage .message {
+    border-color: #d0402e;
+}
+
+.torchy-retry {
+    display: block;
+    margin-top: 6px;
+    padding: 3px 8px;
+    font-family: "Helvetica Neue", sans-serif;
+    font-size: 11px;
+    color: var(--text-primary);
+    background-color: var(--ui-secondary);
+    border: 1px solid var(--ui-tertiary);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.torchy-retry:hover {
+    background-color: var(--ui-tertiary);
+}
+
+.torchy-warnings {
+    margin-top: 5px;
+}
+
+.torchy-warnings-toggle {
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: "Helvetica Neue", sans-serif;
+    font-size: 10px;
+    color: #d0402e;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.torchy-warnings-list {
+    margin: 4px 0 0;
+    padding-left: 16px;
+    font-size: 10px;
+    color: #7C7766;
+}
+
+.torchy-warnings-list li {
+    line-break: anywhere;
+}
+
+.torchy-chunk-count {
+    margin: 0;
+}
+
+.container.torchy-no-key #chat_box {
+    display: none;
+}
+
+.container.torchy-no-key .chat-tabs-container {
+    visibility: hidden;
 }
