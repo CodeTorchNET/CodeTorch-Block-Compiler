@@ -1,15 +1,29 @@
 import {store, getActiveSession, updateAndSaveSession} from '../state/sessions.js';
+import {pickDefaultModel} from '../chat/models.js';
+import {addCustomModelId, CUSTOM_MODELS_GROUP} from '../chat/customModels.js';
 
 const TEXTAREA_MIN_HEIGHT = 20;
 const TEXTAREA_MAX_HEIGHT = 157;
 
+// Value prefix of the "Type a model id…" entry each provider gets in the dropdown.
+const ADD_MODEL_PREFIX = '__add__:';
+const ADD_MODEL_LABEL = 'Type a model id…';
+const MODEL_ID_EXAMPLES = {
+    gemini: 'gemini-2.5-flash',
+    openrouter: 'anthropic/claude-sonnet-4.5',
+    custom: 'llama3.1'
+};
+
+/** An option the user can actually chat with: not a placeholder, not the "type a model id" entry. */
+const selectable = option => !option.disabled && !option.value.startsWith(ADD_MODEL_PREFIX);
+
 const MODEL_INFO_HTML =
-    `<p>Each AI model has its own advantages and disadvantages</p><ul>` +
-    `<li><strong>Gemini 2.5 Pro</strong> (requires Gemini API key): Excellent at explaining code but frequently makes mistakes when writing it.</li>` +
-    `<li><strong>Gemini 2.5 Flash (recommended)</strong> (requires Gemini API key): The most tested model for writing code, offering reliable performance.</li>` +
-    `<li><strong>Deepseek R1</strong> (requires OpenRouter API key): Poor at writing code but excels at explaining and analyzing issues. However, it has a very slow response time.</li>` +
-    `<li><strong>Deepseek V3</strong> (requires OpenRouter API key): sometimes the best model for writing code (either really good or terrible, basically your luck), but limited to 200 messages per day.</li>` +
-    `</ul><br><p>if you don't know what you are doing you should probably stick to the Gemini models (preferably 2.0 flash) as they are way faster and are more tested</p>`;
+    `<p>Torchy talks to the AI providers you set up in the addons page directly. The list shows what each provider offers right now:</p><ul>` +
+    `<li><strong>Google Gemini</strong>: every Gemini chat model on your key. The <em>Flash</em> models are fast and the most tested with Torchy's block syntax, so start there.</li>` +
+    `<li><strong>OpenRouter</strong>: the models most used for coding this week, followed by the most used free models. Free models cost nothing but have daily limits and can be slower.</li>` +
+    `<li><strong>Custom API</strong>: whatever your own OpenAI-compatible server lists (for example a local Ollama).</li>` +
+    `</ul><p>A model that is not listed (or a server that lists nothing) still works: pick <em>${ADD_MODEL_LABEL}</em> under the provider and enter the id exactly as the provider names it.</p>` +
+    `<br><p>Bigger "pro" or "reasoning" models explain code well but are slower; small or free models sometimes write blocks that cannot be converted. If a model misbehaves, try another one.</p>`;
 
 const COMPOSER_HTML = `
   <div class="input-parent">
@@ -93,7 +107,7 @@ export function getSelectedModelId () {
 export function getSelectedModel () {
     const id = getSelectedModelId();
     if (!id) return null;
-    return store.AIModels.find(model => model.id === id) || null;
+    return store.AIModels.find(model => model.key === id) || null;
 }
 
 export function getAttachmentType () {
@@ -109,6 +123,19 @@ export function autosize () {
     input.style.height = `${height}px`;
 }
 
+function addPlaceholderOption (parent, text) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.disabled = true;
+    option.textContent = text;
+    parent.appendChild(option);
+}
+
+/**
+ * Fill the model dropdown: one group per provider (and per OpenRouter list), plus a disabled line
+ * for providers whose models could not be loaded. Idempotent; keeps the current choice when it
+ * still exists.
+ */
 export function rebuildModelOptions () {
     const select = modelSelect();
     if (!select) return;
@@ -116,30 +143,55 @@ export function rebuildModelOptions () {
     const previous = select.value;
     select.textContent = '';
 
-    let defaultId = null;
-    for (const model of store.AIModels) {
-        const usable = !(
-            (model.API_KEY_TYPE === 'gemini' && !store.authToken.gemini) ||
-            (model.API_KEY_TYPE === 'openrouter' && !store.authToken.openrouter)
-        );
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.display_name + (usable ? '' : ' (API Key Required)');
-        option.disabled = !usable;
-        if (model.default && usable) {
-            option.defaultSelected = true;
-            if (defaultId === null) defaultId = model.id;
+    const defaultModel = pickDefaultModel(store.AIModels);
+    const defaultId = defaultModel ? defaultModel.key : null;
+    const groups = new Map();
+    const groupFor = (provider, label) => {
+        const groupKey = `${provider.id}\u0000${label}`;
+        if (!groups.has(groupKey)) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = label ? `${provider.name} · ${label}` : provider.name;
+            select.appendChild(optgroup);
+            groups.set(groupKey, optgroup);
         }
-        select.appendChild(option);
-    }
+        return groups.get(groupKey);
+    };
 
-    const stillAvailable = Array.from(select.options).some(o => o.value === previous && !o.disabled);
+    const addModelOption = (model, provider) => {
+        const option = document.createElement('option');
+        option.value = model.key;
+        const saysFree = /\(free\)|:free$/i.test(model.name);
+        option.textContent = model.free === true && !saysFree ? `${model.name} · free` : model.name;
+        if (model.key === defaultId) option.defaultSelected = true;
+        groupFor(provider, model.group).appendChild(option);
+    };
+
+    for (const provider of store.providers) {
+        const models = store.AIModels.filter(model => model.providerId === provider.id);
+        const listed = models.filter(model => !model.custom);
+        for (const model of listed) addModelOption(model, provider);
+        const error = store.modelErrors[provider.id];
+        if (listed.length === 0) {
+            const text = error ? `Could not load models: ${error}` : store.modelsLoading ? 'Loading models…' : 'No models';
+            addPlaceholderOption(groupFor(provider, ''), text);
+        }
+        // Typed-in models, then the entry that adds another one.
+        for (const model of models.filter(model => model.custom)) addModelOption(model, provider);
+        const add = document.createElement('option');
+        add.value = `${ADD_MODEL_PREFIX}${provider.id}`;
+        add.textContent = ADD_MODEL_LABEL;
+        groupFor(provider, CUSTOM_MODELS_GROUP).appendChild(add);
+    }
+    if (store.providers.length === 0) addPlaceholderOption(select, 'Add an API key in the addons page');
+
+    const options = Array.from(select.options);
+    const stillAvailable = options.some(o => o.value === previous && selectable(o));
     if (stillAvailable) {
         select.value = previous;
     } else if (defaultId !== null) {
         select.value = defaultId;
     } else {
-        const firstEnabled = Array.from(select.options).find(o => !o.disabled);
+        const firstEnabled = options.find(selectable);
         if (firstEnabled) select.value = firstEnabled.value;
     }
 
@@ -152,12 +204,12 @@ export function renderSettingsUI () {
     if (!session || !select || select.options.length === 0) return;
 
     const options = Array.from(select.options);
-    const saved = options.find(o => o.value === session.selectedModelId && !o.disabled);
+    const saved = options.find(o => o.value === session.selectedModelId && selectable(o));
     if (saved) {
         select.value = saved.value;
         return;
     }
-    const fallback = options.find(o => o.defaultSelected && !o.disabled) || options.find(o => !o.disabled);
+    const fallback = options.find(o => o.defaultSelected && selectable(o)) || options.find(selectable);
     if (fallback) {
         select.value = fallback.value;
         session.selectedModelId = fallback.value;
@@ -181,6 +233,33 @@ export function renderAttachmentUI () {
     codeChunkOption.textContent = 'Code Chunk';
     if (session && session.attachmentType === '1') session.attachmentType = '0';
     select.value = session ? session.attachmentType : '0';
+}
+
+/** Ask for a model id with the editor's prompt modal, then select (and remember) it. */
+function promptForModelId (providerId) {
+    const provider = store.providers.find(p => p.id === providerId);
+    const ScratchBlocks = window.ScratchBlocks;
+    if (!provider || !ScratchBlocks || typeof ScratchBlocks.prompt !== 'function') return;
+    const example = MODEL_ID_EXAMPLES[providerId] || MODEL_ID_EXAMPLES.custom;
+    ScratchBlocks.prompt(
+        `Model id for ${provider.name}, exactly as the provider names it (for example ${example}):`,
+        '',
+        input => selectTypedModel(provider, input),
+        'Type a model id',
+        ScratchBlocks.BROADCAST_MESSAGE_VARIABLE_TYPE
+    );
+}
+
+function selectTypedModel (provider, input) {
+    const model = addCustomModelId(provider.id, input);
+    if (!model) return;
+    if (!store.AIModels.some(m => m.key === model.key)) store.AIModels.push(model);
+    const session = getActiveSession();
+    if (session) {
+        session.selectedModelId = model.key;
+        updateAndSaveSession(session);
+    }
+    rebuildModelOptions();
 }
 
 function showModelInfoDialog () {
@@ -220,9 +299,16 @@ export function createComposer ({onSend, onStop}) {
     box.querySelector('#infoAboutAIModels').addEventListener('click', showModelInfoDialog);
 
     box.querySelector('#AI_Selector_select').addEventListener('change', e => {
+        const value = e.target.value;
+        if (value.startsWith(ADD_MODEL_PREFIX)) {
+            // Put the previous choice back while the dialog is open; selectTypedModel moves it.
+            renderSettingsUI();
+            promptForModelId(value.slice(ADD_MODEL_PREFIX.length));
+            return;
+        }
         const session = getActiveSession();
         if (!session) return;
-        session.selectedModelId = e.target.value;
+        session.selectedModelId = value;
         updateAndSaveSession(session);
     });
 

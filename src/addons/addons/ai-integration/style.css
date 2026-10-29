@@ -749,6 +749,8 @@
     border-left: 1px solid var(--ui-tertiary);
     background: var(--ui-primary);
     position: relative;
+    contain: size;
+    overflow: hidden;
 }
 
 .torchy-dock > .container {

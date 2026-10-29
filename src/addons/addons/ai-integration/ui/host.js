@@ -370,7 +370,7 @@ function renderNoKeyView () {
     wrapper.innerHTML =
         `<div class="no_api_key" id="torchy_no_key"><div class="b"><div class="c">${
             helpers.FireAnimation
-        }</div><p class="d">To use Torchy, please add your API key in the <span id="addonsPage">addons page</span></p></div></div>`;
+        }</div><p class="d">To use Torchy, add an API key (or set up a custom API) in the <span id="addonsPage">addons page</span></p></div></div>`;
     const link = wrapper.querySelector('#addonsPage');
     if (link) {
         link.addEventListener('click', () => {

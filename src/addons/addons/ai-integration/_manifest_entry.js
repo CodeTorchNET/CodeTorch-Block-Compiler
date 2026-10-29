@@ -3,10 +3,10 @@ const manifest = {
   "editorOnly": true,
   "noTranslations": true,
   "name": "AI integration into the editor",
-  "description": "Adds AI integration into the editor including code completion, code generation, sprite generation, background generation, and more.\n\n\nDISCLAIMER: We do not store any request data or your API keys. Your API keys are only sent with requests and remain fully stored locally on your computer. All models we use are free, ensuring no charges apply. However, for added security, we recommend setting restrictions on your API keys.",
+  "description": "Adds Torchy, the AI assistant, to the editor: it writes, explains and debugs block code and can insert it into your project.\n\nTorchy talks to the AI provider of your choice directly from your browser, so your API keys and chats never pass through a CodeTorch server. Keys stay stored on this computer and are only sent to the provider they belong to. Google Gemini and OpenRouter both offer free models (free ones are marked in the model list); for added security we recommend setting restrictions on your API keys.",
   "info": [
     {
-      "text": "If you need help with creating an API key, check out our guides here: https://blog.codetorch.net/gemini-api-key-for-torchy/ , https://blog.codetorch.net/openrouter-api-key-for-torchy/",
+      "text": "Need an API key? See our guides: https://blog.codetorch.net/gemini-api-key-for-torchy/ , https://blog.codetorch.net/openrouter-api-key-for-torchy/ . Custom API: any OpenAI-compatible base URL, e.g. https://api.groq.com/openai/v1 or http://localhost:11434/v1 for a local Ollama (set OLLAMA_ORIGINS so it allows browser requests from this site).",
       "id": "warning"
     }
   ],
@@ -23,15 +23,43 @@ const manifest = {
   "settings": [
     {
       "id": "GeminiAPIKey",
-      "name": "Gemini API Key",
+      "name": "Google Gemini API key",
       "type": "long_password",
-      "default": "",
+      "default": ""
     },
     {
       "id": "OpenRouterAPIKey",
-      "name": "OpenRouter API Key",
+      "name": "OpenRouter API key",
+      "type": "long_password",
+      "default": ""
+    },
+    {
+      "id": "CustomEnabled",
+      "name": "Use a custom OpenAI-compatible API",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "id": "CustomBaseURL",
+      "name": "Custom API base URL",
+      "type": "long_string",
+      "default": "",
+      "if": {
+        "settings": {
+          "CustomEnabled": true
+        }
+      }
+    },
+    {
+      "id": "CustomAPIKey",
+      "name": "Custom API key",
       "type": "long_password",
       "default": "",
+      "if": {
+        "settings": {
+          "CustomEnabled": true
+        }
+      }
     }
   ],
   "dynamicDisable": true,

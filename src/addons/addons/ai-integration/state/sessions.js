@@ -45,9 +45,11 @@ export class ChatSession {
 
 export const store = {
     addon: null,
-    apiUrl: '',
-    authToken: {gemini: '', openrouter: ''},
+    settings: {},
+    providers: [],
     AIModels: [],
+    modelErrors: {},
+    modelsLoading: false,
     canUse: false,
 
     sessions: [],

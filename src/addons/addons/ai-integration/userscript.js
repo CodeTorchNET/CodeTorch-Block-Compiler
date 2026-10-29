@@ -1,7 +1,14 @@
 import GetSVG from './helpers/parser.js';
 import Attachment from './helpers/attachment.js';
 import main from './main.js';
-const {API_HOST} = require('../../../lib/brand.js');
+
+const SETTING_IDS = [
+    'GeminiAPIKey',
+    'OpenRouterAPIKey',
+    'CustomEnabled',
+    'CustomBaseURL',
+    'CustomAPIKey'
+];
 
 export default async function ({addon, console}) {
     const Blockly = await addon.tab.traps.getBlockly();
@@ -9,33 +16,19 @@ export default async function ({addon, console}) {
     GetSVG.init(Blockly);
     Attachment._blockly = Blockly;
 
-    const readSettings = () => ({
-        gemini: addon.settings.get('GeminiAPIKey') || '',
-        openrouter: addon.settings.get('OpenRouterAPIKey') || ''
-    });
+    const readSettings = () => {
+        const settings = {};
+        for (const id of SETTING_IDS) settings[id] = addon.settings.get(id);
+        return settings;
+    };
 
-    await main.init({
-        addon,
-        apiUrl: `${API_HOST}/v1/torchy`,
-        authToken: readSettings()
-    });
-
-    fetch(`${API_HOST}/v1/torchy/ai_models`, {
-        method: 'GET',
-        headers: {'Content-Type': 'application/json'}
-    })
-        .then(response => {
-            if (!response.ok) throw new Error(response.statusText);
-            return response.json();
-        })
-        .then(models => main.setAIModels(models))
-        .catch(error => console.error('[Torchy] could not load the AI model list', error));
+    await main.init({addon, settings: readSettings()});
 
     addon.settings.addEventListener('change', () => main.onSettingsChanged(readSettings()));
 
     addon.self.addEventListener('disabled', () => main.destroy());
     addon.self.addEventListener('reenabled', () => {
-        main.init({addon, apiUrl: `${API_HOST}/v1/torchy`, authToken: readSettings()});
+        main.init({addon, settings: readSettings()});
     });
 
     window.addEventListener('hashchange', () => main.onProjectChanged());

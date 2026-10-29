@@ -11,6 +11,13 @@ import * as host from './ui/host.js';
 import * as chatView from './ui/chatView.js';
 import * as composer from './ui/composer.js';
 import {submitFromComposer, stopActiveRequest} from './chat/stream.js';
+import {buildProviders} from './chat/providers.js';
+import {fetchAllModels} from './chat/models.js';
+import {withCustomModels} from './chat/customModels.js';
+
+const SETTINGS_REFRESH_DELAY_MS = 800;
+let refreshTimer = null;
+let refreshToken = 0;
 
 function currentProjectId () {
     const hash = String(window.location.hash || '').substring(1);
@@ -18,15 +25,53 @@ function currentProjectId () {
 }
 
 export default class main {
-    static async init ({addon, apiUrl, authToken}) {
+    static async init ({addon, settings}) {
         store.addon = addon;
-        store.apiUrl = apiUrl;
-        store.authToken = authToken;
-        store.canUse = !!(authToken.gemini || authToken.openrouter);
+        main.applySettings(settings);
 
         host.setComposerHandlers({onSend: submitFromComposer, onStop: stopActiveRequest});
         await main.onProjectChanged();
         await host.initHost(addon);
+        main.refreshModels();
+    }
+
+    static applySettings (settings) {
+        store.settings = settings || {};
+        store.providers = buildProviders(store.settings);
+        store.canUse = store.providers.length > 0;
+    }
+
+    static async refreshModels () {
+        const token = ++refreshToken;
+        const providers = store.providers;
+        if (providers.length === 0) {
+            store.AIModels = [];
+            store.modelErrors = {};
+            store.modelsLoading = false;
+            composer.rebuildModelOptions();
+            return;
+        }
+
+        store.modelsLoading = true;
+        store.AIModels = withCustomModels(store.AIModels, providers);
+        composer.rebuildModelOptions();
+        try {
+            const {models, errors} = await fetchAllModels(providers);
+            if (token !== refreshToken) return;
+            store.AIModels = withCustomModels(models, providers);
+            store.modelErrors = errors;
+            for (const [providerId, message] of Object.entries(errors)) {
+                console.error(`[Torchy] could not load the models of ${providerId}: ${message}`);
+            }
+        } catch (e) {
+            if (token !== refreshToken) return;
+            console.error('[Torchy] could not load the AI model list', e);
+        } finally {
+            if (token === refreshToken) {
+                store.modelsLoading = false;
+                composer.rebuildModelOptions();
+            }
+        }
     }
 
     /**
@@ -56,9 +101,10 @@ export default class main {
         main.open();
     }
 
-    /** Called once the model list has been fetched. */
+    /** Replace the model list directly. */
     static setAIModels (models) {
         store.AIModels = Array.isArray(models) ? models : [];
+        store.modelsLoading = false;
         composer.rebuildModelOptions();
     }
 
@@ -78,13 +124,21 @@ export default class main {
         host.setDisplayMode(mode);
     }
 
-    static onSettingsChanged ({gemini, openrouter}) {
-        store.authToken.gemini = gemini || '';
-        store.authToken.openrouter = openrouter || '';
-        store.canUse = !!(store.authToken.gemini || store.authToken.openrouter);
-
+    static onSettingsChanged (settings) {
+        const before = JSON.stringify(store.providers);
+        main.applySettings(settings);
         host.refreshHostView();
+        if (JSON.stringify(store.providers) === before) return;
+
+        const activeIds = new Set(store.providers.map(p => p.id));
+        store.AIModels = withCustomModels(store.AIModels.filter(m => activeIds.has(m.providerId)), store.providers);
         composer.rebuildModelOptions();
+
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => {
+            refreshTimer = null;
+            main.refreshModels();
+        }, SETTINGS_REFRESH_DELAY_MS);
     }
 
     static async onProjectChanged () {
@@ -101,6 +155,9 @@ export default class main {
     }
 
     static destroy () {
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = null;
+        refreshToken++;
         host.destroyHost();
         if (typeof GetSVG.dispose === 'function') {
             try {
