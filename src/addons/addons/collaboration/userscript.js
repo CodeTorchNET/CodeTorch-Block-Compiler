@@ -153,10 +153,25 @@ function attachYjsProvider() {
 
         constants.mutableRefs.provider.connect();
 
+        let rejoinScheduled = false;
+        const describedTwice = where => {
+            const stages = helper.stagesDescribed();
+            if (stages <= 1) return false;
+            if (!rejoinScheduled) {
+                rejoinScheduled = true;
+                console.warn(`[collaboration] the room's document describes ${stages} stages (${where}): ` +
+                    'this tab holds a room that was put away while it was idle. Rejoining with an empty document');
+                recorder.record('session.described-twice', {where, stages});
+                setTimeout(() => restartWithoutSnapshot(), 0);
+            }
+            return true;
+        };
+
         const applySpriteListFromYjs = () => {
             const vm = constants.mutableRefs.vm;
             const runtime = vm.runtime;
             const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
+            if (describedTwice('sprite list')) return;
 
             const remoteIds = [...new Set(constants.mutableRefs.sharedSprites.toArray())];
             const remoteIdSet = new Set(remoteIds);
@@ -892,6 +907,7 @@ function attachYjsProvider() {
         constants.mutableRefs.vm.on('COLLABORATION_EXTENSION_ADDED', handleExtensionAdded);
         runInitialSync = () => {
             if (!constants.mutableRefs.ydoc) return;
+            if (describedTwice('initial sync')) return;
             constants.mutableRefs.isInitialRoomSync = true;
             cancelPendingSpritePublishes();
             try {
@@ -925,6 +941,12 @@ function attachYjsProvider() {
                     type: 'scratch-gui/collaboration/SET_COLLAB_ACTIVE',
                     payload: true
                 });
+                // The cleanup that precedes a rejoin raises the "please reload" modal, this tab is
+                // back in the room, so it comes down again.
+                constants.mutableRefs.addon.tab.redux.dispatch({
+                    type: 'scratch-gui/collaboration/SET_DISCONNECTED',
+                    payload: false
+                });
             }
         };
 
@@ -952,6 +974,8 @@ function attachYjsProvider() {
             if (heldGeneration) constants.mutableRefs.provider.params.gen = heldGeneration;
 
             recorder.record('provider.synced', {first: !hasSynced, generation: heldGeneration});
+
+            if (describedTwice(hasSynced ? 'reconnect' : 'first sync')) return;
 
             if (!hasSynced) {
                 const seeded = collabSnapshot.getSnapshot();
@@ -1533,9 +1557,6 @@ function attachYjsProvider() {
             constants.mutableRefs.isUiTransition = false;
             constants.mutableRefs.roomUUID = null;
             scheduler.reset();
-
-            if (window.collab) delete window.collab;
-            
         };
 
         const handleBeforeUnload = () => {

@@ -778,6 +778,24 @@ export function reconcileExtensionsToYjs() {
     }, constants.LOCAL_EVENT_SYNC_ORIGIN);
 }
 
+/*
+ * How many stages the document describes.
+ *
+ * A project has exactly one. A document with two is two projects laid on top of each other,
+ * this is used as a canary to prevent a really rare edge case (revolving around timeout and yjs resync behavior)
+ */
+export function stagesDescribed() {
+    const sharedSprites = constants.mutableRefs.sharedSprites;
+    const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
+    if (!sharedSprites || !sharedSpriteData) return 0;
+    let stages = 0;
+    for (const id of new Set(sharedSprites.toArray())) {
+        const meta = sharedSpriteData.get(id);
+        if (meta && meta.get('isStage')) stages++;
+    }
+    return stages;
+}
+
 export function remapTargetIdsFromYjs() {
     const vm = constants.mutableRefs.vm;
     const sharedSprites = constants.mutableRefs.sharedSprites;
