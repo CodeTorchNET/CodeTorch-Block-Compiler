@@ -1,4 +1,4 @@
-import {store, getActiveSession, updateAndSaveSession} from '../state/sessions.js';
+import {store, getActiveSession, updateAndSaveSession, setDefaultModelId} from '../state/sessions.js';
 import {pickDefaultModel} from '../chat/models.js';
 import {addCustomModelId, CUSTOM_MODELS_GROUP} from '../chat/customModels.js';
 
@@ -143,7 +143,8 @@ export function rebuildModelOptions () {
     const previous = select.value;
     select.textContent = '';
 
-    const defaultModel = pickDefaultModel(store.AIModels);
+    const defaultModel =
+        store.AIModels.find(model => model.key === store.defaultModelId) || pickDefaultModel(store.AIModels);
     const defaultId = defaultModel ? defaultModel.key : null;
     const groups = new Map();
     const groupFor = (provider, label) => {
@@ -235,6 +236,16 @@ export function renderAttachmentUI () {
     select.value = session ? session.attachmentType : '0';
 }
 
+/** Make `modelId` the model new chats start on. */
+function rememberDefaultModel (modelId) {
+    setDefaultModelId(modelId);
+    const select = modelSelect();
+    if (!select) return;
+    Array.from(select.options).forEach(option => {
+        option.defaultSelected = option.value === modelId;
+    });
+}
+
 /** Ask for a model id with the editor's prompt modal, then select (and remember) it. */
 function promptForModelId (providerId) {
     const provider = store.providers.find(p => p.id === providerId);
@@ -259,6 +270,7 @@ function selectTypedModel (provider, input) {
         session.selectedModelId = model.key;
         updateAndSaveSession(session);
     }
+    setDefaultModelId(model.key);
     rebuildModelOptions();
 }
 
@@ -306,6 +318,7 @@ export function createComposer ({onSend, onStop}) {
             promptForModelId(value.slice(ADD_MODEL_PREFIX.length));
             return;
         }
+        rememberDefaultModel(value);
         const session = getActiveSession();
         if (!session) return;
         session.selectedModelId = value;

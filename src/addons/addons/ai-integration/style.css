@@ -51,6 +51,42 @@
     margin-top: 10px;
 }
 
+.torchy-edit-message {
+    margin-left: auto;
+    margin-right: 4px;
+    align-self: center;
+    width: 22px;
+    height: 22px;
+    padding: 3px;
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #7C7766;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.torchy-edit-message svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.user-message:hover .torchy-edit-message,
+.torchy-edit-message:focus-visible {
+    opacity: 1;
+}
+
+.torchy-edit-message:hover {
+    background: var(--ui-tertiary);
+}
+
+.user-message .torchy-edit-message + .message {
+    margin-left: 0;
+}
+
 .user-message .message {
     color: #7C7766;
     font-family: "Helvetica Neue", sans-serif;

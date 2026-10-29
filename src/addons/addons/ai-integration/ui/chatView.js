@@ -14,6 +14,7 @@ import {closeHost} from './host.js';
 import {
     getInputText,
     setInputText,
+    focusInput,
     getSelectedModelId,
     getAttachmentType,
     renderAttachmentUI,
@@ -199,9 +200,25 @@ function buildAttachmentChip (name) {
     return chip;
 }
 
-export function appendUserMessage (pane, text, attachmentName) {
+/**
+ * @param {number} turnIndex index this message has (or will have) in `session.chatHistory`;
+ *     editing the message rolls the chat back to it.
+ */
+export function appendUserMessage (pane, text, attachmentName, turnIndex) {
     const userMessage = document.createElement('div');
     userMessage.className = 'user-message';
+    userMessage.dataset.turnIndex = String(turnIndex);
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'torchy-edit-message';
+    edit.title = 'Edit this message';
+    edit.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" ' +
+        'stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" ' +
+        'd="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>';
+    userMessage.appendChild(edit);
+
     const message = document.createElement('div');
     message.className = 'message';
 
@@ -213,7 +230,71 @@ export function appendUserMessage (pane, text, attachmentName) {
 
     userMessage.appendChild(message);
     pane.appendChild(userMessage);
+    attachEditButtonListeners(userMessage);
     return userMessage;
+}
+
+const ROLLBACK_WARNING_HTML =
+    '<p>Editing goes back to this point in the chat: this message and everything after it, ' +
+    "including Torchy's answers, will be deleted. The message is put back in the text box so you can change it " +
+    'and send it again.</p><br><p>Code you already added to your workspace is not touched.</p>';
+
+function countCodeChunks (history) {
+    return history.reduce((count, turn) => {
+        if (turn.role !== 'assistant') return count;
+        return count + (String(turn.message || '').match(FENCE_REGEX) || []).length;
+    }, 0);
+}
+
+function rollbackToTurn (session, turnIndex, text) {
+    const pane = getPaneForSession(session.id);
+    const kept = session.chatHistory.slice(0, Math.max(0, Math.min(turnIndex, session.chatHistory.length)));
+    session.chatHistory = kept;
+    session.allCodeChunksEverAdded = session.allCodeChunksEverAdded.slice(0, countCodeChunks(kept));
+    session.domCache = null;
+    session.inputText = text;
+    if (pane) rehydrateChatPane(session, pane);
+    if (session.id === store.activeSessionId) {
+        setInputText(text);
+        focusInput();
+    }
+    renderChatUI();
+    updateAndSaveSession(session);
+}
+
+function attachEditButtonListeners (parentElement) {
+    if (!parentElement) return;
+    parentElement.querySelectorAll('.torchy-edit-message').forEach(button => {
+        if (button.dataset.listenerAttached) return;
+        button.dataset.listenerAttached = 'true';
+        button.addEventListener('click', () => {
+            const session = getActiveSession();
+            const userMessage = button.closest('.user-message');
+            if (!session || !userMessage) return;
+            if (session.isBlabbering) {
+                helpers.showAlert('TorchyWaitForAIToFinishWarning');
+                return;
+            }
+            const turnIndex = Number(userMessage.dataset.turnIndex);
+            if (!Number.isInteger(turnIndex)) return;
+            const textEl = userMessage.querySelector('.message > span');
+            const text = textEl ? textEl.textContent : '';
+
+            const ScratchBlocks = window.ScratchBlocks;
+            if (!ScratchBlocks || typeof ScratchBlocks.prompt !== 'function') return;
+            ScratchBlocks.prompt(
+                ROLLBACK_WARNING_HTML,
+                null,
+                () => {
+                    if (session.isBlabbering) return;
+                    rollbackToTurn(session, turnIndex, text);
+                },
+                'Edit this message?',
+                ScratchBlocks.BROADCAST_MESSAGE_VARIABLE_TYPE,
+                true
+            );
+        });
+    });
 }
 
 export function removeWelcomeHeader (pane) {
@@ -446,12 +527,12 @@ export function rehydrateChatPane (session, pane) {
 
     let codeChunkCounter = 0;
 
-    session.chatHistory.forEach(turn => {
+    session.chatHistory.forEach((turn, turnIndex) => {
         if (turn.role === 'user') {
             const text = String(turn.message || '').split('\n\n\nContext:\n')[0];
             const attachmentName =
                 turn.attachment && turn.attachment.type !== '0' ? turn.attachment.name : null;
-            appendUserMessage(pane, text, attachmentName);
+            appendUserMessage(pane, text, attachmentName, turnIndex);
             return;
         }
         if (turn.role !== 'assistant') return;
@@ -582,10 +663,11 @@ function insertChunkIntoWorkspace (chunkData, workspace, replacingBlockIds) {
 
 export function restoreInteractivity (pane) {
     if (!pane) return;
-    pane.querySelectorAll('.insert_button').forEach(button => {
+    pane.querySelectorAll('.insert_button, .torchy-edit-message').forEach(button => {
         delete button.dataset.listenerAttached;
     });
     attachInsertButtonListeners(pane);
+    attachEditButtonListeners(pane);
     pane.querySelectorAll('.torchy-warnings').forEach(wrap => {
         const toggle = wrap.querySelector('.torchy-warnings-toggle');
         const list = wrap.querySelector('.torchy-warnings-list');

@@ -5,7 +5,8 @@ import {
     store,
     getActiveSession,
     createNewSession,
-    loadSessionsForCurrentProject
+    loadSessionsForCurrentProject,
+    loadDefaultModelId
 } from './state/sessions.js';
 import * as host from './ui/host.js';
 import * as chatView from './ui/chatView.js';
@@ -30,6 +31,11 @@ export default class main {
         main.applySettings(settings);
 
         host.setComposerHandlers({onSend: submitFromComposer, onStop: stopActiveRequest});
+        try {
+            await loadDefaultModelId();
+        } catch (e) {
+            console.error('[Torchy] could not load the default model', e);
+        }
         await main.onProjectChanged();
         await host.initHost(addon);
         main.refreshModels();

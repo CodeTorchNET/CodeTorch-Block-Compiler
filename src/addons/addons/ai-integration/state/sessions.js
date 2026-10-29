@@ -7,6 +7,7 @@ import {
 } from '../helpers/db.js';
 
 const MAX_TAB_NAME_LENGTH = 28;
+const KEY_DEFAULT_MODEL = 'ui_defaultModelId';
 
 export class ChatSession {
     constructor (id, projectId, data = {}) {
@@ -51,6 +52,8 @@ export const store = {
     modelErrors: {},
     modelsLoading: false,
     canUse: false,
+    // Last model the user picked, new chats start on it.
+    defaultModelId: null,
 
     sessions: [],
     activeSessionId: null,
@@ -97,6 +100,17 @@ export function closeSession (sessionId) {
             null;
         saveMetadata(`${store.currentProjectId}_activeSessionId`, store.activeSessionId);
     }
+}
+
+export function setDefaultModelId (modelId) {
+    if (!modelId || store.defaultModelId === modelId) return;
+    store.defaultModelId = modelId;
+    saveMetadata(KEY_DEFAULT_MODEL, modelId);
+}
+
+export async function loadDefaultModelId () {
+    const saved = await loadMetadata(KEY_DEFAULT_MODEL);
+    if (typeof saved === 'string' && saved) store.defaultModelId = saved;
 }
 
 export function updateAndSaveSession (session) {

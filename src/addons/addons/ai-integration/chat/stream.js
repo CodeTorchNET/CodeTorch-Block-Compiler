@@ -467,7 +467,12 @@ export function submitFromComposer () {
     const contextString = buildContextString(session, attachmentType);
 
     chatView.removeWelcomeHeader(pane);
-    const userBubble = chatView.appendUserMessage(pane, userText, attachmentType !== '0' ? attachmentName : null);
+    const userBubble = chatView.appendUserMessage(
+        pane,
+        userText,
+        attachmentType !== '0' ? attachmentName : null,
+        session.chatHistory.length
+    );
 
     composer.renderAttachmentUI();
 
