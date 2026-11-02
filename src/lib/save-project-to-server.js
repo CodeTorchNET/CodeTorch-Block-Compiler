@@ -13,6 +13,7 @@ import storage from '../lib/storage';
  * @property {?boolean} params.isCopy a flag indicating if this save is creating a copy.
  * @property {?boolean} params.isRemix a flag indicating if this save is creating a remix.
  * @property {?string} params.title the title of the project.
+ * @property {?string} params.lesson the Learning Path lesson a new project is created for.
  * @return {Promise} A promise that resolves when the network request resolves.
  */
 export default function (projectId, vmState, params) {
@@ -31,6 +32,7 @@ export default function (projectId, vmState, params) {
     if (Object.prototype.hasOwnProperty.call(params, 'isRemix')) queryParams.is_remix = params.isRemix;
     if (Object.prototype.hasOwnProperty.call(params, 'title')) queryParams.title = params.title;
     if (Object.prototype.hasOwnProperty.call(params, 'source')) queryParams.source = params.source;
+    if (Object.prototype.hasOwnProperty.call(params, 'lesson')) queryParams.lesson = params.lesson;
 
     let qs = queryString.stringify(queryParams);
     if (qs) qs = `?${qs}`;

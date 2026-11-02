@@ -10,6 +10,7 @@ import storage from '../lib/storage';
 import dataURItoBlob from '../lib/data-uri-to-blob';
 import saveProjectToServer from '../lib/save-project-to-server';
 import {reportLessonSaveResult} from '../lib/ct-lesson-messages';
+import {getLessonId} from '../lib/ct-url-flags';
 
 import {
     showAlertWithTimeout,
@@ -173,9 +174,11 @@ const ProjectSaverHOC = function (WrappedComponent) {
         }
         createNewProjectToStorage () {
             // In a lesson the project already has its lesson title, which the server should keep.
-            const requestParams = this.props.lessonMode && this.props.reduxProjectTitle ?
-                {title: this.props.reduxProjectTitle} :
-                null;
+            const requestParams = {};
+            if (this.props.lessonMode) {
+                if (this.props.reduxProjectTitle) requestParams.title = this.props.reduxProjectTitle;
+                if (getLessonId()) requestParams.lesson = getLessonId();
+            }
             return this.storeProject(null, requestParams)
                 .then(response => {
                     const projectId = response.id.toString();

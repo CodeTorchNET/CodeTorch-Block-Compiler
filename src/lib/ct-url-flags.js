@@ -53,7 +53,10 @@ const parseFlags = params => ({
     lesson: parseBooleanParam(params, LESSON_PARAM, false)
 });
 
-const flags = parseFlags(readSearchParams());
+const urlParams = readSearchParams();
+const flags = parseFlags(urlParams);
+// ?lessonId=<path>/<unit>/<lesson> names the Learning Path lesson the editor is embedded in.
+const lessonId = flags.lesson ? (urlParams.get('lessonId') || '') : '';
 
 /**
  * @returns {boolean} True if the URL explicitly asked for the compiler to be off.
@@ -74,6 +77,11 @@ const isCursorChatEnabled = () => flags.chat;
  * @returns {boolean} True if the editor is running inside a Learning Path lesson.
  */
 const isLessonMode = () => flags.lesson;
+
+/**
+ * @returns {string} Global id of the lesson the editor is embedded in, or '' when unknown.
+ */
+const getLessonId = () => lessonId;
 
 /**
  * Re-apply the flags that have to survive any in-editor rewrite of the query string.
@@ -97,6 +105,7 @@ export {
     isMinimalMode,
     isCursorChatEnabled,
     isLessonMode,
+    getLessonId,
     applyPersistentFlags,
     MINIMAL_PARAM,
     LESSON_PARAM
