@@ -358,5 +358,15 @@ export default function (vm) {
         return true;
     };
 
+    const textInput = ScratchBlocks.FieldTextInput && ScratchBlocks.FieldTextInput.prototype;
+    if (textInput && !textInput.showEditor_.ctGroupsEdit) {
+        const showEditor = textInput.showEditor_;
+        textInput.showEditor_ = function (...args) {
+            if (!ScratchBlocks.Events.getGroup()) ScratchBlocks.Events.setGroup(true);
+            return showEditor.apply(this, args);
+        };
+        textInput.showEditor_.ctGroupsEdit = true;
+    }
+
     return ScratchBlocks;
 }

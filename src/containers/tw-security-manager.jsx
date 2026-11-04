@@ -13,8 +13,10 @@ import {isSameOrigin} from '../lib/ct-same-origin.js';
 import {isMinimalMode} from '../lib/ct-url-flags.js';
 import {
     isExtensionAllowed,
+    noteRefusedExtension,
     reportRefusedExtension
 } from '../lib/ct-extension-restrictions.js';
+import {createPlaceholderExtension} from '../lib/ct-extension-placeholder.js';
 /* eslint-disable require-atomic-updates */
 
 /**
@@ -275,6 +277,11 @@ class TWSecurityManagerComponent extends React.Component {
             vmSecurityManager[method] = propsSecurityManager[method] || this[method];
         }
         restrictExtensionLoading(extensionManager);
+        vmSecurityManager.createPlaceholderExtension = (extensionID, url, blocks, lookup) => {
+            if (!isMinimalMode() || isExtensionAllowed(url || extensionID)) return null;
+            noteRefusedExtension({url, id: extensionID, placeholder: true});
+            return createPlaceholderExtension(extensionID, blocks, lookup);
+        };
         this.props.vm.runtime.on('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
     }
 

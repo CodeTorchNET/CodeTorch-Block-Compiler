@@ -14,6 +14,7 @@ import LibraryComponent from '../components/library/library.jsx';
 import AIBlob from '../components/ai-blob/ai-blob.jsx'
 
 import Modal from '../containers/modal.jsx';
+import rewindHooks from '../lib/rewind/hooks';
 
 const messages = defineMessages({
     libraryTitle: {
@@ -43,6 +44,7 @@ class AIModal extends React.PureComponent {
     handleItemSelect(item) {
         // Randomize position of library sprite
         randomizeSpritePosition(item);
+        rewindHooks.hintSource('sprite', 'torchy');
         this.props.vm.addSprite(JSON.stringify(item)).then(() => {
             this.props.onActivateBlocksTab();
         });

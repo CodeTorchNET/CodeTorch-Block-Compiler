@@ -1,4 +1,4 @@
-import {postMessageToParent} from './ct-parent-message';
+import {getParentTargetOrigin, postMessageToParent} from './ct-parent-message';
 import React from 'react';
 import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
@@ -9,8 +9,10 @@ const {API_HOST, ASSET_HOST} = require('./brand');
 import {setProjectTitle} from '../reducers/project-title';
 import {setAuthor, setDescription} from '../reducers/tw';
 import {setCollaborationSession} from '../reducers/collaboration';
+import {setRewindMeta} from '../reducers/rewind';
 
 import storage from './storage';
+import rewindController from './rewind/controller';
 
 let activeFetchMetadataPromise = null;
 
@@ -109,6 +111,11 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 canRemix: false,
                 canEditTitle: false
             };
+            this.handleParentMessage = this.handleParentMessage.bind(this);
+        }
+
+        componentDidMount () {
+            window.addEventListener('message', this.handleParentMessage);
         }
 
         componentDidUpdate (prevProps) {
@@ -126,6 +133,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 } else {
                     fetchProjectMetaWithCache(projectId, isScratch).then(data => {
                         if (this.props.reduxProjectId !== projectId) return;
+                        if (!isScratch) rewindController.metaLoaded(projectId, data);
 
                         const title = data.title;
                         if (title) {
@@ -162,6 +170,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                                 }
                             });
                         } else {
+                            this.props.onSetRewindMeta(data.rewind || null);
                             storage.setCloudOTT(data?.cloudDataOTT);
                             storage.setCustomAchievements(data?.customAchievements);
                             this.props.onSetCollaborationSession({
@@ -183,6 +192,29 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 }
             }
         }
+        componentWillUnmount () {
+            window.removeEventListener('message', this.handleParentMessage);
+        }
+
+        /**
+         * Re-reads Rewind access when the embedding page sends REWIND_REFRESH.
+         * @param {MessageEvent} event message
+         */
+        handleParentMessage (event) {
+            if (event.source !== window.parent || !event.data) return;
+            const origin = getParentTargetOrigin();
+            if (origin !== '*' && event.origin !== origin) return;
+            if (event.data.type !== 'block-compiler-action' || event.data.action !== 'REWIND_REFRESH') return;
+            const projectId = this.props.reduxProjectId;
+            if (!projectId || projectId === '0' || this.props.isScratchProject) return;
+            fetchProjectMeta(projectId, false).then(data => {
+                if (this.props.reduxProjectId !== projectId) return;
+                rewindController.metaLoaded(projectId, data);
+                this.props.onSetRewindMeta(data.rewind || null);
+            })
+                .catch(err => log.warn('cannot refresh rewind access', err));
+        }
+
         render () {
             const {
                 reduxProjectId,
@@ -190,6 +222,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 onSetAuthor,
                 onSetDescription,
                 onSetProjectTitle,
+                onSetRewindMeta,
                 ...props
             } = this.props;
             return (
@@ -208,7 +241,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         onSetAuthor: PropTypes.func,
         onSetCollaborationSession: PropTypes.func,
         onSetDescription: PropTypes.func,
-        onSetProjectTitle: PropTypes.func
+        onSetProjectTitle: PropTypes.func,
+        onSetRewindMeta: PropTypes.func
     };
     const mapStateToProps = state => ({
         reduxProjectId: state.scratchGui.projectState.projectId,
@@ -224,7 +258,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
             credits
         })),
         onSetProjectTitle: title => dispatch(setProjectTitle(title)),
-        onSetCollaborationSession: session => dispatch(setCollaborationSession(session))
+        onSetCollaborationSession: session => dispatch(setCollaborationSession(session)),
+        onSetRewindMeta: meta => dispatch(setRewindMeta(meta))
     });
     return connect(
         mapStateToProps,

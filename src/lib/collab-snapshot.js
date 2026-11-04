@@ -84,26 +84,27 @@ const adoptAssetIds = (target, kind, ids) => {
     sprite[kind] = existing.map((asset, i) => Object.assign({}, asset, {id: ids[i]}));
 };
 
-export const applySnapshotIds = vm => {
-    if (!pending || pending.applied) return false;
-
+/**
+ * Adopt target, costume and sound ids into a freshly loaded VM.
+ * @param {object} vm VirtualMachine
+ * @param {Array<object>} ids sidecar
+ * @param {string} [who] log prefix
+ * @returns {boolean} whether the ids were adopted
+ */
+export const adoptIds = (vm, ids, who = 'collaboration') => {
     const runtime = vm && vm.runtime;
     const targets = runtime && runtime.targets;
-    if (!targets) return false;
-
-    const {ids} = pending;
+    if (!targets || !Array.isArray(ids)) return false;
     if (targets.length !== ids.length) {
-        log.warn(`collaboration: snapshot describes ${ids.length} targets but the VM loaded ` +
+        log.warn(`${who}: snapshot describes ${ids.length} targets but the VM loaded ` +
             `${targets.length}; not adopting ids, falling back to a name remap`);
-        pending = null;
         return false;
     }
 
     for (let i = 0; i < ids.length; i++) {
-        if (targets[i].getName() !== ids[i].name) {
-            log.warn(`collaboration: snapshot target ${i} is "${ids[i].name}" but the VM loaded ` +
+        if (!ids[i] || targets[i].getName() !== ids[i].name) {
+            log.warn(`${who}: snapshot target ${i} is "${ids[i] && ids[i].name}" but the VM loaded ` +
                 `"${targets[i].getName()}"; not adopting ids, falling back to a name remap`);
-            pending = null;
             return false;
         }
     }
@@ -114,7 +115,16 @@ export const applySnapshotIds = vm => {
         adoptAssetIds(target, 'costumes', ids[i].costumeIds);
         adoptAssetIds(target, 'sounds', ids[i].soundIds);
     }
+    return true;
+};
 
+export const applySnapshotIds = vm => {
+    if (!pending || pending.applied) return false;
+    if (!vm || !vm.runtime || !vm.runtime.targets) return false;
+    if (!adoptIds(vm, pending.ids)) {
+        pending = null;
+        return false;
+    }
     pending.applied = true;
     return true;
 };

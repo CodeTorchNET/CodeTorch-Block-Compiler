@@ -22,6 +22,7 @@ import StageSelectorComponent from '../components/stage-selector/stage-selector.
 import {getBackdropLibrary} from '../lib/libraries/tw-async-libraries';
 import {handleFileUpload, costumeUpload} from '../lib/file-uploader.js';
 import {placeInViewport} from '../lib/backpack/code-payload.js';
+import rewindHooks from '../lib/rewind/hooks';
 
 const dragTypes = [
     DragConstants.COSTUME,
@@ -136,10 +137,12 @@ class StageSelector extends React.Component {
         } else if (dragInfo.dragType === DragConstants.SOUND) {
             this.props.vm.shareSoundToTarget(dragInfo.index, this.props.id);
         } else if (dragInfo.dragType === DragConstants.BACKPACK_COSTUME) {
+            rewindHooks.hintSource('asset', 'backpack', {targetId: this.props.id});
             this.props.vm.addCostume(dragInfo.payload.body, {
                 name: dragInfo.payload.name
             }, this.props.id);
         } else if (dragInfo.dragType === DragConstants.BACKPACK_SOUND) {
+            rewindHooks.hintSource('asset', 'backpack', {targetId: this.props.id});
             this.props.vm.addSound({
                 md5: dragInfo.payload.body,
                 name: dragInfo.payload.name
@@ -152,6 +155,7 @@ class StageSelector extends React.Component {
                         this.props.workspaceMetrics.targets[this.props.id],
                         this.props.isRtl
                     );
+                    rewindHooks.hintSource('share', 'backpack', {targetId: this.props.id});
                     this.props.vm.shareBlocksToTarget(centered, this.props.id);
                     this.props.vm.refreshWorkspace();
                 });

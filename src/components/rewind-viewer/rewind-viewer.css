@@ -1,0 +1,588 @@
+@import "../../css/colors.css";
+@import "../../css/units.css";
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    background: $ui-secondary;
+    color: $text-primary;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 0.8125rem;
+    --rewind-fg: #575e75;
+    --rewind-grid: rgba(87, 94, 117, 0.12);
+    --rewind-lane: rgba(87, 94, 117, 0.05);
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3rem;
+    padding: 0 0.75rem;
+    background: $menu-bar-background;
+    background-image: $menu-bar-background-image;
+    color: $menu-bar-foreground;
+    flex-wrap: wrap;
+}
+
+.title {
+    font-weight: bold;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.badge {
+    font-size: 0.6875rem;
+    font-weight: normal;
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.clock {
+    font-variant-numeric: tabular-nums;
+    font-weight: bold;
+    min-width: 9rem;
+}
+
+.spacer {
+    flex: 1;
+}
+
+.top-bar label,
+.controls label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.select {
+    font: inherit;
+    border-radius: 0.25rem;
+    border: 1px solid $ui-black-transparent;
+    padding: 0.125rem 0.25rem;
+    background: $ui-white;
+    color: $text-primary;
+}
+
+.button {
+    font: inherit;
+    font-weight: bold;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    background: $ui-white;
+    color: $text-primary;
+}
+
+.button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.button-primary {
+    background: $looks-secondary;
+    color: white;
+}
+
+.button-restore {
+    background: #0fbd8c;
+    color: white;
+}
+
+.notice {
+    padding: 0.5rem 0.75rem;
+    background: #fff4e0;
+    color: #6b4a00;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.notice a {
+    color: inherit;
+    font-weight: bold;
+    margin-left: 0.5rem;
+}
+
+.body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    gap: 0.5rem;
+    padding: 0.5rem;
+}
+
+.center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: $ui-white;
+    border: 1px solid $ui-black-transparent;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem 0;
+    background: $ui-secondary;
+}
+
+.tab {
+    font: inherit;
+    border: 1px solid $ui-black-transparent;
+    border-bottom: none;
+    border-radius: 0.5rem 0.5rem 0 0;
+    padding: 0.35rem 0.9rem;
+    background: $ui-tertiary;
+    color: $text-primary;
+    cursor: pointer;
+}
+
+.tab-selected {
+    background: $ui-white;
+    color: $looks-secondary;
+    font-weight: bold;
+}
+
+.tab-panel {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+}
+
+.workspace {
+    position: absolute;
+    inset: 0;
+}
+
+.asset-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    overflow: hidden;
+}
+
+.asset-list {
+    width: 7rem;
+    overflow-y: auto;
+    padding: 0.5rem;
+    border-right: 1px solid $ui-black-transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.asset-item {
+    position: relative;
+    border: 2px solid $ui-black-transparent;
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+    text-align: center;
+    font-size: 0.6875rem;
+    background: $ui-white;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.asset-item-selected {
+    border-color: $looks-secondary;
+}
+
+.asset-item img {
+    display: block;
+    width: 100%;
+    height: 4rem;
+    object-fit: contain;
+}
+
+.asset-preview {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background-image: linear-gradient(45deg, rgba(0, 0, 0, 0.04) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(0, 0, 0, 0.04) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(0, 0, 0, 0.04) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(0, 0, 0, 0.04) 75%);
+    background-size: 20px 20px;
+}
+
+.asset-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.broken-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.25rem;
+    font-weight: bold;
+    font-size: 0.6875rem;
+    color: white;
+    background: repeating-linear-gradient(45deg, rgba(255, 140, 26, 0.85) 0 8px, rgba(230, 120, 10, 0.85) 8px 16px);
+    white-space: normal;
+}
+
+.preview-broken {
+    font-size: 1rem;
+}
+
+.sound-list {
+    padding: 0.75rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.sound-item {
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.375rem;
+    border: 1px solid $ui-black-transparent;
+}
+
+.side {
+    width: 22rem;
+    max-width: 40vw;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 0;
+}
+
+.stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: white;
+    border: 1px solid $ui-black-transparent;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.stage canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.unknown-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0.5rem;
+    background: rgba(230, 86, 79, 0.92);
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+.sprites {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: $ui-white;
+    border: 1px solid $ui-black-transparent;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.5rem;
+    align-content: start;
+}
+
+.sprite-tile {
+    position: relative;
+    font: inherit;
+    border: 2px solid $ui-black-transparent;
+    border-radius: 0.5rem;
+    background: $ui-white;
+    color: $text-primary;
+    padding: 0.25rem;
+    cursor: pointer;
+    text-align: center;
+    font-size: 0.6875rem;
+    overflow: visible;
+}
+
+.sprite-tile img {
+    display: block;
+    width: 100%;
+    height: 3rem;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.sprite-tile-selected {
+    border-color: $looks-secondary;
+    background: $looks-transparent;
+}
+
+.sprite-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pulse {
+    position: absolute;
+    inset: -2px;
+    border-radius: 0.5rem;
+    border: 3px solid var(--pulse-color);
+    pointer-events: none;
+    animation: rewind-pulse 900ms ease-out forwards;
+}
+
+.pulse-badge {
+    position: absolute;
+    top: -0.5rem;
+    right: -0.5rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 0.55rem;
+    background: var(--pulse-color);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: bold;
+    line-height: 1.1rem;
+    text-align: center;
+    padding: 0 0.2rem;
+    pointer-events: none;
+    animation: rewind-badge 900ms ease-out forwards;
+}
+
+@keyframes rewind-pulse {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.12); }
+}
+
+@keyframes rewind-badge {
+    0%, 70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.timeline {
+    background: $ui-white;
+    border-top: 1px solid $ui-black-transparent;
+    padding: 0.375rem 0.75rem 0.5rem;
+    user-select: none;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.play-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: $looks-secondary;
+    color: white;
+    cursor: pointer;
+}
+
+.play-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    fill: currentColor;
+}
+
+.timeline-body {
+    display: flex;
+}
+
+.lane-labels {
+    width: 8rem;
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+}
+
+.lane-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.lane-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.timeline-canvas-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.timeline-canvas {
+    display: block;
+    cursor: ew-resize;
+    touch-action: none;
+    outline: none;
+}
+
+.timeline-canvas:focus-visible {
+    box-shadow: 0 0 0 2px $looks-secondary;
+}
+
+.timeline-tooltip {
+    position: absolute;
+    top: -2rem;
+    max-width: 220px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 0.6875rem;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.message {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 1rem;
+}
+
+.dialog-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.dialog {
+    width: min(30rem, calc(100vw - 2rem));
+    background: $ui-white;
+    color: $text-primary;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.dialog h2 {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+.dialog-label {
+    padding: 0.5rem 0.75rem;
+    border-left: 4px solid #0fbd8c;
+    background: rgba(15, 189, 140, 0.08);
+    font-weight: bold;
+}
+
+.dialog-warning {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    background: #fff4e0;
+    color: #6b4a00;
+}
+
+.dialog-error {
+    color: $error-primary;
+    font-weight: bold;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.workspace :global(.blocklyBlockCanvas) .changed-block {
+    stroke: #FFBF00;
+    stroke-width: 3px;
+    animation: rewind-changed 1.2s ease-out;
+}
+.workspace :global(.blocklyBlockCanvas) .changed-field {
+    animation: rewind-field 1.2s ease-out;
+}
+.workspace :global(.blocklyBlockCanvas) path.changed-field {
+    stroke: #FFBF00;
+    stroke-width: 3px;
+}
+.workspace :global(.blocklyBlockCanvas) .removed-block {
+    opacity: 0.35;
+}
+.workspace :global(.blocklyBlockCanvas) path.removed-block {
+    stroke: #FF4D4D;
+    stroke-dasharray: 5 4;
+    stroke-width: 2px;
+}
+@keyframes rewind-changed {
+    from { stroke-width: 7px; }
+    to { stroke-width: 3px; }
+}
+@keyframes rewind-field {
+    0%, 40% { filter: drop-shadow(0 0 6px #FFBF00); }
+    100% { filter: none; }
+}
+
+.change-caption {
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 2rem);
+    padding: 0.35rem 0.75rem;
+    border-radius: 1rem;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 5;
+    animation: rewind-caption 0.2s ease-out;
+}
+@keyframes rewind-caption {
+    from { opacity: 0; transform: translate(-50%, -4px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}

@@ -9,6 +9,7 @@ import randomizeSpritePosition from '../lib/randomize-sprite-position';
 import spriteTags from '../lib/libraries/sprite-tags';
 
 import LibraryComponent from '../components/library/library.jsx';
+import rewindHooks from '../lib/rewind/hooks';
 
 const messages = defineMessages({
     libraryTitle: {
@@ -38,6 +39,7 @@ class SpriteLibrary extends React.PureComponent {
     handleItemSelect (item) {
         // Randomize position of library sprite
         randomizeSpritePosition(item);
+        rewindHooks.hintSource('sprite', 'library');
         this.props.vm.addSprite(JSON.stringify(item)).then(() => {
             this.props.onActivateBlocksTab();
         });

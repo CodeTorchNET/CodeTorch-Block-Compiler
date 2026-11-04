@@ -15,6 +15,7 @@ import * as scheduler from './helpers/refreshScheduler.js';
 import * as recorder from './helpers/recorder.js';
 import * as session from './helpers/session.js';
 import * as collabSnapshot from '../../../lib/collab-snapshot.js';
+import rewindHooks from '../../../lib/rewind/hooks.js';
 import {isCursorChatEnabled} from '../../../lib/ct-url-flags.js';
 import {isExtensionAllowed, reportRefusedExtension} from '../../../lib/ct-extension-restrictions.js';
 import {onArtChanged} from '../../../lib/collab-art-bus.js';
@@ -910,6 +911,7 @@ function attachYjsProvider() {
             if (describedTwice('initial sync')) return;
             constants.mutableRefs.isInitialRoomSync = true;
             cancelPendingSpritePublishes();
+            rewindHooks.beginSuppress('room-sync');
             try {
                 constants.mutableRefs.ydoc.transact(() => {
                     helper.performInitialSync(applySpriteListFromYjs);
@@ -924,11 +926,13 @@ function attachYjsProvider() {
                 console.warn('[collaboration] could not draw the room\'s costumes', e);
             }
 
+            rewindHooks.endSuppress();
             hasSynced = true;
 
             collabUI.hideSyncingPopup();
             timeout.resetInactivityTimers();
             constants.mutableRefs.isInitialRoomSync = false;
+            rewindHooks.roomJoined({id: constants.mutableRefs.roomUUID, generation: joinedGeneration});
             helper.reconcileExtensionsToYjs();
 
             scheduler.queueFullRefresh();
@@ -1434,6 +1438,7 @@ function attachYjsProvider() {
         }
 
         const cleanup = () => {
+            rewindHooks.roomLeft();
 
             costumeArtSync.flushPendingMints();
             costumeArtSync.reset();
@@ -1592,8 +1597,13 @@ function collaborationStatus() {
     return collaborationSession().status || 'unknown';
 }
 
+let rewindProbeInstalled = false;
+
 export default async function ({ addon, console: addonConsole }) {
-    
+    if (!rewindProbeInstalled) {
+        rewindProbeInstalled = true;
+        rewindHooks.addProbe(() => !!constants.mutableRefs.isInitialRoomSync);
+    }
 
     try {
         constants.mutableRefs.addon = addon;

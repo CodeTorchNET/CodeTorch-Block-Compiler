@@ -7,6 +7,7 @@ import VM from 'scratch-vm';
 import {getCostumeLibrary} from '../lib/libraries/tw-async-libraries';
 import spriteTags from '../lib/libraries/sprite-tags';
 import LibraryComponent from '../components/library/library.jsx';
+import rewindHooks from '../lib/rewind/hooks';
 
 const messages = defineMessages({
     libraryTitle: {
@@ -42,6 +43,7 @@ class CostumeLibrary extends React.PureComponent {
             bitmapResolution: item.bitmapResolution,
             skinId: null
         };
+        rewindHooks.hintSource('asset', 'library', {targetId: this.props.vm.editingTarget.id});
         this.props.vm.addCostumeFromLibrary(item.md5ext, vmCostume);
     }
     render () {

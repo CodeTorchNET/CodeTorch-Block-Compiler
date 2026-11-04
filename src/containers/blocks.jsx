@@ -39,6 +39,9 @@ import {isTimeTravel2020} from '../reducers/time-travel';
 // eslint-disable-next-line import/no-commonjs
 const {TRUSTED_IFRAME_HOST} = require('../lib/brand.js');
 
+const WORKSPACE_LOAD_GROUP = 'ct-workspace-load:';
+let workspaceLoads = 0;
+
 import {
     activateTab,
     SOUNDS_TAB_INDEX
@@ -49,6 +52,7 @@ import {findTopBlock} from '../lib/backpack/code-payload.js';
 import {gentlyRequestPersistentStorage} from '../lib/tw-persistent-storage.js';
 import {isMinimalMode} from '../lib/ct-url-flags';
 import SettingsStore from '../addons/settings-store-singleton';
+import rewindHooks from '../lib/rewind/hooks';
 
 const showAI = SettingsStore.getAddonEnabled('ai-integration');
 
@@ -104,6 +108,7 @@ class Blocks extends React.Component {
         AddonHooks.blocklyCallbacks.length = [];
 
         bindAll(this, [
+            'handleWorkspaceEventForVm',
             'attachVM',
             'detachVM',
             'getToolboxXML',
@@ -378,8 +383,20 @@ class Blocks extends React.Component {
         }
     }
 
+    /**
+     * Forwards workspace events to the VM.
+     * @param {object} e Blockly event
+     */
+    handleWorkspaceEventForVm (e) {
+        if (e && typeof e.group === 'string' && e.group.startsWith(WORKSPACE_LOAD_GROUP) &&
+            !String(e.type).startsWith('var_')) {
+            return;
+        }
+        this.props.vm.blockListener(e);
+    }
+
     attachVM () {
-        this.workspace.addChangeListener(this.props.vm.blockListener);
+        this.workspace.addChangeListener(this.handleWorkspaceEventForVm);
         this.flyoutWorkspace = this.getFlyoutWorkspace();
         if (this.flyoutWorkspace) {
             this.flyoutWorkspace.addChangeListener(this.props.vm.flyoutBlockListener);
@@ -510,8 +527,11 @@ class Blocks extends React.Component {
         }
 
         // Remove and reattach the workspace listener (but allow flyout events)
-        this.workspace.removeChangeListener(this.props.vm.blockListener);
+        this.workspace.removeChangeListener(this.handleWorkspaceEventForVm);
         const dom = this.ScratchBlocks.Xml.textToDom(data.xml);
+        const Events = this.ScratchBlocks.Events;
+        const outerGroup = Events.getGroup();
+        Events.setGroup(`${WORKSPACE_LOAD_GROUP}${++workspaceLoads}`);
         try {
             this.ScratchBlocks.Xml.clearWorkspaceAndLoadFromXml(dom, this.workspace);
         } catch (error) {
@@ -533,8 +553,10 @@ class Blocks extends React.Component {
                 editingTarget.blocks.validateAndRepair() > 0) {
                 setTimeout(() => this.props.vm.emitWorkspaceUpdate(), 0);
             }
+        } finally {
+            Events.setGroup(outerGroup || false);
         }
-        this.workspace.addChangeListener(this.props.vm.blockListener);
+        this.workspace.addChangeListener(this.handleWorkspaceEventForVm);
 
         if (this.props.vm.editingTarget && this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id]) {
             const {scrollX, scrollY, scale} = this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id];
@@ -698,6 +720,7 @@ class Blocks extends React.Component {
                         topBlock.y = (-metrics.scrollY - top + y) / metrics.scale;
                     }
                 }
+                rewindHooks.hintSource('share', 'backpack', {targetId: this.props.vm.editingTarget.id});
                 return this.props.vm.shareBlocksToTarget(payload, this.props.vm.editingTarget.id);
             })
             .then(() => {

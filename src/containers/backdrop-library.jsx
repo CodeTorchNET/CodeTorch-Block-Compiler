@@ -7,6 +7,7 @@ import VM from 'scratch-vm';
 import {getBackdropLibrary} from '../lib/libraries/tw-async-libraries';
 import backdropTags from '../lib/libraries/backdrop-tags';
 import LibraryComponent from '../components/library/library.jsx';
+import rewindHooks from '../lib/rewind/hooks';
 
 const messages = defineMessages({
     libraryTitle: {
@@ -43,6 +44,7 @@ class BackdropLibrary extends React.Component {
             skinId: null
         };
         // Do not switch to stage, just add the backdrop
+        rewindHooks.hintSource('asset', 'library', {targetId: this.props.vm.runtime.getTargetForStage().id});
         this.props.vm.addBackdrop(item.md5ext, vmBackdrop);
     }
     render () {

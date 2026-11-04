@@ -2,6 +2,7 @@ import {postMessageToParent} from './ct-parent-message';
 import queryString from 'query-string';
 import xhr from 'xhr';
 import storage from '../lib/storage';
+import rewindHooks from './rewind/hooks';
 
 /**
  * Save a project JSON to the project server.
@@ -54,6 +55,7 @@ export default function (projectId, vmState, params) {
                 method: 'put',
                 url: `${storage.CTprojectHost}/${projectId}${qs}`
             });
+            Object.assign(opts.headers, rewindHooks.saveHeaders());
         }
 
         return new Promise((resolve, reject) => {
@@ -73,6 +75,8 @@ export default function (projectId, vmState, params) {
                     return reject(e);
                 }
                 body.id = projectId;
+                const revision = response.headers && Number(response.headers['x-content-revision']);
+                if (Number.isFinite(revision)) body.contentRevision = revision;
                 if (creatingProject) {
                     body.id = body['content-name'];
                 }

@@ -7,6 +7,7 @@ import {inlineSvgFonts, sanitizeSvg} from '@turbowarp/scratch-svg-renderer';
 import ErrorBoundaryHOC from '../lib/error-boundary-hoc.jsx';
 import {publishArt, hasArtSubscribers} from '../lib/collab-art-bus.js';
 import {openFontsModal} from '../reducers/modals';
+import rewindHooks from '../lib/rewind/hooks';
 
 import {connect} from 'react-redux';
 import {Theme} from '../lib/themes/index.js';
@@ -37,8 +38,12 @@ class PaintEditorWrapper extends React.Component {
             this.props.customStageSize !== nextProps.customStageSize ||
             this.state.fonts !== nextState.fonts;
     }
+    componentDidUpdate (prevProps) {
+        if (prevProps.imageId !== this.props.imageId) rewindHooks.paintEditorClosed();
+    }
     componentWillUnmount () {
         this.props.vm.runtime.fontManager.off('change', this.handleUpdateFonts);
+        rewindHooks.paintEditorClosed();
     }
     handleUpdateFonts () {
         this.setState({

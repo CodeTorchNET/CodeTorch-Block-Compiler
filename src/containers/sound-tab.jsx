@@ -47,6 +47,7 @@ import {
 import {setRestore} from '../reducers/restore-deletion';
 import {showStandardAlert, closeAlertWithId} from '../reducers/alerts';
 import {setSelectedAsset} from '../reducers/collaboration';
+import rewindHooks from '../lib/rewind/hooks';
 
 class SoundTab extends React.Component {
     constructor (props) {
@@ -135,6 +136,7 @@ class SoundTab extends React.Component {
             sampleCount: soundItem.sampleCount,
             name: soundItem.name
         };
+        rewindHooks.hintSource('asset', 'library', {targetId: this.props.vm.editingTarget.id});
         this.props.vm.addSound(vmSound).then(() => {
             this.handleNewSound();
         });
@@ -151,6 +153,7 @@ class SoundTab extends React.Component {
         handleFileUpload(e.target, (buffer, fileType, fileName, fileIndex, fileCount) => {
             soundUpload(buffer, fileType, storage, newSound => {
                 newSound.name = fileName;
+                rewindHooks.hintSource('asset', 'import', {targetId});
                 this.props.vm.addSound(newSound, targetId).then(() => {
                     this.handleNewSound();
                     if (fileIndex === fileCount - 1) {
@@ -172,10 +175,12 @@ class SoundTab extends React.Component {
             this.handleSelectSound(sprite.sounds.indexOf(activeSound));
         } else if (dropInfo.dragType === DragConstants.BACKPACK_COSTUME) {
             this.props.onActivateCostumesTab();
+            rewindHooks.hintSource('asset', 'backpack', {targetId: this.props.vm.editingTarget.id});
             this.props.vm.addCostume(dropInfo.payload.body, {
                 name: dropInfo.payload.name
             });
         } else if (dropInfo.dragType === DragConstants.BACKPACK_SOUND) {
+            rewindHooks.hintSource('asset', 'backpack', {targetId: this.props.vm.editingTarget.id});
             this.props.vm.addSound({
                 md5: dropInfo.payload.body,
                 name: dropInfo.payload.name

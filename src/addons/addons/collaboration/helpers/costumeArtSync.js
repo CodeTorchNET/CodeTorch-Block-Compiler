@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import * as constants from './constants.js';
 import * as helper from './helper.js';
 import * as recorder from './recorder.js';
+import {assignShapeIds, signature, longestOrdered} from '../../../../lib/costume-art-shapes.js';
 import {compose} from 'scratch-paint/src/helper/collab-art.js';
 import {applyLive, canApplyLive, replayBitmap, canReplayBitmap, setLiveResync, isRestoringHistory} from 'scratch-paint/src/helper/collab-live.js';
 import {bitmapDigest, bitmapSnapshot} from 'scratch-paint/src/helper/bit-replay.js';
@@ -84,66 +85,16 @@ export function isDocBacked(costumeId) {
 
 function assignIds(costumeId, shapes, items, seeding) {
     const clientId = constants.mutableRefs.ydoc ? constants.mutableRefs.ydoc.clientID : 'x';
-    const claimed = new Set();
-    for (const shape of shapes) {
-        if (!shape.id) continue;
-        if (claimed.has(shape.id)) shape.id = null;
-        else claimed.add(shape.id);
-    }
-
     const existing = artFor(costumeId, false);
+    const published = [];
     if (existing && !seeding) {
-        const byContent = new Map();
         for (const id of existing.order.toArray()) {
             const entry = existing.shapes.get(id);
             if (!entry) continue;
-            const stored = entry.toJSON();
-            const key = contentHash(signature(stored));
-            if (!byContent.has(key)) byContent.set(key, []);
-            byContent.get(key).push(id);
-        }
-        for (const shape of shapes) {
-            if (shape.id) continue;
-            const candidates = byContent.get(contentHash(signature(shape))) || [];
-            while (candidates.length) {
-                const candidate = candidates.shift();
-                if (claimed.has(candidate)) continue;
-                shape.id = candidate;
-                claimed.add(candidate);
-                break;
-            }
+            published.push({id, signature: signature(entry.toJSON())});
         }
     }
-
-    const seeded = new Map();
-    for (let index = 0; index < shapes.length; index++) {
-        if (!shapes[index].id) {
-            if (seeding) {
-                const hash = contentHash(signature(shapes[index]));
-                const nth = (seeded.get(hash) || 0) + 1;
-                seeded.set(hash, nth);
-                shapes[index].id = nth === 1 ? `${costumeId}~${hash}` : `${costumeId}~${hash}~${nth}`;
-            } else {
-                shapes[index].id = `${clientId}-${Math.random().toString(36).slice(2, 9)}`;
-            }
-            claimed.add(shapes[index].id);
-        }
-        const item = items && items[index];
-        if (item) {
-            if (!item.data) item.data = {};
-            item.data.collabId = shapes[index].id;
-        }
-    }
-}
-
-const signature = shape => JSON.stringify([shape.tag, shape.attrs, shape.kids, shape.text, shape.defs]);
-
-function contentHash(text) {
-    let hash = 5381;
-    for (let index = 0; index < text.length; index++) {
-        hash = (((hash << 5) + hash) + text.charCodeAt(index)) | 0;
-    }
-    return (hash >>> 0).toString(36);
+    assignShapeIds({costumeId, shapes, items, seeding, existing: existing && !seeding ? published : null, clientId});
 }
 
 export function publishFromEditor(art) {
@@ -323,24 +274,6 @@ export function publishLocalArt(art) {
             costume: costume.id, changed, removed, total: after.size, seeding
         });
     }
-}
-
-function longestOrdered(values) {
-    const best = values.map(() => 1);
-    const previous = values.map(() => -1);
-    let end = 0;
-    for (let index = 0; index < values.length; index++) {
-        for (let earlier = 0; earlier < index; earlier++) {
-            if (values[earlier] < values[index] && best[earlier] + 1 > best[index]) {
-                best[index] = best[earlier] + 1;
-                previous[index] = earlier;
-            }
-        }
-        if (best[index] > best[end]) end = index;
-    }
-    const out = [];
-    for (let index = values.length ? end : -1; index !== -1; index = previous[index]) out.push(index);
-    return out.reverse();
 }
 
 function scheduleMint(targetId, costumeId) {

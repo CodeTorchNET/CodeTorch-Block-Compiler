@@ -1,5 +1,6 @@
 import * as constants from './constants.js';
 import * as helper from './helper.js';
+import {withCloudMuted} from '../../../../lib/cloud-mute.js';
 
 export function sharedBlocks(event){
     const result = {
@@ -223,8 +224,7 @@ export function sharedVariables (event) {
                     needsWorkspaceRefresh = true;
                 }
             } else if (change.action === 'delete') {
-                
-                target.deleteVariable(varId, true);
+                withCloudMuted(target.runtime, () => target.deleteVariable(varId, true));
                 needsWorkspaceRefresh = true;
             }
         });
@@ -272,7 +272,7 @@ function handleSingleVariableSync(target, yVarMap, varId) {
     }
 
     if (!target.variables[varId]) {
-        target.createVariable(varId, name, type, isCloud, true);
+        withCloudMuted(target.runtime, () => target.createVariable(varId, name, type, isCloud, true));
         didChange = true;
     }
 

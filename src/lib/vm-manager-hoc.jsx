@@ -11,12 +11,15 @@ import {setUsername} from '../reducers/tw';
 import {
     LoadingStates,
     getIsLoadingWithId,
+    manualUpdateProject,
     onLoadedProject,
     projectError
 } from '../reducers/project-state';
 import log from './log';
 import storage from './storage';
 import * as collabSnapshot from './collab-snapshot';
+import rewindController from './rewind/controller';
+import {loadRecoveredState, peekPendingRecovery} from './rewind/recover';
 
 const {API_HOST, TRUSTED_IFRAME_HOST} = require('../lib/brand');
 
@@ -67,6 +70,7 @@ const vmManagerHOC = function (WrappedComponent) {
         }
         loadProject () {
  
+            rewindController.projectUnloaded();
             this.props.vm.quit();
             return storage.loadCustomAchievementData()
                 .then(({accessToken, customAchievements}) => {
@@ -86,19 +90,29 @@ const vmManagerHOC = function (WrappedComponent) {
                         this.setState({canUseCloud: true});
                     }
 
-                    this.props.vm.loadProject(this.props.projectData, additionalData)
+                    const recovering = !!(this.props.projectData && this.props.projectData.ctRewindRecovery);
+                    const recovery = recovering ? peekPendingRecovery(this.props.projectId) : null;
+                    const loading = recovering ?
+                        (recovery ?
+                            loadRecoveredState(this.props.vm, recovery.state, additionalData) :
+                            Promise.reject(new Error('rewind: no recovered version to load'))) :
+                        this.props.vm.loadProject(this.props.projectData, additionalData);
+                    loading
                         .then(() => {
-                            collabSnapshot.applySnapshotIds(this.props.vm);
+                            if (!recovering) collabSnapshot.applySnapshotIds(this.props.vm);
                             collabSnapshot.markReady();
+                            rewindController.projectLoaded(this.props.vm, this.props.projectId);
 
                             this.props.onLoadedProject(this.props.loadingState, this.props.canSave);
                             setTimeout(() => this.props.onSetProjectUnchanged());
+                            if (recovering && this.props.canSave) setTimeout(() => this.props.onSaveProject());
 
                             if (!this.props.isStarted) {
                                 setTimeout(() => this.props.vm.renderer.draw());
                             }
                         })
                         .catch(e => {
+                            if (recovery) recovery.failed = true;
                             collabSnapshot.markReady();
                             this.props.onError(e);
                         });
@@ -117,6 +131,7 @@ const vmManagerHOC = function (WrappedComponent) {
                 isStarted,
                 onError: onErrorProp,
                 onLoadedProject: onLoadedProjectProp,
+                onSaveProject,
                 onSetProjectUnchanged,
                 projectData,
                 isLoadingWithId: isLoadingWithIdProp,
@@ -146,6 +161,7 @@ const vmManagerHOC = function (WrappedComponent) {
         messages: PropTypes.objectOf(PropTypes.string),
         onError: PropTypes.func,
         onLoadedProject: PropTypes.func,
+        onSaveProject: PropTypes.func,
         onSetProjectUnchanged: PropTypes.func,
         projectData: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
         projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
@@ -176,6 +192,7 @@ const vmManagerHOC = function (WrappedComponent) {
         onLoadedProject: (loadingState, canSave) =>
             dispatch(onLoadedProject(loadingState, canSave, true)),
         onSetProjectUnchanged: () => dispatch(setProjectUnchanged()),
+        onSaveProject: () => dispatch(manualUpdateProject()),
         onSetUsername: username => dispatch(setUsername(username))
     });
 

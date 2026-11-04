@@ -15,6 +15,7 @@ import {getSoundLibrary} from '../lib/libraries/tw-async-libraries';
 import soundTags from '../lib/libraries/sound-tags';
 
 import {connect} from 'react-redux';
+import rewindHooks from '../lib/rewind/hooks';
 
 const messages = defineMessages({
     libraryTitle: {
@@ -174,6 +175,7 @@ class SoundLibrary extends React.PureComponent {
             sampleCount: soundItem.sampleCount,
             name: soundItem.name
         };
+        rewindHooks.hintSource('asset', 'library', {targetId: this.props.vm.editingTarget.id});
         this.props.vm.addSound(vmSound).then(() => {
             this.props.onNewSound();
         });

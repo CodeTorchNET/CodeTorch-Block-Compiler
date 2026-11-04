@@ -40,6 +40,7 @@ import AIIcon from '../components/action-menu/icon--AI.svg';
 import {enableGenerate} from '../lib/brand';
 
 import {getCostumeLibrary, getBackdropLibrary} from '../lib/libraries/tw-async-libraries';
+import rewindHooks from '../lib/rewind/hooks';
 
 let messages = defineMessages({
     addLibraryBackdropMsg: {
@@ -192,6 +193,7 @@ class CostumeTab extends React.Component {
             bitmapResolution: item.bitmapResolution,
             skinId: null
         };
+        rewindHooks.hintSource('asset', 'library', {targetId: this.props.vm.editingTarget.id});
         this.handleNewCostume(vmCostume, true );
     }
     async handleSurpriseBackdrop () {
@@ -205,6 +207,7 @@ class CostumeTab extends React.Component {
             bitmapResolution: item.bitmapResolution,
             skinId: null
         };
+        rewindHooks.hintSource('asset', 'library', {targetId: this.props.vm.editingTarget.id});
         this.handleNewCostume(vmCostume);
     }
     handleCostumeUpload (e) {
@@ -215,6 +218,7 @@ class CostumeTab extends React.Component {
             costumeUpload(buffer, fileType, vm, vmCostumes => {
                 vmCostumes.forEach((costume, i) => {
                     costume.name = `${fileName}${i ? i + 1 : ''}`;
+                    rewindHooks.hintSource('asset', 'import', {targetId});
                 });
                 this.handleNewCostume(vmCostumes, false, targetId).then(() => {
                     if (fileIndex === fileCount - 1) {
@@ -235,11 +239,13 @@ class CostumeTab extends React.Component {
                 dropInfo.index, dropInfo.newIndex);
             this.setState({selectedCostumeIndex: sprite.costumes.indexOf(activeCostume)});
         } else if (dropInfo.dragType === DragConstants.BACKPACK_COSTUME) {
+            rewindHooks.hintSource('asset', 'backpack', {targetId: this.props.vm.editingTarget.id});
             this.props.vm.addCostume(dropInfo.payload.body, {
                 name: dropInfo.payload.name
             });
         } else if (dropInfo.dragType === DragConstants.BACKPACK_SOUND) {
             this.props.onActivateSoundsTab();
+            rewindHooks.hintSource('asset', 'backpack', {targetId: this.props.vm.editingTarget.id});
             this.props.vm.addSound({
                 md5: dropInfo.payload.body,
                 name: dropInfo.payload.name

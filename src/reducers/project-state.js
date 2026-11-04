@@ -20,6 +20,7 @@ const START_ERROR = 'scratch-gui/project-state/START_ERROR';
 const START_FETCHING_NEW = 'scratch-gui/project-state/START_FETCHING_NEW';
 const START_LOADING_VM_FILE_UPLOAD = 'scratch-gui/project-state/START_LOADING_VM_FILE_UPLOAD';
 const START_MANUAL_UPDATING = 'scratch-gui/project-state/START_MANUAL_UPDATING';
+const START_RECOVERING = 'scratch-gui/project-state/START_RECOVERING';
 const START_REMIXING = 'scratch-gui/project-state/START_REMIXING';
 const START_UPDATING_BEFORE_CREATING_COPY = 'scratch-gui/project-state/START_UPDATING_BEFORE_CREATING_COPY';
 const START_UPDATING_BEFORE_CREATING_NEW = 'scratch-gui/project-state/START_UPDATING_BEFORE_CREATING_NEW';
@@ -107,6 +108,7 @@ const getIsError = loadingState => (
 
 const initialState = {
     error: null,
+    errorDuring: null,
     projectData: null,
     projectId: null,
     isScratchProject: false,
@@ -314,6 +316,16 @@ const reducer = function (state, action) {
             });
         }
         return state;
+    case START_RECOVERING:
+        if (state.loadingState === LoadingState.ERROR && state.projectId && state.projectId !== defaultProjectId) {
+            return Object.assign({}, state, {
+                loadingState: LoadingState.LOADING_VM_WITH_ID,
+                projectData: action.projectData,
+                error: null,
+                errorDuring: null
+            });
+        }
+        return state;
     case START_ERROR:
         // fatal errors: there's no correct editor state for us to show
         if ([
@@ -324,7 +336,8 @@ const reducer = function (state, action) {
         ].includes(state.loadingState)) {
             return Object.assign({}, state, {
                 loadingState: LoadingState.ERROR,
-                error: action.error
+                error: action.error,
+                errorDuring: state.loadingState
             });
         }
         // non-fatal errors: can keep showing editor state fine
@@ -507,6 +520,16 @@ const remixProject = () => ({
     type: START_REMIXING
 });
 
+/**
+ * Leaves the error screen by loading a recovered version of the project.
+ * @param {object} projectData projectData
+ * @returns {object} action
+ */
+const startRecovering = projectData => ({
+    type: START_RECOVERING,
+    projectData
+});
+
 export {
     reducer as default,
     initialState as projectStateInitialState,
@@ -540,5 +563,6 @@ export {
     requestNewProject,
     requestProjectUpload,
     saveProjectAsCopy,
-    setProjectId
+    setProjectId,
+    startRecovering
 };

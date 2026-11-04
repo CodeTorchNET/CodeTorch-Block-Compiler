@@ -14,6 +14,7 @@ jest.mock('../../../src/lib/ct-url-flags', () => ({
     applyPersistentFlags: params => params
 }));
 
+import {clearExtensionNotices, getExtensionNotices} from '../../../src/lib/ct-extension-restrictions.js';
 import {
     TWSecurityManagerComponent,
     isTrustedExtension,
@@ -53,6 +54,7 @@ describe('tw-security-manager', () => {
         mockMinimalMode = false;
         global.alert = jest.fn();
         global.location = {origin: PAGE_ORIGIN};
+        clearExtensionNotices();
     });
 
     afterEach(() => {
@@ -74,6 +76,14 @@ describe('tw-security-manager', () => {
     });
 
     describe('by default', () => {
+        test('no placeholders outside the reduced editor: a denied extension still fails the load', () => {
+            const extensionManager = {securityManager: {}, loadExtensionURL: jest.fn()};
+            createSecurityManager(extensionManager).componentDidMount();
+            const blocks = [{id: 'a', opcode: 'thing_go', parent: null, next: null, inputs: {}, fields: {}}];
+            expect(extensionManager.securityManager.createPlaceholderExtension(
+                'thing', 'https://example.com/thing.js', blocks, () => null)).toBeNull();
+        });
+
         test('trusted extensions are not sandboxed', () => {
             const securityManager = createSecurityManager();
             expect(securityManager.getSandboxMode('https://api.codetorch.net/extension.js')).toBe('unsandboxed');
@@ -159,7 +169,23 @@ describe('tw-security-manager', () => {
         test('extensions from any other origin are refused instead of sandboxed', () => {
             const securityManager = createSecurityManager();
             expect(() => securityManager.getSandboxMode('https://example.com/one.js')).toThrow();
-            expect(global.alert).toHaveBeenCalled();
+            expect(global.alert).not.toHaveBeenCalled();
+            expect(getExtensionNotices().map(n => n.url)).toEqual(['https://example.com/one.js']);
+        });
+
+        test('a refused extension gets a placeholder; an allowed one never does', () => {
+            const extensionManager = {securityManager: {}, loadExtensionURL: jest.fn()};
+            const securityManager = createSecurityManager(extensionManager);
+            securityManager.componentDidMount();
+            const create = extensionManager.securityManager.createPlaceholderExtension;
+            const blocks = [{id: 'a', opcode: 'thing_go', parent: null, next: null, inputs: {}, fields: {}}];
+            const ext = create('thing', 'https://example.com/thing.js', blocks, () => null);
+            expect(ext.getInfo().id).toBe('thing');
+            expect(getExtensionNotices()).toEqual([{key: 'https://example.com/thing.js',
+                url: 'https://example.com/thing.js', id: 'thing', placeholder: true}]);
+            expect(create('ok', GALLERY_EXTENSION, blocks, () => null)).toBeNull();
+            expect(create('pen', null, blocks, () => null)).toBeNull();
+            expect(create('translate', null, [], () => null).getInfo().id).toBe('translate');
         });
 
         test('a project may not load an extension from another origin', async () => {
@@ -295,7 +321,8 @@ describe('tw-security-manager', () => {
             expect(() => extensionManager.loadExtensionIdSync('text2speech')).toThrow();
             expect(() => extensionManager.loadExtensionIdSync('customAchievements')).toThrow();
             expect(loadExtensionIdSync).not.toHaveBeenCalled();
-            expect(global.alert).toHaveBeenCalled();
+            expect(global.alert).not.toHaveBeenCalled();
+            expect(getExtensionNotices().map(n => n.id)).toEqual(['text2speech', 'customAchievements']);
 
             expect(extensionManager.loadExtensionIdSync('pen')).toBe('loaded');
         });

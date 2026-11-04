@@ -27,6 +27,7 @@ import BrowserModal from '../browser-modal/browser-modal.jsx';
 import TipsLibrary from '../../containers/tips-library.jsx';
 import Cards from '../../containers/cards.jsx';
 import Alerts from '../../containers/alerts.jsx';
+import CTExtensionNotice from '../ct-extension-notice/ct-extension-notice.jsx';
 import DragLayer from '../../containers/drag-layer.jsx';
 import ConnectionModal from '../../containers/connection-modal.jsx';
 import TelemetryModal from '../telemetry-modal/telemetry-modal.jsx';
@@ -55,6 +56,7 @@ import codeIcon from '!../../lib/tw-recolor/build!./icon--code.svg';
 import costumesIcon from '!../../lib/tw-recolor/build!./icon--costumes.svg';
 import soundsIcon from '!../../lib/tw-recolor/build!./icon--sounds.svg';
 import DisconnectedModal from '../collaboration/disconnected-modal.jsx';
+import RewindViewer from '../rewind-viewer/rewind-viewer.jsx';
 
 const messages = defineMessages({
     addExtension: {
@@ -210,11 +212,16 @@ const GUIComponent = props => {
             <React.Fragment>
                 {isCollabDisconnected && <DisconnectedModal />}
                 <TWSecurityManager securityManager={securityManager} />
+                <CTExtensionNotice />
                 {settingsModalVisible && <TWSettingsModal canSave={canSave} />}
                 {customExtensionModalVisible && !isMinimalMode() && <TWCustomExtensionModal />}
                 {fontsModalVisible && <TWFontsModal />}
                 {unknownPlatformModalVisible && <TWUnknownPlatformModal />}
                 {invalidProjectModalVisible && <TWInvalidProjectModal />}
+                <RewindViewer
+                    basePath={basePath}
+                    canSave={canSave}
+                />
             </React.Fragment>
         );
 

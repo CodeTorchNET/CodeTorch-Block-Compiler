@@ -1,0 +1,69 @@
+@import "../../css/colors.css";
+@import "../../css/units.css";
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.25rem 0 0.5rem;
+}
+
+.primary,
+.secondary {
+    border-radius: 0.25rem;
+    padding: 0.5rem 1.5rem;
+    font-weight: bold;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.primary {
+    border: 1px solid white;
+    background: white;
+    color: $motion-primary;
+}
+
+.secondary {
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: transparent;
+    color: white;
+}
+
+.primary:disabled,
+.secondary:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.link {
+    border: none;
+    background: none;
+    padding: 0.5rem;
+    color: white;
+    font-size: 0.875rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.status,
+.hint {
+    opacity: 0.85;
+}
+
+.found {
+    font-weight: bold;
+}
+
+.problem {
+    font-weight: bold;
+}
+
+.detail {
+    margin-top: 1.5rem;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}

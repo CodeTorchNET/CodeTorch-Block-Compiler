@@ -100,7 +100,10 @@ import sharedMessages from '../../lib/shared-messages';
 
 import SeeInsideButton from './tw-see-inside.jsx';
 import {APP_NAME} from '../../lib/brand.js';
-import {showStandardAlert} from '../../reducers/alerts';
+import {showAlertWithTimeout, showStandardAlert} from '../../reducers/alerts';
+import {openRewind, setRewindMeta} from '../../reducers/rewind';
+import {enableFreeRewind} from '../../lib/rewind/free';
+import rewindMessages from '../rewind-viewer/messages';
 
 const isTorchyEnabled = SettingsStore.getAddonEnabled('ai-integration');
 
@@ -209,6 +212,8 @@ class MenuBar extends React.Component {
             'handleClickPackager',
             'handleClickDesktopSettings',
             'handleClickRestorePoints',
+            'handleClickRewind',
+            'handleClickEnableRewind',
             'handleClickSeeCommunity',
             'handleClickShare',
             'handleClickTorchy',
@@ -271,6 +276,24 @@ class MenuBar extends React.Component {
     handleClickRestorePoints () {
         this.props.onClickRestorePoints();
         this.props.onRequestCloseFile();
+    }
+    handleClickRewind () {
+        this.props.onClickRewind();
+        this.props.onRequestCloseFile();
+    }
+    handleClickEnableRewind () {
+        this.props.onRequestCloseFile();
+        const projectId = this.props.projectId;
+        enableFreeRewind(projectId)
+            .then(({status, meta}) => {
+                if (status === 'enabled') {
+                    if (this.props.projectId === projectId) this.props.onSetRewindMeta(meta);
+                    this.props.onShowAlert('rewindEnabled');
+                } else {
+                    this.props.onShowAlert('rewindNeedsPro');
+                }
+            })
+            .catch(() => this.props.onShowAlert('rewindEnableError'));
     }
     handleClickSeeCommunity (waitForUpdate) {
         if (this.props.shouldSaveBeforeTransition()) {
@@ -637,6 +660,26 @@ class MenuBar extends React.Component {
                                             )}
                                         </MenuSection>
                                     )}
+                                    {(this.props.canViewRewind || this.props.canEnableRewind) && (
+                                        <MenuSection>
+                                            {this.props.canViewRewind && (
+                                                <MenuItem
+                                                    isRtl={this.props.isRtl}
+                                                    onClick={this.handleClickRewind}
+                                                >
+                                                    {this.props.intl.formatMessage(rewindMessages.menuItem)}
+                                                </MenuItem>
+                                            )}
+                                            {this.props.canEnableRewind && (
+                                                <MenuItem
+                                                    isRtl={this.props.isRtl}
+                                                    onClick={this.handleClickEnableRewind}
+                                                >
+                                                    {this.props.intl.formatMessage(rewindMessages.enableMenuItem)}
+                                                </MenuItem>
+                                            )}
+                                        </MenuSection>
+                                    )}
                                     <MenuSection>
                                         {!this.props.lessonMode && (
                                         <MenuItem
@@ -938,6 +981,11 @@ class MenuBar extends React.Component {
 }
 
 MenuBar.propTypes = {
+    canViewRewind: PropTypes.bool,
+    canEnableRewind: PropTypes.bool,
+    onSetRewindMeta: PropTypes.func,
+    onShowAlert: PropTypes.func,
+    onClickRewind: PropTypes.func,
     enableSeeInside: PropTypes.bool,
     onClickSeeInside: PropTypes.func,
     aboutMenuOpen: PropTypes.bool,
@@ -1049,6 +1097,10 @@ const mapStateToProps = (state, ownProps) => {
         isUpdating: getIsUpdating(loadingState),
         isShowingProject: getIsShowingProject(loadingState),
         isCollabActive: state.scratchGui.collaboration.isCollabActive,
+        canViewRewind: !!(state.scratchGui.rewind && state.scratchGui.rewind.meta &&
+            state.scratchGui.rewind.meta.can_view),
+        canEnableRewind: !!(state.scratchGui.rewind && state.scratchGui.rewind.meta &&
+            state.scratchGui.rewind.meta.locked),
         locale: state.locales.locale,
         loginMenuOpen: loginMenuOpen(state),
         modeMenuOpen: modeMenuOpen(state),
@@ -1086,6 +1138,9 @@ const mapDispatchToProps = dispatch => ({
     onRequestOpenAbout: () => dispatch(openAboutMenu()),
     onRequestCloseAbout: () => dispatch(closeAboutMenu()),
     onClickRestorePoints: () => dispatch(openRestorePointModal()),
+    onClickRewind: () => dispatch(openRewind()),
+    onSetRewindMeta: meta => dispatch(setRewindMeta(meta)),
+    onShowAlert: alertId => showAlertWithTimeout(dispatch, alertId),
     onClickSettings: () => dispatch(openSettingsMenu()),
     onClickSettingsModal: () => {
         dispatch(closeEditMenu());

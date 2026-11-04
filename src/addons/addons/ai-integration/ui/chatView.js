@@ -617,7 +617,23 @@ function buildConfirmationMessage (chunkData, workspace) {
     return {message, replacingBlockIds};
 }
 
+let torchyInsertCount = 0;
+
 function insertChunkIntoWorkspace (chunkData, workspace, replacingBlockIds) {
+    const Events = window.ScratchBlocks && window.ScratchBlocks.Events;
+    const previousGroup = Events ? Events.getGroup() : null;
+    if (Events) {
+        torchyInsertCount++;
+        Events.setGroup(`torchy:${Date.now().toString(36)}-${torchyInsertCount}`);
+    }
+    try {
+        insertChunkIntoWorkspaceGrouped(chunkData, workspace, replacingBlockIds);
+    } finally {
+        if (Events) Events.setGroup(previousGroup || false);
+    }
+}
+
+function insertChunkIntoWorkspaceGrouped (chunkData, workspace, replacingBlockIds) {
     const ScratchBlocks = window.ScratchBlocks;
     const xml = ScratchBlocks.Xml.textToDom(chunkData.BlocksAsXML);
     const [listNames, variableNames, broadcastNames] = helpers.workspaceVariables(true, workspace);

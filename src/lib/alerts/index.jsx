@@ -3,6 +3,7 @@ import {FormattedMessage} from 'react-intl';
 import keyMirror from 'keymirror';
 
 import successImage from '../assets/icon--success.svg';
+import {TRUSTED_IFRAME_HOST} from '../brand';
 
 const AlertTypes = keyMirror({
     STANDARD: null,
@@ -349,6 +350,66 @@ const alerts = [
         iconURL: successImage,
         level: AlertLevels.SUCCESS,
         maxDisplaySecs: 3
+    },
+    {
+        alertId: 'rewindEnabled',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['rewindEnabled', 'rewindNeedsPro', 'rewindEnableError'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Rewind is on for this project. Your edits are being recorded."
+                description="Shown after a free Rewind was turned on for the project"
+                id="gui.alerts.rewindEnabled"
+            />
+        ),
+        iconURL: successImage,
+        level: AlertLevels.SUCCESS,
+        maxDisplaySecs: 5
+    },
+    {
+        alertId: 'rewindNeedsPro',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['rewindEnabled', 'rewindNeedsPro', 'rewindEnableError'],
+        content: (
+            <FormattedMessage
+                defaultMessage="You've used all of your free Rewinds. Rewind on more projects needs Pro. {proLink}"
+                description="Shown when turning Rewind on for a project but no free Rewinds are left"
+                id="gui.alerts.rewindNeedsPro"
+                values={{
+                    proLink: TRUSTED_IFRAME_HOST ? (
+                        <a
+                            href={`${TRUSTED_IFRAME_HOST}/premium`}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                        >
+                            <FormattedMessage
+                                defaultMessage="Get Pro"
+                                description="Link to the Pro plan from the no free Rewinds left alert"
+                                id="gui.alerts.rewindNeedsProLink"
+                            />
+                        </a>
+                    ) : null
+                }}
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN,
+        maxDisplaySecs: 15
+    },
+    {
+        alertId: 'rewindEnableError',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['rewindEnabled', 'rewindNeedsPro', 'rewindEnableError'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Rewind couldn't be turned on. Please try again."
+                description="Shown when turning Rewind on for the project failed"
+                id="gui.alerts.rewindEnableError"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN,
+        maxDisplaySecs: 8
     }
 ];
 

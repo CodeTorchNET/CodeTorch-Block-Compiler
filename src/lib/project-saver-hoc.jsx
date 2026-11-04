@@ -18,6 +18,8 @@ import {
 } from '../reducers/alerts';
 import {setAutoSaveTimeoutId} from '../reducers/timeout';
 import {setProjectUnchanged} from '../reducers/project-changed';
+import rewindHooks from './rewind/hooks';
+import rewindController from './rewind/controller';
 import {
     LoadingStates,
     autoUpdateProject,
@@ -183,6 +185,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
                 .then(response => {
                     const projectId = response.id.toString();
                     this.props.onCreatedProject(projectId, this.props.loadingState);
+                    rewindController.projectCreated(this.props.vm, projectId);
                     reportLessonSaveResult({kind: 'create', ok: true, projectId: projectId});
                 })
                 .catch(err => {
@@ -278,6 +281,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
                 .then(response => {
                     this.props.onSetProjectUnchanged();
                     const id = response.id.toString();
+                    rewindHooks.afterSave({projectId: id, revision: response.contentRevision});
                     if (id && this.props.onUpdateProjectThumbnail) {
                         this.storeProjectThumbnail(id);
                     }

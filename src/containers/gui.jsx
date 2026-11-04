@@ -13,9 +13,13 @@ import ProjectLoadErrorComponent, {
     isKnownProjectLoadError
 } from '../components/tw-project-load-error/project-load-error.jsx';
 import {
+    LoadingState,
     getIsError,
     getIsShowingProject
 } from '../reducers/project-state';
+import ProjectRecovery from '../components/project-recovery/project-recovery.jsx';
+
+const RECOVERABLE_DURING = [LoadingState.FETCHING_WITH_ID, LoadingState.LOADING_VM_WITH_ID];
 import {
     activateTab,
     BLOCKS_TAB_INDEX,
@@ -139,6 +143,14 @@ class GUI extends React.Component {
                     />
                 );
             }
+            if (!this.props.isPlayerOnly && RECOVERABLE_DURING.includes(this.props.errorDuring)) {
+                return (
+                    <ProjectRecovery
+                        basePath={this.props.basePath}
+                        canSave={this.props.canSave}
+                    />
+                );
+            }
             throw this.props.error;
         }
         const {
@@ -146,6 +158,7 @@ class GUI extends React.Component {
             assetHost,
             cloudHost,
             error,
+            errorDuring,
             isError,
             isScratchDesktop,
             isShowingProject,
@@ -175,9 +188,13 @@ class GUI extends React.Component {
 
 GUI.propTypes = {
     assetHost: PropTypes.string,
+    basePath: PropTypes.string,
+    canSave: PropTypes.bool,
     children: PropTypes.node,
     cloudHost: PropTypes.string,
     error: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+    errorDuring: PropTypes.string,
+    isPlayerOnly: PropTypes.bool,
     fetchingProject: PropTypes.bool,
     intl: intlShape,
     isError: PropTypes.bool,
@@ -222,6 +239,7 @@ const mapStateToProps = state => {
         costumeLibraryVisible: state.scratchGui.modals.costumeLibrary,
         costumesTabVisible: state.scratchGui.editorTab.activeTabIndex === COSTUMES_TAB_INDEX,
         error: state.scratchGui.projectState.error,
+        errorDuring: state.scratchGui.projectState.errorDuring,
         isError: getIsError(loadingState),
         isCodeEmbed: state.scratchGui.mode.isCodeEmbed,
         isBlocksOnlyEmbed: state.scratchGui.mode.isBlocksOnlyEmbed,

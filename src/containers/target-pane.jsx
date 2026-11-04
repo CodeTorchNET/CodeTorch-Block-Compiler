@@ -26,6 +26,7 @@ import randomizeSpritePosition from '../lib/randomize-sprite-position';
 import downloadBlob from '../lib/download-blob';
 import log from '../lib/log';
 import {placeInViewport} from '../lib/backpack/code-payload.js';
+import rewindHooks from '../lib/rewind/hooks';
 
 class TargetPane extends React.Component {
     constructor (props) {
@@ -91,6 +92,7 @@ class TargetPane extends React.Component {
 
     }
     handleDuplicateSprite (id) {
+        rewindHooks.hintSource('sprite', 'duplicate');
         this.props.vm.duplicateSprite(id);
     }
     handleExportSprite (id) {
@@ -115,6 +117,7 @@ class TargetPane extends React.Component {
         );
         const item = surpriseSprites[Math.floor(Math.random() * surpriseSprites.length)];
         randomizeSpritePosition(item);
+        rewindHooks.hintSource('sprite', 'library');
         this.props.vm.addSprite(JSON.stringify(item))
             .then(this.handleActivateBlocksTab);
     }
@@ -125,6 +128,7 @@ class TargetPane extends React.Component {
             formatMessage(sharedMessages.pop),
             formatMessage(sharedMessages.costume, {index: 1})
         );
+        rewindHooks.hintSource('sprite', 'editor');
         this.props.vm.addSprite(JSON.stringify(emptyItem)).then(() => {
             setTimeout(() => { // Wait for targets update to propagate before tab switching
                 this.props.onActivateTab(COSTUMES_TAB_INDEX);
@@ -135,6 +139,7 @@ class TargetPane extends React.Component {
         this.props.onActivateTab(BLOCKS_TAB_INDEX);
     }
     handleNewSprite (spriteJSONString) {
+        rewindHooks.hintSource('sprite', 'import');
         return this.props.vm.addSprite(spriteJSONString)
             .then(this.handleActivateBlocksTab)
             .catch(err => {
@@ -182,7 +187,10 @@ class TargetPane extends React.Component {
             // TODO storage does not have a way of loading zips right now, and may never need it.
             // So for now just grab the zip manually.
             fetchSprite(dragInfo.payload.bodyUrl)
-                .then(sprite3Zip => this.props.vm.addSprite(sprite3Zip));
+                .then(sprite3Zip => {
+                    rewindHooks.hintSource('sprite', 'backpack');
+                    return this.props.vm.addSprite(sprite3Zip);
+                });
         } else if (targetId) {
             // Something is being dragged over one of the sprite tiles or the backdrop.
             // Dropping assets like sounds and costumes duplicate the asset on the
@@ -195,6 +203,7 @@ class TargetPane extends React.Component {
             } else if (targetId && dragInfo.dragType === DragConstants.SOUND) {
                 this.props.vm.shareSoundToTarget(dragInfo.index, targetId);
             } else if (dragInfo.dragType === DragConstants.BACKPACK_COSTUME) {
+                rewindHooks.hintSource('asset', 'backpack', {targetId});
                 // In scratch 2, this only creates a new sprite from the costume.
                 // We may be able to handle both kinds of drops, depending on where
                 // the drop happens. For now, just add the costume.
@@ -202,13 +211,17 @@ class TargetPane extends React.Component {
                     name: dragInfo.payload.name
                 }, targetId);
             } else if (dragInfo.dragType === DragConstants.BACKPACK_SOUND) {
+                rewindHooks.hintSource('asset', 'backpack', {targetId});
                 this.props.vm.addSound({
                     md5: dragInfo.payload.body,
                     name: dragInfo.payload.name
                 }, targetId);
             } else if (dragInfo.dragType === DragConstants.BACKPACK_CODE) {
                 fetchCode(dragInfo.payload.bodyUrl)
-                    .then(blocks => this.shareBlocks(blocks, targetId))
+                    .then(blocks => {
+                        rewindHooks.hintSource('share', 'backpack', {targetId});
+                        return this.shareBlocks(blocks, targetId);
+                    })
                     .then(() => this.props.vm.refreshWorkspace());
             }
         }

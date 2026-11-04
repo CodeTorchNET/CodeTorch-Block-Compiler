@@ -1,0 +1,2857 @@
+{
+  "targets": [
+    {
+      "isStage": true,
+      "name": "Stage",
+      "variables": {
+        "varScore": [
+          "score",
+          0
+        ]
+      },
+      "lists": {
+        "listItems": [
+          "items",
+          [
+            "a",
+            "b"
+          ]
+        ]
+      },
+      "broadcasts": {
+        "bcGo": "go"
+      },
+      "blocks": {
+        "st-recv": {
+          "opcode": "event_whenbroadcastreceived",
+          "next": "st-wait",
+          "parent": null,
+          "inputs": {},
+          "fields": {
+            "BROADCAST_OPTION": [
+              "go",
+              "bcGo"
+            ]
+          },
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "st-wait": {
+          "opcode": "control_wait",
+          "next": null,
+          "parent": "st-recv",
+          "inputs": {
+            "DURATION": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                5,
+                "1"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        }
+      },
+      "comments": {},
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "backdrop1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "b36584db82bdd45014430aa918461ca0",
+          "md5ext": "b36584db82bdd45014430aa918461ca0.svg",
+          "rotationCenterX": 240,
+          "rotationCenterY": 180
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 0,
+      "tempo": 60,
+      "videoTransparency": 50,
+      "videoState": "on",
+      "textToSpeechLanguage": null
+    },
+    {
+      "isStage": false,
+      "name": "Sprite1",
+      "variables": {
+        "varLives1": [
+          "lives1",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s1-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s1-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s1-move": {
+          "opcode": "motion_movesteps",
+          "next": "s1-say",
+          "parent": "s1-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-say": {
+          "opcode": "looks_say",
+          "next": "s1-set",
+          "parent": "s1-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-set": {
+          "opcode": "data_setvariableto",
+          "next": "s1-repeat",
+          "parent": "s1-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives1",
+                "varLives1"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s1-note"
+        },
+        "s1-repeat": {
+          "opcode": "control_repeat",
+          "next": "s1-bcast",
+          "parent": "s1-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s1-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s1-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s1-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s1-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s1-call",
+          "parent": "s1-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s1-bcast",
+          "inputs": {
+            "s1-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s1-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s1-define": {
+          "opcode": "procedures_definition",
+          "next": "s1-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s1-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s1-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s1-define",
+          "inputs": {
+            "s1-argA": [
+              1,
+              "s1-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s1-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s1-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s1-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s1-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s1-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives1",
+              "varLives1"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s1-note": {
+          "blockId": "s1-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 1 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 1,
+      "visible": true,
+      "x": -60,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite2",
+      "variables": {
+        "varLives2": [
+          "lives2",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s2-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s2-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s2-move": {
+          "opcode": "motion_movesteps",
+          "next": "s2-say",
+          "parent": "s2-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-say": {
+          "opcode": "looks_say",
+          "next": "s2-set",
+          "parent": "s2-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-set": {
+          "opcode": "data_setvariableto",
+          "next": "s2-repeat",
+          "parent": "s2-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives2",
+                "varLives2"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s2-note"
+        },
+        "s2-repeat": {
+          "opcode": "control_repeat",
+          "next": "s2-bcast",
+          "parent": "s2-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s2-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s2-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s2-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s2-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s2-call",
+          "parent": "s2-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s2-bcast",
+          "inputs": {
+            "s2-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s2-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s2-define": {
+          "opcode": "procedures_definition",
+          "next": "s2-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s2-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s2-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s2-define",
+          "inputs": {
+            "s2-argA": [
+              1,
+              "s2-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s2-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s2-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s2-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s2-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s2-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives2",
+              "varLives2"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s2-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s2-note": {
+          "blockId": "s2-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 2 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 2,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite3",
+      "variables": {
+        "varLives3": [
+          "lives3",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s3-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s3-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s3-move": {
+          "opcode": "motion_movesteps",
+          "next": "s3-say",
+          "parent": "s3-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-say": {
+          "opcode": "looks_say",
+          "next": "s3-set",
+          "parent": "s3-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-set": {
+          "opcode": "data_setvariableto",
+          "next": "s3-repeat",
+          "parent": "s3-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives3",
+                "varLives3"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s3-note"
+        },
+        "s3-repeat": {
+          "opcode": "control_repeat",
+          "next": "s3-bcast",
+          "parent": "s3-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s3-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s3-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s3-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s3-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s3-call",
+          "parent": "s3-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s3-bcast",
+          "inputs": {
+            "s3-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s3-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s3-define": {
+          "opcode": "procedures_definition",
+          "next": "s3-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s3-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s3-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s3-define",
+          "inputs": {
+            "s3-argA": [
+              1,
+              "s3-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s3-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s3-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s3-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s3-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s3-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives3",
+              "varLives3"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s3-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s3-note": {
+          "blockId": "s3-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 3 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 3,
+      "visible": true,
+      "x": 60,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite4",
+      "variables": {
+        "varLives4": [
+          "lives4",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s4-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s4-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s4-move": {
+          "opcode": "motion_movesteps",
+          "next": "s4-say",
+          "parent": "s4-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-say": {
+          "opcode": "looks_say",
+          "next": "s4-set",
+          "parent": "s4-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-set": {
+          "opcode": "data_setvariableto",
+          "next": "s4-repeat",
+          "parent": "s4-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives4",
+                "varLives4"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s4-note"
+        },
+        "s4-repeat": {
+          "opcode": "control_repeat",
+          "next": "s4-bcast",
+          "parent": "s4-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s4-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s4-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s4-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s4-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s4-call",
+          "parent": "s4-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s4-bcast",
+          "inputs": {
+            "s4-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s4-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s4-define": {
+          "opcode": "procedures_definition",
+          "next": "s4-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s4-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s4-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s4-define",
+          "inputs": {
+            "s4-argA": [
+              1,
+              "s4-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s4-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s4-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s4-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s4-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s4-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives4",
+              "varLives4"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s4-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s4-note": {
+          "blockId": "s4-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 4 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 4,
+      "visible": true,
+      "x": 120,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite5",
+      "variables": {
+        "varLives5": [
+          "lives5",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s5-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s5-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s5-move": {
+          "opcode": "motion_movesteps",
+          "next": "s5-say",
+          "parent": "s5-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-say": {
+          "opcode": "looks_say",
+          "next": "s5-set",
+          "parent": "s5-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-set": {
+          "opcode": "data_setvariableto",
+          "next": "s5-repeat",
+          "parent": "s5-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives5",
+                "varLives5"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s5-note"
+        },
+        "s5-repeat": {
+          "opcode": "control_repeat",
+          "next": "s5-bcast",
+          "parent": "s5-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s5-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s5-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s5-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s5-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s5-call",
+          "parent": "s5-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s5-bcast",
+          "inputs": {
+            "s5-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s5-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s5-define": {
+          "opcode": "procedures_definition",
+          "next": "s5-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s5-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s5-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s5-define",
+          "inputs": {
+            "s5-argA": [
+              1,
+              "s5-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s5-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s5-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s5-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s5-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s5-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives5",
+              "varLives5"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s5-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s5-note": {
+          "blockId": "s5-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 5 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 5,
+      "visible": true,
+      "x": 180,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite6",
+      "variables": {
+        "varLives6": [
+          "lives6",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s6-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s6-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s6-move": {
+          "opcode": "motion_movesteps",
+          "next": "s6-say",
+          "parent": "s6-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-say": {
+          "opcode": "looks_say",
+          "next": "s6-set",
+          "parent": "s6-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-set": {
+          "opcode": "data_setvariableto",
+          "next": "s6-repeat",
+          "parent": "s6-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives6",
+                "varLives6"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s6-note"
+        },
+        "s6-repeat": {
+          "opcode": "control_repeat",
+          "next": "s6-bcast",
+          "parent": "s6-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s6-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s6-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s6-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s6-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s6-call",
+          "parent": "s6-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s6-bcast",
+          "inputs": {
+            "s6-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s6-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s6-define": {
+          "opcode": "procedures_definition",
+          "next": "s6-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s6-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s6-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s6-define",
+          "inputs": {
+            "s6-argA": [
+              1,
+              "s6-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s6-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s6-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s6-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s6-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s6-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives6",
+              "varLives6"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s6-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s6-note": {
+          "blockId": "s6-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 6 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 6,
+      "visible": true,
+      "x": 240,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite7",
+      "variables": {
+        "varLives7": [
+          "lives7",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s7-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s7-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s7-move": {
+          "opcode": "motion_movesteps",
+          "next": "s7-say",
+          "parent": "s7-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-say": {
+          "opcode": "looks_say",
+          "next": "s7-set",
+          "parent": "s7-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-set": {
+          "opcode": "data_setvariableto",
+          "next": "s7-repeat",
+          "parent": "s7-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives7",
+                "varLives7"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s7-note"
+        },
+        "s7-repeat": {
+          "opcode": "control_repeat",
+          "next": "s7-bcast",
+          "parent": "s7-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s7-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s7-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s7-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s7-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s7-call",
+          "parent": "s7-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s7-bcast",
+          "inputs": {
+            "s7-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s7-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s7-define": {
+          "opcode": "procedures_definition",
+          "next": "s7-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s7-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s7-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s7-define",
+          "inputs": {
+            "s7-argA": [
+              1,
+              "s7-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s7-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s7-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s7-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s7-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s7-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives7",
+              "varLives7"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s7-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s7-note": {
+          "blockId": "s7-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 7 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 7,
+      "visible": true,
+      "x": 300,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    },
+    {
+      "isStage": false,
+      "name": "Sprite8",
+      "variables": {
+        "varLives8": [
+          "lives8",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s8-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s8-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s8-move": {
+          "opcode": "motion_movesteps",
+          "next": "s8-say",
+          "parent": "s8-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-say": {
+          "opcode": "looks_say",
+          "next": "s8-set",
+          "parent": "s8-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-set": {
+          "opcode": "data_setvariableto",
+          "next": "s8-repeat",
+          "parent": "s8-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives8",
+                "varLives8"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s8-note"
+        },
+        "s8-repeat": {
+          "opcode": "control_repeat",
+          "next": "s8-bcast",
+          "parent": "s8-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s8-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s8-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s8-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s8-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s8-call",
+          "parent": "s8-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s8-bcast",
+          "inputs": {
+            "s8-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s8-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s8-define": {
+          "opcode": "procedures_definition",
+          "next": "s8-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s8-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s8-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s8-define",
+          "inputs": {
+            "s8-argA": [
+              1,
+              "s8-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s8-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s8-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s8-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s8-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s8-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives8",
+              "varLives8"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s8-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s8-note": {
+          "blockId": "s8-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 8 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume2",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "920f14335615fff9b8c55fccb8971984",
+          "md5ext": "920f14335615fff9b8c55fccb8971984.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "costume3",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "34a175600dc009a521eb46fdbbbeeb67",
+          "md5ext": "34a175600dc009a521eb46fdbbbeeb67.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 8,
+      "visible": true,
+      "x": 360,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    }
+  ],
+  "monitors": [],
+  "extensions": [],
+  "meta": {
+    "semver": "3.0.0",
+    "vm": "0.2.0",
+    "agent": "rewind test fixture",
+    "platform": {
+      "name": "CodeTorch",
+      "url": "https://codetorch.net/"
+    }
+  }
+}

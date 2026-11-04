@@ -51,7 +51,55 @@ const extensionRefusalMessage = extensionURL => (
     `This editor can not load the extension "${extensionURL}".`
 );
 
-const alreadyReported = new Set();
+const refusedNotices = [];
+const noticeListeners = new Set();
+
+/**
+ * @returns {Array<{key: string, url: ?string, id: ?string, placeholder: boolean}>} refusals so far
+ */
+const getExtensionNotices = () => refusedNotices.slice();
+
+/**
+ * @param {function(Array<object>): void} listener called with every notice whenever one changes
+ * @returns {function(): void} unsubscribe
+ */
+const subscribeExtensionNotices = listener => {
+    noticeListeners.add(listener);
+    return () => noticeListeners.delete(listener);
+};
+
+const emitNotices = () => {
+    const notices = getExtensionNotices();
+    for (const listener of noticeListeners) {
+        try {
+            listener(notices);
+        } catch (e) {
+            // ignore
+        }
+    }
+};
+
+/**
+ * Record a refused extension.
+ * @param {{url: ?string, id: ?string, placeholder: boolean}} notice what happened
+ */
+const noteRefusedExtension = ({url = null, id = null, placeholder = false}) => {
+    const key = url || id;
+    if (!key) return;
+    const existing = refusedNotices.find(n => n.key === key);
+    if (existing) {
+        if (id && !existing.id) existing.id = id;
+        if (placeholder) existing.placeholder = true;
+    } else {
+        refusedNotices.push({key, url, id, placeholder});
+    }
+    emitNotices();
+};
+
+const clearExtensionNotices = () => {
+    refusedNotices.length = 0;
+    emitNotices();
+};
 
 /**
  * Tell the user that an extension was refused, then describe the refusal as an error so
@@ -60,22 +108,18 @@ const alreadyReported = new Set();
  * @returns {Error} The error to reject with
  */
 const reportRefusedExtension = extensionURL => {
-    const message = extensionRefusalMessage(extensionURL);
-    if (!alreadyReported.has(extensionURL)) {
-        alreadyReported.add(extensionURL);
-        try {
-            // eslint-disable-next-line no-alert
-            alert(message);
-        } catch (e) {
-            // Nothing to show the message on.
-        }
-    }
-    return new Error(message);
+    if (looksLikeURL(`${extensionURL}`)) noteRefusedExtension({url: extensionURL});
+    else noteRefusedExtension({id: extensionURL});
+    return new Error(extensionRefusalMessage(extensionURL));
 };
 
 export {
     RESTRICTED_EXTENSION_IDS,
     isExtensionAllowed,
     extensionRefusalMessage,
-    reportRefusedExtension
+    reportRefusedExtension,
+    noteRefusedExtension,
+    getExtensionNotices,
+    subscribeExtensionNotices,
+    clearExtensionNotices
 };

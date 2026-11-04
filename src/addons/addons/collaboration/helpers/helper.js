@@ -1,4 +1,5 @@
 import * as constants from './constants.js';
+import {withCloudMuted} from '../../../../lib/cloud-mute.js';
 import * as Y from 'yjs';
 import * as transformSync from './transformSync.js';
 
@@ -613,7 +614,7 @@ function applyYjsVariablesToTarget(target, yTargetVarMap) {
     const remoteVarIds = new Set(yTargetVarMap.keys());
     Object.keys(target.variables).forEach(varId => {
         if (!remoteVarIds.has(varId)) {
-            target.deleteVariable(varId, true);
+            withCloudMuted(target.runtime, () => target.deleteVariable(varId, true));
         }
     });
 
@@ -628,7 +629,7 @@ function applyYjsVariablesToTarget(target, yTargetVarMap) {
         }
 
         if (!target.variables[varId]) {
-            target.createVariable(varId, name, type, isCloud, true);
+            withCloudMuted(target.runtime, () => target.createVariable(varId, name, type, isCloud, true));
         }
 
         if (typeof name !== 'undefined' && target.variables[varId].name !== name) {

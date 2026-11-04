@@ -1,0 +1,433 @@
+{
+  "targets": [
+    {
+      "isStage": true,
+      "name": "Stage",
+      "variables": {
+        "varScore": [
+          "score",
+          0
+        ]
+      },
+      "lists": {
+        "listItems": [
+          "items",
+          [
+            "a",
+            "b"
+          ]
+        ]
+      },
+      "broadcasts": {
+        "bcGo": "go"
+      },
+      "blocks": {
+        "st-recv": {
+          "opcode": "event_whenbroadcastreceived",
+          "next": "st-wait",
+          "parent": null,
+          "inputs": {},
+          "fields": {
+            "BROADCAST_OPTION": [
+              "go",
+              "bcGo"
+            ]
+          },
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "st-wait": {
+          "opcode": "control_wait",
+          "next": null,
+          "parent": "st-recv",
+          "inputs": {
+            "DURATION": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                5,
+                "1"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        }
+      },
+      "comments": {},
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "backdrop1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "b36584db82bdd45014430aa918461ca0",
+          "md5ext": "b36584db82bdd45014430aa918461ca0.svg",
+          "rotationCenterX": 240,
+          "rotationCenterY": 180
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 0,
+      "tempo": 60,
+      "videoTransparency": 50,
+      "videoState": "on",
+      "textToSpeechLanguage": null
+    },
+    {
+      "isStage": false,
+      "name": "Sprite1",
+      "variables": {
+        "varLives1": [
+          "lives1",
+          3
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "s1-flag": {
+          "opcode": "event_whenflagclicked",
+          "next": "s1-move",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 40
+        },
+        "s1-move": {
+          "opcode": "motion_movesteps",
+          "next": "s1-say",
+          "parent": "s1-flag",
+          "inputs": {
+            "STEPS": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                "10"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-say": {
+          "opcode": "looks_say",
+          "next": "s1-set",
+          "parent": "s1-move",
+          "inputs": {
+            "MESSAGE": [
+              3,
+              [
+                13,
+                "items",
+                "listItems"
+              ],
+              [
+                10,
+                "Hello!"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-set": {
+          "opcode": "data_setvariableto",
+          "next": "s1-repeat",
+          "parent": "s1-say",
+          "inputs": {
+            "VALUE": [
+              3,
+              [
+                12,
+                "lives1",
+                "varLives1"
+              ],
+              [
+                10,
+                "0"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "score",
+              "varScore"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false,
+          "comment": "s1-note"
+        },
+        "s1-repeat": {
+          "opcode": "control_repeat",
+          "next": "s1-bcast",
+          "parent": "s1-set",
+          "inputs": {
+            "TIMES": [
+              1,
+              [
+                6,
+                "10"
+              ]
+            ],
+            "SUBSTACK": [
+              2,
+              "s1-turn"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-turn": {
+          "opcode": "motion_turnright",
+          "next": null,
+          "parent": "s1-repeat",
+          "inputs": {
+            "DEGREES": [
+              3,
+              "s1-add",
+              [
+                4,
+                "15"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-add": {
+          "opcode": "operator_add",
+          "next": null,
+          "parent": "s1-turn",
+          "inputs": {
+            "NUM1": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                4,
+                ""
+              ]
+            ],
+            "NUM2": [
+              1,
+              [
+                4,
+                "2"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-bcast": {
+          "opcode": "event_broadcast",
+          "next": "s1-call",
+          "parent": "s1-repeat",
+          "inputs": {
+            "BROADCAST_INPUT": [
+              1,
+              [
+                11,
+                "go",
+                "bcGo"
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-call": {
+          "opcode": "procedures_call",
+          "next": null,
+          "parent": "s1-bcast",
+          "inputs": {
+            "s1-argA": [
+              3,
+              [
+                12,
+                "score",
+                "varScore"
+              ],
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s1-argA\"]",
+            "warp": "false"
+          }
+        },
+        "s1-define": {
+          "opcode": "procedures_definition",
+          "next": "s1-change",
+          "parent": null,
+          "inputs": {
+            "custom_block": [
+              1,
+              "s1-proto"
+            ]
+          },
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 40,
+          "y": 400
+        },
+        "s1-proto": {
+          "opcode": "procedures_prototype",
+          "next": null,
+          "parent": "s1-define",
+          "inputs": {
+            "s1-argA": [
+              1,
+              "s1-argrep"
+            ]
+          },
+          "fields": {},
+          "shadow": true,
+          "topLevel": false,
+          "mutation": {
+            "tagName": "mutation",
+            "children": [],
+            "proccode": "jump %s",
+            "argumentids": "[\"s1-argA\"]",
+            "argumentnames": "[\"height\"]",
+            "argumentdefaults": "[\"\"]",
+            "warp": "false"
+          }
+        },
+        "s1-argrep": {
+          "opcode": "argument_reporter_string_number",
+          "next": null,
+          "parent": "s1-proto",
+          "inputs": {},
+          "fields": {
+            "VALUE": [
+              "height",
+              null
+            ]
+          },
+          "shadow": true,
+          "topLevel": false
+        },
+        "s1-change": {
+          "opcode": "data_changevariableby",
+          "next": null,
+          "parent": "s1-define",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                4,
+                "1"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "lives1",
+              "varLives1"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "s1-loose": [
+          12,
+          "score",
+          "varScore",
+          300,
+          200
+        ]
+      },
+      "comments": {
+        "s1-note": {
+          "blockId": "s1-set",
+          "x": 400,
+          "y": 100,
+          "width": 200,
+          "height": 100,
+          "minimized": false,
+          "text": "sprite 1 resets the score"
+        }
+      },
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "name": "costume1",
+          "bitmapResolution": 1,
+          "dataFormat": "svg",
+          "assetId": "809d9b47347a6af2860e7a3a35bce057",
+          "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+          "rotationCenterX": 31,
+          "rotationCenterY": 100
+        },
+        {
+          "name": "bitmap1",
+          "bitmapResolution": 2,
+          "dataFormat": "png",
+          "assetId": "4b9d2162e30dbb924840575ed35fddb0",
+          "md5ext": "4b9d2162e30dbb924840575ed35fddb0.png",
+          "rotationCenterX": 48,
+          "rotationCenterY": 50
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 1,
+      "visible": true,
+      "x": -60,
+      "y": 0,
+      "size": 100,
+      "direction": 90,
+      "draggable": false,
+      "rotationStyle": "all around"
+    }
+  ],
+  "monitors": [],
+  "extensions": [],
+  "meta": {
+    "semver": "3.0.0",
+    "vm": "0.2.0",
+    "agent": "rewind test fixture",
+    "platform": {
+      "name": "CodeTorch",
+      "url": "https://codetorch.net/"
+    }
+  }
+}

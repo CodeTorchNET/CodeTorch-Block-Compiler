@@ -11,16 +11,22 @@ export const INACTIVITY_THRESHOLD_Y_MS = 60 * 1000;
 
 export const CLOSE_STALE_GENERATION = 4001;
 
+import rewindHooks from '../../../../lib/rewind/hooks.js';
+
 export const LOCAL_EVENT_SYNC_ORIGIN = Symbol('local-event-sync');
 
 let remoteApplyDepth = 0;
 
 export function beginRemoteApply() {
     remoteApplyDepth++;
+    rewindHooks.beginSuppress('collab-remote');
 }
 
 export function endRemoteApply() {
-    if (remoteApplyDepth > 0) remoteApplyDepth--;
+    if (remoteApplyDepth > 0) {
+        remoteApplyDepth--;
+        rewindHooks.endSuppress();
+    }
 }
 
 export function isApplyingRemote() {
@@ -28,7 +34,10 @@ export function isApplyingRemote() {
 }
 
 export function resetRemoteApply() {
-    remoteApplyDepth = 0;
+    while (remoteApplyDepth > 0) {
+        remoteApplyDepth--;
+        rewindHooks.endSuppress();
+    }
 }
 
 export const COLLABORATION_USER_ICON_CONTAINER_ID = 'collaboration-users-container';
