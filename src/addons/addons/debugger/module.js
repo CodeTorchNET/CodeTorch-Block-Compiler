@@ -7,8 +7,6 @@ const STATUS_YIELD = 2;
 const STATUS_YIELD_TICK = 3;
 const STATUS_DONE = 4;
 
-const REACT_INTERNAL_PREFIX = "__reactInternalInstance$";
-
 let vm;
 
 let paused = false;
@@ -433,4 +431,18 @@ export const setup = (addon) => {
     }
     return count;
   };
+
+  // Prevent the VM's context from being resumed while the project is paused
+  const newResume = function () {
+    if (!paused) AudioContext.prototype.resume.call(this);
+  };
+  if (vm.runtime.audioEngine) {
+    vm.runtime.audioEngine.audioContext.resume = newResume;
+  } else {
+    const originalAttachAudioEngine = vm.runtime.attachAudioEngine;
+    vm.runtime.attachAudioEngine = function (audioEngine) {
+      audioEngine.audioContext.resume = newResume;
+      return originalAttachAudioEngine.call(this, audioEngine);
+    };
+  }
 };

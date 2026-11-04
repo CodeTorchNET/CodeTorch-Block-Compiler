@@ -58,6 +58,16 @@ const embedHostsTrustedByUser = new Set();
 
 /**
  * @param {URL} parsed Parsed URL object
+ * @returns {boolean} True if path is untrusted.
+ */
+const isUntrustedPath = parsed => (
+    // Cloudflare serves stuff on /cdn-cgi/ that we don't want to let projects access without showing
+    // a permission prompt to a non-trusted domain (/cdn-cgi/trace contains IP)
+    /^\/cdn-cgi\//i.test(parsed.pathname)
+);
+
+/**
+ * @param {URL} parsed Parsed URL object
  * @returns {boolean} True if the URL is part of the builtin set of URLs to always trust fetching from.
  */
 const isAlwaysTrustedForFetching = parsed => (
@@ -82,17 +92,8 @@ const isAlwaysTrustedForFetching = parsed => (
     // Sourcehut Pages
     parsed.origin.endsWith('.srht.site') ||
 
-    // Itch
-    parsed.origin.endsWith('.itch.io') ||
-
     // GameJolt
-    parsed.origin === 'https://api.gamejolt.com' ||
-
-    // httpbin
-    parsed.origin === 'https://httpbin.org' ||
-
-    // ScratchDB
-    parsed.origin === 'https://scratchdb.lefty.one'
+    parsed.origin === 'https://api.gamejolt.com'
 );
 
 const FETCHABLE_PROTOCOLS = [
@@ -177,6 +178,16 @@ let allowedReadClipboard = false;
 let allowedNotify = false;
 let allowedGeolocation = false;
 
+const resetPermissions = () => {
+    fetchHostsTrustedByUser.clear();
+    embedHostsTrustedByUser.clear();
+    allowedAudio = false;
+    allowedVideo = false;
+    allowedReadClipboard = false;
+    allowedNotify = false;
+    allowedGeolocation = false;
+};
+
 /**
  * Property used to make sure the extension manager is only wrapped once.
  */
@@ -238,11 +249,16 @@ class TWSecurityManagerComponent extends React.Component {
         super(props);
         bindAll(this, [
             'handleAllowed',
-            'handleDenied'
+            'handleDenied',
+            'handleRuntimeDisposed'
         ]);
         bindAll(this, SECURITY_MANAGER_METHODS);
         this.nextModalCallbacks = [];
         this.modalLocked = false;
+        /**
+         * Incremented each time previous project disposed.
+         */
+        this.generation = 0;
         this.state = {
             type: null,
             data: null,
@@ -259,6 +275,19 @@ class TWSecurityManagerComponent extends React.Component {
             vmSecurityManager[method] = propsSecurityManager[method] || this[method];
         }
         restrictExtensionLoading(extensionManager);
+        this.props.vm.runtime.on('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
+    }
+
+    componentWillUnmount () {
+        this.props.vm.runtime.off('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
+    }
+
+    handleRuntimeDisposed () {
+        resetPermissions();
+        this.generation++;
+        if (this.state.type) {
+            this.state.callback(false);
+        }
     }
 
     // eslint-disable-next-line valid-jsdoc
@@ -271,6 +300,8 @@ class TWSecurityManagerComponent extends React.Component {
         // and so that multiple attempts to fetch resources from the same origin will all be allowed
         // with just one click. This means that some places have to wait until previous modals are
         // closed before it knows if it needs to display another modal.
+
+        const generation = this.generation;
 
         if (this.modalLocked) {
             await new Promise(resolve => {
@@ -294,6 +325,11 @@ class TWSecurityManagerComponent extends React.Component {
         };
 
         const showModal = async (type, data) => {
+            if (generation !== this.generation) {
+                // Request is from a previous project.
+                releaseLock();
+                return false;
+            }
             const result = await new Promise(resolve => {
                 this.setState(oldState => ({
                     type,
@@ -303,7 +339,7 @@ class TWSecurityManagerComponent extends React.Component {
                 }));
             });
             releaseLock();
-            return result;
+            return result && generation === this.generation;
         };
 
         return {
@@ -397,7 +433,9 @@ class TWSecurityManagerComponent extends React.Component {
             return isAllowedInReducedEditor(parsed);
         }
         if (isAlwaysTrustedForFetching(parsed)) {
-            return true;
+            // For untrusted paths, don't even show a dialog, just auto-reject because users won't understand
+            // what the dialog actually does.
+            return !isUntrustedPath(parsed);
         }
         const {showModal, releaseLock} = await this.acquireModalLock();
         const host = (
@@ -579,6 +617,10 @@ class TWSecurityManagerComponent extends React.Component {
 
 TWSecurityManagerComponent.propTypes = {
     vm: PropTypes.shape({
+        runtime: PropTypes.shape({
+            on: PropTypes.func.isRequired,
+            off: PropTypes.func.isRequired
+        }).isRequired,
         extensionManager: PropTypes.shape({
             securityManager: PropTypes.shape(
                 SECURITY_MANAGER_METHODS.reduce((obj, method) => {

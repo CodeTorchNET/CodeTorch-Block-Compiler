@@ -27,7 +27,8 @@ const createSecurityManager = extensionManager => new TWSecurityManagerComponent
     vm: {
         extensionManager: extensionManager || {
             securityManager: {}
-        }
+        },
+        runtime: {on: () => {}, off: () => {}}
     },
     securityManager: {}
 });
@@ -95,7 +96,6 @@ describe('tw-security-manager', () => {
             await expect(securityManager.canFetch('https://extensions.turbowarp.org/a.js')).resolves.toBe(true);
             await expect(securityManager.canFetch('https://raw.githubusercontent.com/a/b/c.txt'))
                 .resolves.toBe(true);
-            await expect(securityManager.canFetch('https://httpbin.org/get')).resolves.toBe(true);
             expect(showModal).not.toHaveBeenCalled();
         });
 
