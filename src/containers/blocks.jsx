@@ -2,7 +2,8 @@ import bindAll from 'lodash.bindall';
 import debounce from 'lodash.debounce';
 import defaultsDeep from 'lodash.defaultsdeep';
 import makeToolboxXML from '../lib/make-toolbox-xml';
-import {isAdvancedBlocksOffered} from '../lib/ct-pm-gui.js';
+import {isAdvancedBlocksOffered, isAdvancedEssentials, isSnapOffered} from '../lib/ct-pm-gui.js';
+import {placeSnapBlocks} from '../lib/ct-snap-toolbox.js';
 import PropTypes from 'prop-types';
 import React from 'react';
 import {intlShape, injectIntl, defineMessages} from 'react-intl';
@@ -54,6 +55,7 @@ import {gentlyRequestPersistentStorage} from '../lib/tw-persistent-storage.js';
 import {isMinimalMode} from '../lib/ct-url-flags';
 import SettingsStore from '../addons/settings-store-singleton';
 import rewindHooks from '../lib/rewind/hooks';
+import layoutImportedScripts from '../lib/ct-import-layout.js';
 
 const showAI = SettingsStore.getAddonEnabled('ai-integration');
 
@@ -496,16 +498,26 @@ class Blocks extends React.Component {
             const stageCostumes = stage.getCostumes();
             const targetCostumes = target.getCostumes();
             const targetSounds = target.getSounds();
-            const dynamicBlocksXML = injectExtensionCategoryTheme(
+            let dynamicBlocksXML = injectExtensionCategoryTheme(
                 this.props.vm.runtime.getBlocksXML(target),
                 this.props.theme
             );
+            let snapPlaced = null;
+            if (isSnapOffered(this.props.vm)) {
+                snapPlaced = placeSnapBlocks(dynamicBlocksXML, {essentials: isAdvancedEssentials(this.props.vm)});
+                dynamicBlocksXML = snapPlaced.categoriesXML;
+            }
+            if (this.ScratchBlocks.CtPm && this.ScratchBlocks.CtPm.setSnapDataBlocks) {
+                this.ScratchBlocks.CtPm.setSnapDataBlocks(this.workspace, snapPlaced ? snapPlaced.data : '');
+            }
             const xml = makeToolboxXML(false, target.isStage, target.id, dynamicBlocksXML,
                 targetCostumes[targetCostumes.length - 1].name,
                 stageCostumes[stageCostumes.length - 1].name,
                 targetSounds.length > 0 ? targetSounds[targetSounds.length - 1].name : '',
                 this.props.theme.getBlockColors(),
-                isAdvancedBlocksOffered(this.props.vm)
+                isAdvancedBlocksOffered(this.props.vm),
+                isAdvancedEssentials(this.props.vm),
+                snapPlaced
             );
             if (xml) {
                 const allVariables = Object.assign({}, stage.variables, target.variables);
@@ -563,6 +575,7 @@ class Blocks extends React.Component {
             Events.setGroup(outerGroup || false);
         }
         this.workspace.addChangeListener(this.handleWorkspaceEventForVm);
+        this.layoutImportedTarget();
 
         if (this.props.vm.editingTarget && this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id]) {
             const {scrollX, scrollY, scale} = this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id];
@@ -576,6 +589,20 @@ class Blocks extends React.Component {
         // fresh workspace and we don't want any changes made to another sprites
         // workspace to be 'undone' here.
         this.workspace.clearUndo();
+    }
+    /**
+     * The first time an imported.
+     */
+    layoutImportedTarget () {
+        const target = this.props.vm.editingTarget;
+        const ctPm = this.props.vm.runtime.ctPm;
+        if (!this.props.isVisible || !target || !ctPm || !ctPm.needsLayout(target.getName())) return;
+        try {
+            layoutImportedScripts(this.workspace);
+        } catch (error) {
+            log.error('Laying out imported scripts failed', error);
+        }
+        ctPm.layoutDone(target.getName());
     }
     handleMonitorsUpdate (monitors) {
         // Update the checkboxes of the relevant monitors.
@@ -649,8 +676,16 @@ class Blocks extends React.Component {
         this.ScratchBlocks.CtPm.setWorkspaceOptions(this.workspace, {
             advanced: offered,
             loose: ctPm.effective.loose,
-            anyType: ctPm.effective.anyType
+            anyType: ctPm.effective.anyType,
+            essentials: isAdvancedEssentials(this.props.vm),
+            snap: isSnapOffered(this.props.vm)
         });
+        if (isSnapOffered(this.props.vm)) {
+            for (const id of ['ctFunctions', 'jwArray']) {
+                const manager = this.props.vm.extensionManager;
+                if (manager.isBuiltinExtension(id) && !manager.isExtensionLoaded(id)) manager.loadExtensionURL(id);
+            }
+        }
         if (offered && !this.workspace.procedureReturnsEnabled) {
             this.workspace.enableProcedureReturns();
         }

@@ -45,6 +45,18 @@
     flex-direction: row;
     align-items: center;
 }
+.disabled-label {
+    cursor: not-allowed;
+}
+.disabled-label .checkbox {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.note {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    padding-left: 2rem;
+}
 
 .setting table {
     border-collapse: collapse;

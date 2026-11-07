@@ -105,12 +105,22 @@ describe('placeholder info', () => {
     test('every block is inert: commands do nothing, reporters report 0, booleans report true', () => {
         const ext = createPlaceholderExtension('thing', own, id => blocksById[id] || null);
         const expected = {[BlockType.REPORTER]: 0, [BlockType.BOOLEAN]: true};
-        for (const b of ext.getInfo().blocks) {
+        for (const b of ext.getInfo().blocks.filter(x => x.blockType !== BlockType.LABEL)) {
             const result = ext[b.func]({}, {});
             expect(result).toBe(Object.prototype.hasOwnProperty.call(expected, b.blockType) ?
                 expected[b.blockType] : undefined);
         }
         expect(ext.isCodeTorchPlaceholder).toBe(true);
+    });
+    test('its toolbox category starts with a label saying the extension does nothing', () => {
+        const [first, second] = createPlaceholderExtension('thing', own, id => blocksById[id] || null)
+            .getInfo().blocks;
+        expect([first.blockType, second.blockType]).toEqual([BlockType.LABEL, BlockType.LABEL]);
+        expect(first.text).toBe('This extension doesn\'t work.');
+        expect(second.text).toBe('Its blocks do nothing.');
+        const [translated] = createPlaceholderExtension('thing', own, id => blocksById[id] || null, 'Geht nicht')
+            .getInfo().blocks;
+        expect(translated.text).toBe('Geht nicht');
     });
 });
 

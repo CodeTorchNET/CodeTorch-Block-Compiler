@@ -52,7 +52,8 @@ const parseFlags = params => ({
     // ?chat=false turns off the ephemeral cursor chat bubble in collaboration.
     chat: parseBooleanParam(params, 'chat', true),
     lesson: parseBooleanParam(params, LESSON_PARAM, false),
-    advancedBlocks: parseBooleanParam(params, ADVANCED_BLOCKS_PARAM, true)
+    advancedBlocks: parseBooleanParam(params, ADVANCED_BLOCKS_PARAM, true),
+    advancedEssentialsOnly: params.get(ADVANCED_BLOCKS_PARAM) === 'essentials'
 });
 
 const urlParams = readSearchParams();
@@ -81,6 +82,11 @@ const isCursorChatEnabled = () => flags.chat;
 const isAdvancedBlocksAllowed = () => flags.advancedBlocks;
 
 /**
+ * @returns {boolean} False if policy locked Advanced blocks to Essentials (?advancedBlocks=essentials).
+ */
+const isAdvancedEverythingAllowed = () => !flags.advancedEssentialsOnly;
+
+/**
  * @returns {boolean} True if the editor is running inside a Learning Path lesson.
  */
 const isLessonMode = () => flags.lesson;
@@ -104,11 +110,14 @@ const applyPersistentFlags = searchParams => {
     }
     if (!flags.advancedBlocks) {
         searchParams.set(ADVANCED_BLOCKS_PARAM, 'off');
+    } else if (flags.advancedEssentialsOnly) {
+        searchParams.set(ADVANCED_BLOCKS_PARAM, 'essentials');
     }
     return searchParams;
 };
 
 export {
+    isAdvancedEverythingAllowed,
     parseBooleanParam,
     parseFlags,
     isJITDisabledByURL,

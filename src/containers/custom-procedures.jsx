@@ -18,7 +18,6 @@ class CustomProcedures extends React.Component {
             'handleAddBoolean',
             'handleAddTextNumber',
             'handleAddBranch',
-            'handleAddLocal',
             'handleChangeColor',
             'handleToggleWarp',
             'handleCancel',
@@ -163,11 +162,6 @@ class CustomProcedures extends React.Component {
             this.mutationRoot.addBranchExternal();
         }
     }
-    handleAddLocal () {
-        if (this.mutationRoot && this.mutationRoot.addLocalExternal) {
-            this.mutationRoot.addLocalExternal();
-        }
-    }
     handleChangeColor (color) {
         if (this.mutationRoot && this.mutationRoot.setColourExternal) {
             this.mutationRoot.setColourExternal(color);
@@ -189,7 +183,6 @@ class CustomProcedures extends React.Component {
                 warp={this.state.warp}
                 onAddBoolean={this.handleAddBoolean}
                 onAddBranch={this.props.ctPmBranches ? this.handleAddBranch : null}
-                onAddLocal={this.props.ctPmBranches ? this.handleAddLocal : null}
                 onAddLabel={this.handleAddLabel}
                 onAddTextNumber={this.handleAddTextNumber}
                 onCancel={this.handleCancel}

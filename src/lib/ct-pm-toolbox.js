@@ -6,7 +6,24 @@ const int = (name, value) => shadow(name, 'math_integer', `<field name="NUM">${v
 const text = (name, value) => shadow(name, 'text', `<field name="TEXT">${value}</field>`);
 const check = name => shadow(name, 'checkbox', '<field name="CHECKBOX">FALSE</field>');
 const color = name => shadow(name, 'colour_picker');
-const block = (type, inner = '', attrs = '') => `<block type="${type}"${attrs}>${inner}</block>`;
+const ESSENTIALS = new Set([
+    'motion_changebyxy', 'motion_pointtowardsxy',
+    'looks_stoptalking', 'looks_previouscostume', 'looks_previousbackdrop', 'looks_getSpriteVisible',
+    'sound_isSoundPlaying',
+    'event_whenstopclicked', 'event_whenanything',
+    'control_expandableIf', 'control_from_to', 'control_exitLoop', 'control_continueLoop', 'control_switch',
+    'control_switch_default', 'control_case', 'control_if_return_else_return', 'control_is_clone',
+    'sensing_thing_is_number', 'sensing_thing_is_text', 'sensing_distanceTo', 'sensing_directionTo',
+    'operator_power', 'operator_gtorequal', 'operator_ltorequal', 'operator_notequal', 'operator_trueBoolean',
+    'operator_falseBoolean', 'operator_expandablejoininputs', 'operator_getLettersFromIndexToIndexInTextFixed',
+    'operator_indexOfTextInText', 'operator_replaceAll', 'operator_toUpperLowerCase', 'operator_character_to_code',
+    'operator_code_to_character', 'operator_newLine'
+]);
+
+let essentialsOnly = false;
+
+const block = (type, inner = '', attrs = '') => (essentialsOnly && !ESSENTIALS.has(type) ? '' :
+    `<block type="${type}"${attrs}>${inner}</block>`);
 const sound = (soundName, name = 'SOUND_MENU') =>
     shadow(name, 'sound_sounds_menu', `<field name="SOUND_MENU">${soundName}</field>`);
 
@@ -259,6 +276,19 @@ const insertElseIf = xml => {
 };
 
 /**
+ * Blocks left out at the Essentials level leave their separators behind.
+ * @param {string} xml a category's advanced blocks
+ * @returns {string} the same, tidied
+ */
+const tidySeparators = xml => {
+    let out = xml || '';
+    while (out.includes(sep + sep)) out = out.split(sep + sep).join(sep);
+    while (out.startsWith(sep)) out = out.slice(sep.length);
+    while (out.endsWith(sep)) out = out.slice(0, -sep.length);
+    return out;
+};
+
+/**
  * Adds the advanced blocks to one built-in category's XML.
  * @param {string} categoryId categoryId
  * @param {string} xml xml
@@ -269,7 +299,13 @@ const addCtPmBlocks = (categoryId, xml, context) => {
     const make = CATEGORIES[categoryId];
     if (!make || typeof xml !== 'string') return xml;
     if (categoryId === 'control') xml = insertElseIf(xml);
-    const extra = make(context);
+    essentialsOnly = !!context.essentialsOnly;
+    let extra;
+    try {
+        extra = tidySeparators(make(context));
+    } finally {
+        essentialsOnly = false;
+    }
     if (!extra) return xml;
     const close = xml.lastIndexOf('</category>');
     if (close === -1) return xml;

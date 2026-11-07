@@ -9,7 +9,6 @@ import booleanInputIcon from './icon--boolean-input.svg';
 import textInputIcon from './icon--text-input.svg';
 import labelIcon from './icon--label.svg';
 import branchInputIcon from './icon--branch-input.svg';
-import localVariableIcon from './icon--local-variable.svg';
 
 import styles from './custom-procedures.css';
 
@@ -182,34 +181,6 @@ const CustomProcedures = props => (
                         </div>
                     </div>
                 ) : null}
-                {props.onAddLocal ? (
-                    <div
-                        className={styles.optionCard}
-                        role="button"
-                        tabIndex="0"
-                        onClick={props.onAddLocal}
-                    >
-                        <img
-                            className={styles.optionIcon}
-                            src={localVariableIcon}
-                            draggable={false}
-                        />
-                        <div className={styles.optionTitle}>
-                            <FormattedMessage
-                                defaultMessage="Add a"
-                                description="Label for button to add a local variable to a custom block (first line)"
-                                id="ct.customProcedures.addALocal"
-                            />
-                        </div>
-                        <div className={styles.optionDescription}>
-                            <FormattedMessage
-                                defaultMessage="local variable"
-                                description="Second line of the button to add a local variable to a custom block"
-                                id="ct.customProcedures.localType"
-                            />
-                        </div>
-                    </div>
-                ) : null}
                 <div
                     className={styles.optionCard}
                     role="button"
@@ -299,7 +270,6 @@ CustomProcedures.propTypes = {
     intl: intlShape,
     onAddBoolean: PropTypes.func.isRequired,
     onAddBranch: PropTypes.func,
-    onAddLocal: PropTypes.func,
     onAddLabel: PropTypes.func.isRequired,
     onAddTextNumber: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired,

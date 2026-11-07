@@ -51,7 +51,11 @@ const messages = defineMessages({
     jwTargetsDescription: {id: 'ct.pm.ext.jwTargets.description', defaultMessage: 'Keep a sprite or clone in a variable and work with it.', description: 'Description of the Sprite References extension'},
     jwVectorName: {id: 'ct.pm.ext.jwVector.name', defaultMessage: 'Vectors', description: 'Name of the Vectors extension'},
     jwVectorDescription: {id: 'ct.pm.ext.jwVector.description', defaultMessage: 'Positions and directions as x/y pairs.', description: 'Description of the Vectors extension'},
-    jgPrismDescription: {id: 'ct.pm.ext.jgPrism.description', defaultMessage: 'Assorted useful blocks.', description: 'Description of the Prism utilities extension'}
+    jgPrismDescription: {id: 'ct.pm.ext.jgPrism.description', defaultMessage: 'Assorted useful blocks.', description: 'Description of the Prism utilities extension'},
+    ctFunctionsName: {id: 'ct.snap.ext.ctFunctions.name', defaultMessage: 'Functions', description: 'Name of the Snap!-style functions extension'},
+    snapJwArrayName: {id: 'ct.snap.ext.jwArray.name', defaultMessage: 'List values', description: 'Name of the Arrays extension when offered by the Snap related behavior setting'},
+    snapJwArrayDescription: {id: 'ct.snap.ext.jwArray.description', defaultMessage: 'Lists you can keep in a variable, nest and pass to functions. The orange lists are named and flat; these are values.', description: 'Description of the Arrays extension under Snap related behavior'},
+    ctFunctionsDescription: {id: 'ct.snap.ext.ctFunctions.description', defaultMessage: 'Blocks as values: call and run them, map, keep and combine lists, and do math on whole lists.', description: 'Description of the Snap!-style functions extension'}
 });
 /* eslint-enable max-len */
 
@@ -62,7 +66,9 @@ const IDS = [
     'jwVector'
 ];
 
-export default IDS.map(extensionId => ({
+const SNAP_IDS = ['ctFunctions', 'jwArray'];
+
+const toItem = extensionId => ({
     key: extensionId,
     name: <FormattedMessage {...messages[`${extensionId}Name`]} />,
     extensionId,
@@ -72,4 +78,13 @@ export default IDS.map(extensionId => ({
     tags: ['ct-pm'],
     featured: true,
     incompatibleWithScratch: true
-}));
+});
+
+const asListValues = item => Object.assign({}, item, {
+    name: <FormattedMessage {...messages.snapJwArrayName} />,
+    description: <FormattedMessage {...messages.snapJwArrayDescription} />
+});
+export const snapLibraryContent = SNAP_IDS.map(toItem)
+    .map(item => (item.extensionId === 'jwArray' ? asListValues(item) : item));
+
+export default IDS.map(toItem);

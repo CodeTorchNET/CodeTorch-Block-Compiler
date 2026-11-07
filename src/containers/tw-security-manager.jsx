@@ -18,6 +18,16 @@ import {
 } from '../lib/ct-extension-restrictions.js';
 import {createPlaceholderExtension} from '../lib/ct-extension-placeholder.js';
 import {classifyExtension} from '../lib/ct-pm-gui.js';
+import {defineMessages} from 'react-intl';
+
+const placeholderMessages = defineMessages({
+    toolboxLabel: {
+        id: 'ct.extensionPlaceholder.toolboxLabel',
+        defaultMessage: 'This extension doesn\'t work.\nIts blocks do nothing.',
+        // eslint-disable-next-line max-len
+        description: 'At the top of the toolbox category of an extension that is not supported, unsafe or not allowed; its blocks stay in the project but do nothing. Two short lines (toolbox labels do not wrap): keep the line break and each line short'
+    }
+});
 /* eslint-disable require-atomic-updates */
 
 /**
@@ -281,12 +291,12 @@ class TWSecurityManagerComponent extends React.Component {
         vmSecurityManager.createPlaceholderExtension = (extensionID, url, blocks, lookup) => {
             if (isMinimalMode() && !isExtensionAllowed(url || extensionID)) {
                 noteRefusedExtension({url, id: extensionID, placeholder: true});
-                return createPlaceholderExtension(extensionID, blocks, lookup);
+                return createPlaceholderExtension(extensionID, blocks, lookup, this.placeholderLabel());
             }
             const ctPm = this.props.vm.runtime.ctPm;
             if (ctPm && ctPm.defaultPlaceholders) {
                 noteRefusedExtension({url, id: extensionID, placeholder: true, reason: classifyExtension(extensionID)});
-                return createPlaceholderExtension(extensionID, blocks, lookup);
+                return createPlaceholderExtension(extensionID, blocks, lookup, this.placeholderLabel());
             }
             return null;
         };
@@ -295,6 +305,12 @@ class TWSecurityManagerComponent extends React.Component {
 
     componentWillUnmount () {
         this.props.vm.runtime.off('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
+    }
+
+    placeholderLabel () {
+        const messages = this.props.messages;
+        return (messages && messages[placeholderMessages.toolboxLabel.id]) ||
+            placeholderMessages.toolboxLabel.defaultMessage;
     }
 
     handleRuntimeDisposed () {
@@ -631,6 +647,7 @@ class TWSecurityManagerComponent extends React.Component {
 }
 
 TWSecurityManagerComponent.propTypes = {
+    messages: PropTypes.objectOf(PropTypes.string),
     vm: PropTypes.shape({
         runtime: PropTypes.shape({
             on: PropTypes.func.isRequired,
@@ -656,6 +673,7 @@ TWSecurityManagerComponent.defaultProps = {
 };
 
 const mapStateToProps = state => ({
+    messages: state.locales.messages,
     vm: state.scratchGui.vm
 });
 

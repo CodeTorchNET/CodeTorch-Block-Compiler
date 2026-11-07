@@ -77,8 +77,7 @@ class SB3Downloader extends React.Component {
     }
     finishedSaving () {
         this.props.onProjectUnchanged();
-        if (this.props.usesAdvancedBlocks()) this.props.onShowAdvancedBlocksSavedAlert();
-        else this.props.onShowSaveSuccessAlert();
+        this.props.onShowSaveSuccessAlert();
         if (this.props.onSaveFinished) {
             this.props.onSaveFinished();
         }
@@ -283,8 +282,6 @@ SB3Downloader.propTypes = {
         name: PropTypes.string
     }),
     onSaveFinished: PropTypes.func,
-    usesAdvancedBlocks: PropTypes.func,
-    onShowAdvancedBlocksSavedAlert: PropTypes.func,
     projectFilename: PropTypes.string,
     saveProjectSb3: PropTypes.func,
     saveProjectSb3Stream: PropTypes.func,
@@ -308,8 +305,7 @@ const mapStateToProps = state => ({
     saveProjectSb3: state.scratchGui.vm.saveProjectSb3.bind(state.scratchGui.vm),
     saveProjectSb3Stream: state.scratchGui.vm.saveProjectSb3Stream.bind(state.scratchGui.vm),
     canSaveProject: getIsShowingProject(state.scratchGui.projectState.loadingState),
-    projectFilename: getProjectFilename(state.scratchGui.projectTitle, projectTitleInitialState),
-    usesAdvancedBlocks: () => !!(state.scratchGui.vm.runtime.ctPm && state.scratchGui.vm.runtime.ctPm.uses.advanced)
+    projectFilename: getProjectFilename(state.scratchGui.projectTitle, projectTitleInitialState)
 });
 
 const mapDispatchToProps = dispatch => ({
@@ -317,7 +313,6 @@ const mapDispatchToProps = dispatch => ({
     onSetProjectTitle: title => dispatch(setProjectTitle(title)),
     onShowSavingAlert: () => showAlertWithTimeout(dispatch, 'saving'),
     onShowSaveSuccessAlert: () => showAlertWithTimeout(dispatch, 'twSaveToDiskSuccess'),
-    onShowAdvancedBlocksSavedAlert: () => showAlertWithTimeout(dispatch, 'ctSavedWithAdvancedBlocks'),
     onShowSaveErrorAlert: () => dispatch(showStandardAlert('savingError')),
     onProjectUnchanged: () => dispatch(setProjectUnchanged())
 });

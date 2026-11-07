@@ -225,12 +225,15 @@ class ExtensionLibrary extends React.PureComponent {
                 .filter(item => !(advanced && item.extensionId === 'procedures_enable_return'))
                 .filter(isLibraryItemAllowed)
                 .map(toLibraryItem);
+            const extra = [];
             if (isExtensionsOffered(this.props.vm)) {
-                const extra = ctPmLibraryContent
-                    .filter(item => this.props.vm.extensionManager.isBuiltinExtension(item.extensionId))
-                    .filter(isLibraryItemAllowed);
-                if (extra.length) library.push('---', ...extra.map(toLibraryItem));
+                extra.push(...ctPmLibraryContent.filter(item =>
+                    !extra.some(other => other.extensionId === item.extensionId)));
             }
+            const offered = extra
+                .filter(item => this.props.vm.extensionManager.isBuiltinExtension(item.extensionId))
+                .filter(isLibraryItemAllowed);
+            if (offered.length) library.push('---', ...offered.map(toLibraryItem));
             library.push('---');
             if (this.state.gallery) {
                 const locale = this.props.intl.locale;

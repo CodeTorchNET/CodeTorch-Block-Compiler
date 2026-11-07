@@ -769,10 +769,13 @@ const xmlClose = '</xml>';
  * @param {?string} soundName soundName
  * @param {?object} colors colors
  * @param {?boolean} ctPmOffered ctPmOffered
+ * @param {?boolean} ctPmEssentials ctPmEssentials
+ * @param {?object} ctSnap ctSnap
  * @returns {string} result
  */
 const makeToolboxXML = function (isInitialSetup, isStage = true, targetId, categoriesXML = [],
-    costumeName = '', backdropName = '', soundName = '', colors = defaultBlockColors, ctPmOffered = false) {
+    costumeName = '', backdropName = '', soundName = '', colors = defaultBlockColors, ctPmOffered = false,
+    ctPmEssentials = false, ctSnap = null) {
     isStage = isInitialSetup || isStage;
     const gap = [categorySeparator];
 
@@ -791,19 +794,41 @@ const makeToolboxXML = function (isInitialSetup, isStage = true, targetId, categ
         // return `undefined`
     };
     const pm = (id, xml) => (ctPmOffered && !isInitialSetup ?
-        addCtPmBlocks(id, xml, {isStage, targetId, costumeName, backdropName, soundName}) : xml);
+        addCtPmBlocks(id, xml, {
+            isStage,
+            targetId,
+            costumeName,
+            backdropName,
+            soundName,
+            essentialsOnly: ctPmEssentials
+        }) : xml);
     const motionXML = moveCategory('motion') || pm('motion', motion(isInitialSetup, isStage, targetId, colors.motion));
     const looksXML = moveCategory('looks') ||
         pm('looks', looks(isInitialSetup, isStage, targetId, costumeName, backdropName, colors.looks));
     const soundXML = moveCategory('sound') ||
         pm('sound', sound(isInitialSetup, isStage, targetId, soundName, colors.sounds));
     const eventsXML = moveCategory('event') || pm('events', events(isInitialSetup, isStage, targetId, colors.event));
+    const snapInto = (xml, top, end) => {
+        if (!ctSnap || isInitialSetup || typeof xml !== 'string') return xml;
+        let result = xml;
+        if (top) {
+            const open = result.indexOf('>') + 1;
+            result = `${result.slice(0, open)}${top}<sep gap="36"/>${result.slice(open)}`;
+        }
+        if (end) {
+            const close = result.lastIndexOf('</category>');
+            result = `${result.slice(0, close)}<sep gap="36"/>${end}${result.slice(close)}`;
+        }
+        return result;
+    };
     const controlXML = moveCategory('control') ||
-        pm('control', control(isInitialSetup, isStage, targetId, colors.control));
+        snapInto(pm('control', control(isInitialSetup, isStage, targetId, colors.control)), '',
+            ctSnap && ctSnap.control);
     const sensingXML = moveCategory('sensing') ||
         pm('sensing', sensing(isInitialSetup, isStage, targetId, colors.sensing));
     const operatorsXML = moveCategory('operators') ||
-        pm('operators', operators(isInitialSetup, isStage, targetId, colors.operators));
+        snapInto(pm('operators', operators(isInitialSetup, isStage, targetId, colors.operators)),
+            ctSnap && ctSnap.operatorsTop, ctSnap && ctSnap.operatorsEnd);
     const variablesXML = moveCategory('data') || variables(isInitialSetup, isStage, targetId, colors.data);
     const myBlocksXML = moveCategory('procedures') || myBlocks(isInitialSetup, isStage, targetId, colors.more);
 

@@ -1,6 +1,6 @@
 import ctPm from 'scratch-vm/src/ct-pm';
 import {noteRefusedExtension} from './ct-extension-restrictions.js';
-import {isAdvancedBlocksAllowed} from './ct-url-flags.js';
+import {isAdvancedBlocksAllowed, isAdvancedEverythingAllowed} from './ct-url-flags.js';
 
 const REFRESH_DELAY = 150;
 
@@ -22,6 +22,22 @@ export const isAdvancedBlocksOffered = vm => !!(vm && vm.runtime.ctPm && isAdvan
  */
 export const isExtensionsOffered = vm => !!(vm && vm.runtime.ctPm && isAdvancedBlocksAllowed() &&
     vm.runtime.ctPm.effective.extensions);
+
+/**
+ * Whether the palette shows only the Essentials level of the Advanced blocks.
+ * @param {VirtualMachine} vm the VM
+ * @returns {boolean} true for Essentials
+ */
+export const isAdvancedEssentials = vm => !(vm && vm.runtime.ctPm && vm.runtime.ctPm.effective.everything &&
+    isAdvancedEverythingAllowed());
+
+/**
+ * Whether the extension library should offer the Snap-related extensions.
+ * @param {VirtualMachine} vm the VM
+ * @returns {boolean} true if they should be offered
+ */
+export const isSnapOffered = vm => !!(vm && vm.runtime.ctPm && isAdvancedBlocksAllowed() &&
+    vm.runtime.ctPm.effective.snap);
 
 /**
  * @param {VirtualMachine} vm the VM

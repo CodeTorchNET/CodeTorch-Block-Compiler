@@ -107,24 +107,29 @@ UnwrappedSetting.propTypes = {
 };
 const Setting = injectIntl(UnwrappedSetting);
 
-const BooleanSetting = ({value, onChange, label, ...props}) => (
+const BooleanSetting = ({value, onChange, label, disabled, note, ...props}) => (
     <Setting
         {...props}
         active={value}
         primary={
-            <label className={styles.label}>
+            <label className={classNames(styles.label, {[styles.disabledLabel]: disabled})}>
                 <FancyCheckbox
                     className={styles.checkbox}
                     checked={value}
+                    disabled={disabled}
                     onChange={onChange}
                 />
                 {label}
             </label>
         }
+        secondary={note ? <div className={styles.note}>{note}</div> : props.secondary}
     />
 );
 BooleanSetting.propTypes = {
+    disabled: PropTypes.bool,
+    note: PropTypes.node,
     onChange: PropTypes.func.isRequired,
+    secondary: PropTypes.node,
     value: PropTypes.bool.isRequired,
     label: PropTypes.node.isRequired
 };

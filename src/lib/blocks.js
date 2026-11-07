@@ -1,5 +1,6 @@
 import LazyScratchBlocks from './tw-lazy-scratch-blocks';
 import defineCtPmMenus from './ct-pm-blocks.js';
+import {isSnapOffered} from './ct-pm-gui.js';
 
 /**
  * Connect scratch blocks with the vm
@@ -271,6 +272,10 @@ export default function (vm) {
                 sort(stageVariableOptions);
                 const stageVariableMenuItems = stageVariableOptions.map(variable => [variable, variable]);
                 if (sensingOfBlock.inputs.OBJECT.shadow !== sensingOfBlock.inputs.OBJECT.block) {
+                    if (isSnapOffered(vm)) {
+                        const seen = new Set(spriteOptions.map(option => option[1]));
+                        return spriteOptions.concat(stageOptions.filter(option => !seen.has(option[1])));
+                    }
                     // There's a block dropped on top of the menu. It'd be nice to evaluate it and
                     // return the correct list, but that is tricky. Scratch2 just returns stage options
                     // so just do that here too.
@@ -297,6 +302,16 @@ export default function (vm) {
 
         const json = jsonForSensingMenus(menuFn);
         this.jsonInit(json);
+    };
+
+    const mathopInit = ScratchBlocks.Blocks.operator_mathop.init;
+    ScratchBlocks.Blocks.operator_mathop.init = function () {
+        mathopInit.call(this);
+        const field = this.getField('OPERATOR');
+        if (!field || typeof field.getOptions !== 'function') return;
+        const vanilla = field.getOptions().slice();
+        const snapExtras = [['neg', 'neg'], ['2^', '2^'], ['sigmoid', 'sigmoid'], ['id', 'id']];
+        field.menuGenerator_ = () => (isSnapOffered(vm) ? vanilla.concat(snapExtras) : vanilla);
     };
 
     ScratchBlocks.Blocks.sensing_distancetomenu.init = function () {
