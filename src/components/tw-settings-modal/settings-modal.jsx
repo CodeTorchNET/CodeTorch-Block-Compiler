@@ -9,6 +9,7 @@ import FancyCheckbox from '../tw-fancy-checkbox/checkbox.jsx';
 import Input from '../forms/input.jsx';
 import BufferedInputHOC from '../forms/buffered-input-hoc.jsx';
 import DocumentationLink from '../tw-documentation-link/documentation-link.jsx';
+import CTAdvancedBlocksSettings from '../ct-pm-settings/ct-pm-settings.jsx';
 import styles from './settings-modal.css';
 import helpIcon from './help-icon.svg';
 import {APP_NAME} from '../../lib/brand.js';
@@ -484,6 +485,12 @@ const SettingsModalComponent = props => (
                 value={props.removeLimits}
                 onChange={props.onRemoveLimitsChange}
             />
+            {}
+            <CTAdvancedBlocksSettings
+                vm={props.vm}
+                BooleanSetting={BooleanSetting}
+                Header={Header}
+            />
             <Header>
                 <FormattedMessage
                     defaultMessage="Danger Zone"
@@ -531,6 +538,7 @@ SettingsModalComponent.propTypes = {
     disableCompiler: PropTypes.bool,
     onDisableCompilerChange: PropTypes.func,
     canSave: PropTypes.bool,
+    vm: PropTypes.object
 };
 
 export default injectIntl(SettingsModalComponent);

@@ -25,12 +25,12 @@ const parseBooleanParam = (params, name, defaultValue) => {
         return defaultValue;
     }
     const value = `${params.get(name)}`.trim().toLowerCase();
-    if (value === 'false' || value === '0' || value === 'no') {
+    if (value === 'false' || value === '0' || value === 'no' || value === 'off') {
         return false;
     }
     // An empty value is treated as "present, so on" because the editor removes "=" from
     // empty parameters when it rewrites the URL.
-    if (value === 'true' || value === '1' || value === 'yes' || value === '') {
+    if (value === 'true' || value === '1' || value === 'yes' || value === 'on' || value === '') {
         return true;
     }
     return defaultValue;
@@ -38,10 +38,11 @@ const parseBooleanParam = (params, name, defaultValue) => {
 
 const MINIMAL_PARAM = 'minimal';
 const LESSON_PARAM = 'lesson';
+const ADVANCED_BLOCKS_PARAM = 'advancedBlocks';
 
 /**
  * @param {URLSearchParams} params Parsed search parameters
- * @returns {{useJIT: boolean, minimal: boolean, chat: boolean, lesson: boolean}} Parsed flags
+ * @returns {{useJIT: boolean, minimal: boolean, chat: boolean, lesson: boolean, advancedBlocks: boolean}} Parsed flags
  */
 const parseFlags = params => ({
     // ?useJIT=false turns off the compiler. There is intentionally no ?useJIT=true behaviour.
@@ -50,7 +51,8 @@ const parseFlags = params => ({
     minimal: parseBooleanParam(params, MINIMAL_PARAM, false),
     // ?chat=false turns off the ephemeral cursor chat bubble in collaboration.
     chat: parseBooleanParam(params, 'chat', true),
-    lesson: parseBooleanParam(params, LESSON_PARAM, false)
+    lesson: parseBooleanParam(params, LESSON_PARAM, false),
+    advancedBlocks: parseBooleanParam(params, ADVANCED_BLOCKS_PARAM, true)
 });
 
 const urlParams = readSearchParams();
@@ -74,6 +76,11 @@ const isMinimalMode = () => flags.minimal;
 const isCursorChatEnabled = () => flags.chat;
 
 /**
+ * @returns {boolean} False if policy turned Advanced blocks off for this editor (?advancedBlocks=off).
+ */
+const isAdvancedBlocksAllowed = () => flags.advancedBlocks;
+
+/**
  * @returns {boolean} True if the editor is running inside a Learning Path lesson.
  */
 const isLessonMode = () => flags.lesson;
@@ -95,6 +102,9 @@ const applyPersistentFlags = searchParams => {
     if (flags.lesson) {
         searchParams.set(LESSON_PARAM, '1');
     }
+    if (!flags.advancedBlocks) {
+        searchParams.set(ADVANCED_BLOCKS_PARAM, 'off');
+    }
     return searchParams;
 };
 
@@ -105,6 +115,7 @@ export {
     isMinimalMode,
     isCursorChatEnabled,
     isLessonMode,
+    isAdvancedBlocksAllowed,
     getLessonId,
     applyPersistentFlags,
     MINIMAL_PARAM,

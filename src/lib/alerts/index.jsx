@@ -158,6 +158,23 @@ const alerts = [
         maxDisplaySecs: 3
     },
     {
+        alertId: 'ctSavedWithAdvancedBlocks',
+        alertType: AlertTypes.STANDARD,
+        closeButton: true,
+        clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess', 'twCreatingRestorePoint',
+            'twRestorePointSuccess', 'twRestorePointError'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Saved to your computer. This project uses Advanced blocks, which Scratch can't run."
+                description="Shown after saving a project that uses Advanced blocks to a file"
+                id="ct.alerts.savedWithAdvancedBlocks"
+            />
+        ),
+        iconURL: successImage,
+        level: AlertLevels.INFO,
+        maxDisplaySecs: 6
+    },
+    {
         alertId: 'twSaveToDiskSuccess',
         alertType: AlertTypes.INLINE,
         clearList: ['saveSuccess', 'saving', 'savingError', 'twCreatingRestorePoint',

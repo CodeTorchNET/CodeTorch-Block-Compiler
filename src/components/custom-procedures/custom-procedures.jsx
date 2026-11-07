@@ -3,10 +3,13 @@ import React from 'react';
 import Modal from '../../containers/modal.jsx';
 import Box from '../box/box.jsx';
 import {defineMessages, injectIntl, intlShape, FormattedMessage} from 'react-intl';
+import classNames from 'classnames';
 
 import booleanInputIcon from './icon--boolean-input.svg';
 import textInputIcon from './icon--text-input.svg';
 import labelIcon from './icon--label.svg';
+import branchInputIcon from './icon--branch-input.svg';
+import localVariableIcon from './icon--local-variable.svg';
 
 import styles from './custom-procedures.css';
 
@@ -15,8 +18,76 @@ const messages = defineMessages({
         defaultMessage: 'Make a Block',
         description: 'Title for the modal where you create a custom block.',
         id: 'gui.customProcedures.myblockModalTitle'
+    },
+    defaultColor: {
+        defaultMessage: 'Default color',
+        description: 'Tooltip of the swatch that gives a custom block the normal My Blocks color',
+        id: 'ct.customProcedures.defaultColor'
+    },
+    customColor: {
+        defaultMessage: 'Custom color',
+        description: 'Tooltip of the button that opens a color picker for any custom block color',
+        id: 'ct.customProcedures.customColor'
     }
 });
+
+const STACK_INPUT_HELP_URL = 'https://help.codetorch.net/articles/stack-inputs';
+
+const PRESET_COLORS = [null, '#4c97ff', '#9966ff', '#cf63cf', '#ffbf00', '#ffab19', '#5cb1d6',
+    '#59c059', '#ff8c1a', '#ff661a', '#0fbd8c', '#7f7f7f'];
+
+const ColorRow = props => {
+    const isPreset = PRESET_COLORS.indexOf(props.color) !== -1;
+    return (
+        <div className={styles.colorRow}>
+            <span className={styles.colorLabel}>
+                <FormattedMessage
+                    defaultMessage="Block color"
+                    description="Label of the row of colors a custom block can have"
+                    id="ct.customProcedures.blockColor"
+                />
+            </span>
+            {PRESET_COLORS.map(c => (
+                <button
+                    aria-label={c ? c : props.intl.formatMessage(messages.defaultColor)}
+                    aria-pressed={props.color === c}
+                    className={classNames(styles.colorSwatch, {
+                        [styles.colorSwatchSelected]: props.color === c,
+                        [styles.colorSwatchDefault]: !c
+                    })}
+                    key={c || 'default'}
+                    style={c ? {background: c} : null}
+                    title={c ? null : props.intl.formatMessage(messages.defaultColor)}
+                    type="button"
+                    // eslint-disable-next-line react/jsx-no-bind
+                    onClick={() => props.onChangeColor(c)}
+                />
+            ))}
+            <label
+                className={classNames(styles.colorSwatch, styles.colorSwatchCustom, {
+                    [styles.colorSwatchSelected]: !isPreset
+                })}
+                style={isPreset ? null : {background: props.color}}
+                title={props.intl.formatMessage(messages.customColor)}
+            >
+                <input
+                    aria-label={props.intl.formatMessage(messages.customColor)}
+                    className={styles.colorInput}
+                    type="color"
+                    value={props.color || '#ff6680'}
+                    // eslint-disable-next-line react/jsx-no-bind
+                    onChange={e => props.onChangeColor(e.target.value)}
+                />
+            </label>
+        </div>
+    );
+};
+
+ColorRow.propTypes = {
+    color: PropTypes.string,
+    intl: intlShape,
+    onChangeColor: PropTypes.func.isRequired
+};
 
 const CustomProcedures = props => (
     <Modal
@@ -83,6 +154,62 @@ const CustomProcedures = props => (
                         />
                     </div>
                 </div>
+                {props.onAddBranch ? (
+                    <div
+                        className={styles.optionCard}
+                        role="button"
+                        tabIndex="0"
+                        onClick={props.onAddBranch}
+                    >
+                        <img
+                            className={styles.optionIcon}
+                            src={branchInputIcon}
+                            draggable={false}
+                        />
+                        <div className={styles.optionTitle}>
+                            <FormattedMessage
+                                defaultMessage="Add an input"
+                                description="Label for button to add a C-shaped input (a stack of blocks)"
+                                id="ct.customProcedures.addAnInputBranch"
+                            />
+                        </div>
+                        <div className={styles.optionDescription}>
+                            <FormattedMessage
+                                defaultMessage="stack of blocks"
+                                description="Description of the C-shaped input type: the input is a stack of blocks"
+                                id="ct.customProcedures.branchType"
+                            />
+                        </div>
+                    </div>
+                ) : null}
+                {props.onAddLocal ? (
+                    <div
+                        className={styles.optionCard}
+                        role="button"
+                        tabIndex="0"
+                        onClick={props.onAddLocal}
+                    >
+                        <img
+                            className={styles.optionIcon}
+                            src={localVariableIcon}
+                            draggable={false}
+                        />
+                        <div className={styles.optionTitle}>
+                            <FormattedMessage
+                                defaultMessage="Add a"
+                                description="Label for button to add a local variable to a custom block (first line)"
+                                id="ct.customProcedures.addALocal"
+                            />
+                        </div>
+                        <div className={styles.optionDescription}>
+                            <FormattedMessage
+                                defaultMessage="local variable"
+                                description="Second line of the button to add a local variable to a custom block"
+                                id="ct.customProcedures.localType"
+                            />
+                        </div>
+                    </div>
+                ) : null}
                 <div
                     className={styles.optionCard}
                     role="button"
@@ -103,6 +230,29 @@ const CustomProcedures = props => (
                     </div>
                 </div>
             </div>
+            {props.onAddBranch ? (
+                <div className={styles.helpRow}>
+                    <a
+                        className={styles.helpLink}
+                        href={STACK_INPUT_HELP_URL}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                    >
+                        <FormattedMessage
+                            defaultMessage="What's a stack input?"
+                            description="Link to a help article on the C-shaped (stack of blocks) custom block input"
+                            id="ct.customProcedures.stackInputHelp"
+                        />
+                    </a>
+                </div>
+            ) : null}
+            {props.onChangeColor ? (
+                <ColorRow
+                    color={props.color}
+                    intl={props.intl}
+                    onChangeColor={props.onChangeColor}
+                />
+            ) : null}
             <div className={styles.checkboxRow}>
                 <label>
                     <input
@@ -144,12 +294,16 @@ const CustomProcedures = props => (
 );
 
 CustomProcedures.propTypes = {
+    color: PropTypes.string,
     componentRef: PropTypes.func.isRequired,
     intl: intlShape,
     onAddBoolean: PropTypes.func.isRequired,
+    onAddBranch: PropTypes.func,
+    onAddLocal: PropTypes.func,
     onAddLabel: PropTypes.func.isRequired,
     onAddTextNumber: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired,
+    onChangeColor: PropTypes.func,
     onOk: PropTypes.func.isRequired,
     onToggleWarp: PropTypes.func.isRequired,
     warp: PropTypes.bool.isRequired

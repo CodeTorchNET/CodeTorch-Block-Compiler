@@ -2,6 +2,20 @@
 
 This repository contains a modified version of **TurboWarp** (itself a modified version of Scratch) adapted for the CodeTorch project.
 
+## PenguinMod compatibility
+
+This editor reproduces the behaviour of [PenguinMod](https://github.com/PenguinMod)'s blocks ("Advanced blocks") so that PenguinMod projects (`.pmp`) can be opened in CodeTorch. The implementation is written independently on top of TurboWarp; PenguinMod's source was used as a description of the behaviour and its VM as a test oracle. PenguinMod's editor (penguinmod.github.io) is licensed under the GNU General Public License v3.0, like this repository; none of its interface is used here.
+
+Supported: PenguinMod as of the commits below. We don't track PenguinMod; projects using anything newer still open, but blocks we don't know yet become inert placeholders.
+
+| Repository | Commit | Date |
+|---|---|---|
+| [PenguinMod-Vm](https://github.com/PenguinMod/PenguinMod-Vm) | `50fddfed34f4eed9eef28ef32bc1022397d29f46` | 2026-10-26 |
+| [PenguinMod-Blocks](https://github.com/PenguinMod/PenguinMod-Blocks) | `de35ce5758aeda5aab0a9ad59736e1920205804b` | 2026-05-29 |
+| [PenguinMod-Render](https://github.com/PenguinMod/PenguinMod-Render) | `89a587aff84e0a62daf907fba464d7e02f995027` | 2026-05-29 |
+| [PenguinMod-Storage](https://github.com/PenguinMod/PenguinMod-Storage) | `687019085e83fc83d39f3b96b41f229e8d95d6bc` | 2026-02-21 |
+| [penguinmod.github.io](https://github.com/PenguinMod/penguinmod.github.io) (GUI) | `8d622ab3808c85413af85e1fac8ea7f6bb42a901` | 2026-10-20 |
+
 ### Building
 ```
 git clone https://github.com/CodeTorchNET/CodeTorch-Block-Compiler

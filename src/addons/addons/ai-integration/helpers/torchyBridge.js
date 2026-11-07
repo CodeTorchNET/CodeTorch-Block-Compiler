@@ -10,7 +10,17 @@ export default class TorchyBridge {
         this.parser = new DOMParser();
         this.serializer = new XMLSerializer();
 
+        this.advancedOffered = () => false;
+
         this.processDefinitions(this.defs);
+    }
+
+    setAdvancedOffered (fn) {
+        this.advancedOffered = fn;
+    }
+
+    _usable (def) {
+        return !def.advanced || !!this.advancedOffered();
     }
 
     processDefinitions (definitions) {
@@ -243,8 +253,9 @@ export default class TorchyBridge {
 
                 if (valNode) {
                     valContent = this.extractValue(valNode);
+                    const nested = !!this._getChild(valNode, 'block');
                     const hasWrapper = /^(?:\(.*\)|<.*>|\[.*\])$/.test(valContent);
-                    if (hasWrapper) {
+                    if (nested && hasWrapper) {
                         return valContent;
                     }
                     if (isBoolean) return `<${valContent}>`;
@@ -270,8 +281,9 @@ export default class TorchyBridge {
                 text += `\n${this.indent(this.processBlockChain(subStack))}`;
             }
 
-            if (def.id === 'control_if_else') {
-                text += '\n} else {';
+            const second = def.id === 'control_if_else' ? 'else' : def.secondBranch;
+            if (second) {
+                text += `\n} ${second} {`;
                 const subStack2 = this._getSubstackBlock(blockNode, 'SUBSTACK2');
                 if (subStack2) {
                     text += `\n${this.indent(this.processBlockChain(subStack2))}`;
@@ -328,6 +340,20 @@ export default class TorchyBridge {
 
             const isClose = /^\}\s*$/.test(line);
             const isElse = /^\}\s*else\s*\{$/.test(line);
+            const secondMatch = !isElse && /^\}\s*(.+?)\s*\{$/.exec(line);
+            if (secondMatch && stack.length > 1) {
+                const parentContext = stack[stack.length - 2];
+                const owner = parentContext.lastBlock;
+                const ownerDef = owner && this.defMap[owner.getAttribute('type').toUpperCase()];
+                if (ownerDef && ownerDef.secondBranch === secondMatch[1]) {
+                    stack.pop();
+                    const statement = xmlDoc.createElement('statement');
+                    statement.setAttribute('name', 'SUBSTACK2');
+                    owner.appendChild(statement);
+                    stack.push({container: statement, lastBlock: null, type: 'statement'});
+                    return;
+                }
+            }
 
             if (isClose || isElse) {
                 let popped = null;
@@ -451,6 +477,7 @@ export default class TorchyBridge {
         }
 
         for (const def of this.defs) {
+            if (!this._usable(def)) continue;
             const shapeName = def.shape || 'stack';
             let defShape = 'stack';
             if (shapeName === 'reporter') defShape = 'reporter';
@@ -817,6 +844,7 @@ export default class TorchyBridge {
         this.defs.forEach(def => {
             if (def.category === 'custom') return;
             if (typeof def.spec !== 'string') return;
+            if (!this._usable(def)) return;
 
             if (!categories[def.category]) {
                 categories[def.category] = [];
@@ -847,8 +875,9 @@ export default class TorchyBridge {
 
             if (refShape.includes('c-block')) {
                 text += ' {\n  // blocks\n}';
-                if (def.id === 'control_if_else') {
-                    text = text.replace('\n}', '\n} else {\n  // blocks\n}');
+                const second = def.id === 'control_if_else' ? 'else' : def.secondBranch;
+                if (second) {
+                    text = text.replace('\n}', `\n} ${second} {\n  // blocks\n}`);
                 }
             }
 

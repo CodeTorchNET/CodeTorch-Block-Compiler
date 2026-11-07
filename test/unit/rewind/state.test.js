@@ -128,3 +128,39 @@ describe('canonicalize', () => {
         }
     });
 });
+
+describe('Advanced blocks / PenguinMod data (ct-pm side-car)', () => {
+    test('a sprite with an up-down rotation style and a kept custom value survives a rewind restore', async () => {
+        const vm = makeVm();
+        const project = {
+            targets: [
+                {isStage: true, name: 'Stage', variables: {}, lists: {}, broadcasts: {}, blocks: {}, comments: {},
+                    currentCostume: 0, costumes: [{name: 'b', assetId: 'cd21514d0531fdffb22204e0ec5ed84a',
+                        md5ext: 'cd21514d0531fdffb22204e0ec5ed84a.svg', dataFormat: 'svg',
+                        rotationCenterX: 0, rotationCenterY: 0}], sounds: [], volume: 100},
+                {isStage: false, name: 'S', id: 'pm-id', rotationStyle: 'up-down', x: 0, y: 0, size: 100,
+                    direction: 90, visible: true, draggable: false, currentCostume: 0, volume: 100, layerOrder: 1,
+                    variables: {v1: ['arr', {customType: true, typeId: 'jwArray', serialized: '[1,2]'}, null]},
+                    lists: {}, broadcasts: {}, blocks: {}, comments: {},
+                    costumes: [{name: 'c', assetId: 'cd21514d0531fdffb22204e0ec5ed84a',
+                        md5ext: 'cd21514d0531fdffb22204e0ec5ed84a.svg', dataFormat: 'svg',
+                        rotationCenterX: 0, rotationCenterY: 0}], sounds: []}
+            ],
+            monitors: [],
+            extensions: [],
+            meta: {semver: '3.0.0', platform: {name: 'PenguinMod'}}
+        };
+        await vm.loadProject(JSON.stringify(project));
+        const state = serializeState(vm, {t: 1, session: 's'});
+        const sprite = state.targets.find(t => t.name === 'S');
+        expect(sprite.ctPm.rotationStyle).toBe('up-down');
+        const sb3 = stateToSb3(state);
+        expect(sb3.targets[1].rotationStyle).toBe('all around');
+        const vm2 = makeVm();
+        await loadStateIntoVm(vm2, state);
+        const restored = vm2.runtime.targets.find(t => t.isOriginal && t.getName() === 'S');
+        expect(restored.rotationStyle).toBe('up-down');
+        const saved = JSON.parse(vm2.toJSON()).targets.find(t => t.name === 'S');
+        expect(saved.ctPm.values.variables.v1.original).toEqual({customType: true, typeId: 'jwArray', serialized: '[1,2]'});
+    });
+});

@@ -1,3 +1,5 @@
+import ctPmSidecar from 'scratch-vm/src/ct-pm/sidecar';
+
 export const STATE_VERSION = 1;
 
 export const RUNTIME_TARGET_FIELDS = [
@@ -123,6 +125,9 @@ export const serializeTarget = (target, layerOrder) => {
     if (target.extensionStorage && Object.keys(target.extensionStorage).length) {
         out.extensionStorage = jsonClone(target.extensionStorage);
     }
+    const sidecar = {};
+    ctPmSidecar.decorate(sidecar, target);
+    if (sidecar.ctPm) out.ctPm = jsonClone(sidecar.ctPm);
     return out;
 };
 
@@ -348,6 +353,10 @@ export const targetToSb3 = t => {
         for (const k of SPRITE_FIELDS) if (hasOwn(t, k)) obj[k] = t[k];
     }
     if (t.extensionStorage) obj.extensionStorage = jsonClone(t.extensionStorage);
+    if (t.ctPm) {
+        obj.ctPm = jsonClone(t.ctPm);
+        if (obj.ctPm.rotationStyle && obj.rotationStyle === obj.ctPm.rotationStyle) obj.rotationStyle = 'all around';
+    }
     return obj;
 };
 

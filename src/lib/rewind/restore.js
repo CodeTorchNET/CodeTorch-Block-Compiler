@@ -478,6 +478,7 @@ export const applyOpsToVm = async (vm, ops, opts = {}) => {
             break;
         }
     }
+    if (vm.runtime.ctPm) vm.runtime.ctPm.refresh();
     if (touchedEditing.blocks && typeof vm.emitWorkspaceUpdate === 'function') vm.emitWorkspaceUpdate();
     if (typeof vm.emitTargetsUpdate === 'function') vm.emitTargetsUpdate(false);
     return {broken};

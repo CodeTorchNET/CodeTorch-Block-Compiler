@@ -5,6 +5,10 @@ import React from 'react';
 import CustomProceduresComponent from '../components/custom-procedures/custom-procedures.jsx';
 import LazyScratchBlocks from '../lib/tw-lazy-scratch-blocks';
 import {connect} from 'react-redux';
+import {isAdvancedBlocksOffered} from '../lib/ct-pm-gui.js';
+
+const PREVIEW_MIN_HEIGHT = 200;
+const PREVIEW_PADDING = 16;
 
 class CustomProcedures extends React.Component {
     constructor (props) {
@@ -13,12 +17,16 @@ class CustomProcedures extends React.Component {
             'handleAddLabel',
             'handleAddBoolean',
             'handleAddTextNumber',
+            'handleAddBranch',
+            'handleAddLocal',
+            'handleChangeColor',
             'handleToggleWarp',
             'handleCancel',
             'handleOk',
             'setBlocks'
         ]);
         this.state = {
+            color: null,
             rtlOffset: 0,
             warp: false
         };
@@ -53,10 +61,14 @@ class CustomProcedures extends React.Component {
 
         this.workspace.addChangeListener(() => {
             this.mutationRoot.onChangeFn();
+            this.fitHeight();
             // Keep the block centered on the workspace
             const metrics = this.workspace.getMetrics();
             const {x, y} = this.mutationRoot.getRelativeToSurfaceXY();
-            const dy = (metrics.viewHeight / 2) - (this.mutationRoot.height / 2) - y;
+            let dy = (metrics.viewHeight / 2) - (this.mutationRoot.height / 2) - y;
+            if (this.mutationRoot.height > metrics.viewHeight - (2 * PREVIEW_PADDING)) {
+                dy = PREVIEW_PADDING - y;
+            }
             let dx;
             if (this.props.isRtl) {
                 // // TODO: https://github.com/LLK/scratch-gui/issues/2838
@@ -104,11 +116,25 @@ class CustomProcedures extends React.Component {
         this.mutationRoot.domToMutation(this.props.mutator);
         this.mutationRoot.initSvg();
         this.mutationRoot.render();
-        this.setState({warp: this.mutationRoot.getWarp()});
+        this.setState({
+            color: this.mutationRoot.getColourExternal ? this.mutationRoot.getColourExternal() : null,
+            warp: this.mutationRoot.getWarp()
+        });
         // Allow the initial events to run to position this block, then focus.
         setTimeout(() => {
             this.mutationRoot.focusLastEditor_();
         });
+    }
+    fitHeight () {
+        if (!this.blocks || !this.mutationRoot) return;
+        const scale = this.workspace.scale;
+        const wanted = (this.mutationRoot.height * scale) + (2 * PREVIEW_PADDING * scale);
+        const max = Math.max(PREVIEW_MIN_HEIGHT, Math.round(window.innerHeight / 2));
+        const height = Math.round(Math.min(max, Math.max(PREVIEW_MIN_HEIGHT, wanted)));
+        if (this.previewHeight === height) return;
+        this.previewHeight = height;
+        this.blocks.style.height = `${height}px`;
+        LazyScratchBlocks.get().svgResize(this.workspace);
     }
     handleCancel () {
         this.props.onRequestClose();
@@ -132,6 +158,22 @@ class CustomProcedures extends React.Component {
             this.mutationRoot.addStringNumberExternal();
         }
     }
+    handleAddBranch () {
+        if (this.mutationRoot && this.mutationRoot.addBranchExternal) {
+            this.mutationRoot.addBranchExternal();
+        }
+    }
+    handleAddLocal () {
+        if (this.mutationRoot && this.mutationRoot.addLocalExternal) {
+            this.mutationRoot.addLocalExternal();
+        }
+    }
+    handleChangeColor (color) {
+        if (this.mutationRoot && this.mutationRoot.setColourExternal) {
+            this.mutationRoot.setColourExternal(color);
+            this.setState({color: this.mutationRoot.getColourExternal()});
+        }
+    }
     handleToggleWarp () {
         if (this.mutationRoot) {
             const newWarp = !this.mutationRoot.getWarp();
@@ -142,12 +184,16 @@ class CustomProcedures extends React.Component {
     render () {
         return (
             <CustomProceduresComponent
+                color={this.state.color}
                 componentRef={this.setBlocks}
                 warp={this.state.warp}
                 onAddBoolean={this.handleAddBoolean}
+                onAddBranch={this.props.ctPmBranches ? this.handleAddBranch : null}
+                onAddLocal={this.props.ctPmBranches ? this.handleAddLocal : null}
                 onAddLabel={this.handleAddLabel}
                 onAddTextNumber={this.handleAddTextNumber}
                 onCancel={this.handleCancel}
+                onChangeColor={this.handleChangeColor}
                 onOk={this.handleOk}
                 onToggleWarp={this.handleToggleWarp}
             />
@@ -156,6 +202,7 @@ class CustomProcedures extends React.Component {
 }
 
 CustomProcedures.propTypes = {
+    ctPmBranches: PropTypes.bool,
     isRtl: PropTypes.bool,
     mutator: PropTypes.instanceOf(Element),
     onRequestClose: PropTypes.func.isRequired,
@@ -187,6 +234,7 @@ CustomProcedures.defaultProps = {
 };
 
 const mapStateToProps = state => ({
+    ctPmBranches: isAdvancedBlocksOffered(state.scratchGui.vm),
     isRtl: state.locales.isRtl,
     mutator: state.scratchGui.customProcedures.mutator
 });

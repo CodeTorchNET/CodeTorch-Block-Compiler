@@ -1,4 +1,5 @@
 import {defineMessages} from 'react-intl';
+import {addCtPmMonitorLabels} from './ct-pm-monitor-labels.js';
 
 const messages = defineMessages({
     motion_direction: {
@@ -263,6 +264,8 @@ class OpcodeLabels {
         this._opcodeMap.sensing_timer.labelFn = () => this._translator(messages.sensing_timer);
         this._opcodeMap.sensing_dayssince2000.labelFn = () => this._translator(messages.sensing_dayssince2000);
         this._opcodeMap.sensing_online.labelFn = () => this._translator(messages.sensing_online);
+
+        addCtPmMonitorLabels(this._opcodeMap, this._translator);
     }
 
     /**

@@ -180,6 +180,8 @@ const ProjectSaverHOC = function (WrappedComponent) {
             if (this.props.lessonMode) {
                 if (this.props.reduxProjectTitle) requestParams.title = this.props.reduxProjectTitle;
                 if (getLessonId()) requestParams.lesson = getLessonId();
+                const classId = new URLSearchParams(location.search).get('classId');
+                if (classId) requestParams.classId = classId;
             }
             return this.storeProject(null, requestParams)
                 .then(response => {

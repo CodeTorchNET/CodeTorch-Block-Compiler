@@ -25,6 +25,28 @@ import {
 import {
     closeFileMenu
 } from '../reducers/menus';
+import {postMessageToParent} from './ct-parent-message';
+
+const isEmbedded = () => {
+    try {
+        return window.parent !== window;
+    } catch (e) {
+        return true;
+    }
+};
+
+/**
+ * Can the VM open this file? sb2/sb3/torch/pmp are zips, Scratch 1.4 files start with "ScratchV0".
+ * @param {ArrayBuffer} buffer The file's bytes
+ * @returns {boolean} True for a format the editor loads itself.
+ */
+const isScratchProjectData = buffer => {
+    const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 16));
+    const text = String.fromCharCode.apply(null, bytes);
+    if (text.startsWith('PK')) return true;
+    if (text.startsWith('ScratchV0')) return true;
+    return /^\s*[{[]/.test(text);
+};
 
 /**
  * Higher Order Component to provide behavior for loading local project files into editor.
@@ -95,7 +117,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                                         // what MIME type they are saved with, so we have to use the most broad MIME
                                         // type here. Otherwise some users just won't be able to load files for no
                                         // fault of their own.
-                                        '*/*': ['.sb', '.sb2', '.sb3', '.torch']
+                                        '*/*': ['.sb', '.sb2', '.sb3', '.torch', '.pmp']
+                                            .concat(isEmbedded() ? ['.xml'] : [])
                                     }
                                 }
                             ]
@@ -118,7 +141,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             } else {
                 // create <input> element and add it to DOM
                 this.inputElement = document.createElement('input');
-                this.inputElement.accept = '.sb,.sb2,.sb3,.torch';
+                this.inputElement.accept = isEmbedded() ? '.sb,.sb2,.sb3,.torch,.pmp,.xml' :
+                    '.sb,.sb2,.sb3,.torch,.pmp';
                 this.inputElement.style = 'display: none;';
                 this.inputElement.type = 'file';
                 this.inputElement.onchange = this.handleChange; // connects to step 3
@@ -192,13 +216,21 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             if (!fileInputFilename) return '';
             // only parse title with valid scratch project extensions
             // (.sb, .sb2, and .sb3)
-            const matches = fileInputFilename.match(/^(.*)\.sb[23]?$/);
+            const matches = fileInputFilename.match(/^(.*)\.(?:sb[23]?|pmp)$/);
             if (!matches) return '';
             return matches[1].substring(0, 100); // truncate project title to max 100 chars
         }
         // step 6: attached as a handler on our FileReader object; called when
         // file upload raw data is available in the reader
         onload () {
+            if (this.fileReader && isEmbedded() && !isScratchProjectData(this.fileReader.result)) {
+                const bytes = this.fileReader.result;
+                const name = this.fileToUpload ? this.fileToUpload.name : '';
+                postMessageToParent({type: 'ct:import-file', name, bytes}, [bytes]);
+                this.props.cancelFileUpload(this.props.loadingState);
+                this.removeFileObjects();
+                return;
+            }
             if (this.fileReader) {
                 this.props.onLoadingStarted();
                 const filename = this.fileToUpload && this.fileToUpload.name;

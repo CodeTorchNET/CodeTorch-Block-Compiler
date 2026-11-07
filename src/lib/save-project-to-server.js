@@ -34,6 +34,7 @@ export default function (projectId, vmState, params) {
     if (Object.prototype.hasOwnProperty.call(params, 'title')) queryParams.title = params.title;
     if (Object.prototype.hasOwnProperty.call(params, 'source')) queryParams.source = params.source;
     if (Object.prototype.hasOwnProperty.call(params, 'lesson')) queryParams.lesson = params.lesson;
+    if (Object.prototype.hasOwnProperty.call(params, 'classId')) queryParams.class_id = params.classId;
 
     let qs = queryString.stringify(queryParams);
     if (qs) qs = `?${qs}`;

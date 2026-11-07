@@ -81,17 +81,20 @@ const emitNotices = () => {
 
 /**
  * Record a refused extension.
- * @param {{url: ?string, id: ?string, placeholder: boolean}} notice what happened
+ * @param {{url: ?string, id: ?string, placeholder: boolean, reason: ?string}} notice what happened
  */
-const noteRefusedExtension = ({url = null, id = null, placeholder = false}) => {
+const noteRefusedExtension = ({url = null, id = null, placeholder = false, reason = null}) => {
     const key = url || id;
     if (!key) return;
     const existing = refusedNotices.find(n => n.key === key);
     if (existing) {
         if (id && !existing.id) existing.id = id;
         if (placeholder) existing.placeholder = true;
+        if (reason) existing.reason = reason;
     } else {
-        refusedNotices.push({key, url, id, placeholder});
+        const notice = {key, url, id, placeholder};
+        if (reason) notice.reason = reason;
+        refusedNotices.push(notice);
     }
     emitNotices();
 };

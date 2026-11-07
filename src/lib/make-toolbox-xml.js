@@ -1,5 +1,6 @@
 import LazyScratchBlocks from './tw-lazy-scratch-blocks';
 import {defaultBlockColors} from './themes';
+import {addCtPmBlocks} from './ct-pm-toolbox';
 
 const categorySeparator = '<sep gap="36"/>';
 
@@ -757,23 +758,21 @@ const xmlOpen = '<xml style="display: none">';
 const xmlClose = '</xml>';
 
 /**
- * @param {!boolean} isInitialSetup - Whether the toolbox is for initial setup. If the mode is "initial setup",
- * blocks with localized default parameters (e.g. ask and wait) should not be loaded. (LLK/scratch-gui#5445)
- * @param {?boolean} isStage - Whether the toolbox is for a stage-type target. This is always set to true
- * when isInitialSetup is true.
- * @param {?string} targetId - The current editing target
- * @param {?Array.<object>} categoriesXML - optional array of `{id,xml}` for categories. This can include both core
- * and other extensions: core extensions will be placed in the normal Scratch order; others will go at the bottom.
- * @property {string} id - the extension / category ID.
- * @property {string} xml - the `<category>...</category>` XML for this extension / category.
- * @param {?string} costumeName - The name of the default selected costume dropdown.
- * @param {?string} backdropName - The name of the default selected backdrop dropdown.
- * @param {?string} soundName -  The name of the default selected sound dropdown.
- * @param {?object} colors - The colors for the theme.
- * @returns {string} - a ScratchBlocks-style XML document for the contents of the toolbox.
+ * @param {!boolean} isInitialSetup isInitialSetup
+ * @param {?boolean} isStage isStage
+ * @param {?string} targetId targetId
+ * @param {?Array.<object>} categoriesXML categoriesXML
+ * @property {string} id id
+ * @property {string} xml xml
+ * @param {?string} costumeName costumeName
+ * @param {?string} backdropName backdropName
+ * @param {?string} soundName soundName
+ * @param {?object} colors colors
+ * @param {?boolean} ctPmOffered ctPmOffered
+ * @returns {string} result
  */
 const makeToolboxXML = function (isInitialSetup, isStage = true, targetId, categoriesXML = [],
-    costumeName = '', backdropName = '', soundName = '', colors = defaultBlockColors) {
+    costumeName = '', backdropName = '', soundName = '', colors = defaultBlockColors, ctPmOffered = false) {
     isStage = isInitialSetup || isStage;
     const gap = [categorySeparator];
 
@@ -791,14 +790,20 @@ const makeToolboxXML = function (isInitialSetup, isStage = true, targetId, categ
         }
         // return `undefined`
     };
-    const motionXML = moveCategory('motion') || motion(isInitialSetup, isStage, targetId, colors.motion);
+    const pm = (id, xml) => (ctPmOffered && !isInitialSetup ?
+        addCtPmBlocks(id, xml, {isStage, targetId, costumeName, backdropName, soundName}) : xml);
+    const motionXML = moveCategory('motion') || pm('motion', motion(isInitialSetup, isStage, targetId, colors.motion));
     const looksXML = moveCategory('looks') ||
-        looks(isInitialSetup, isStage, targetId, costumeName, backdropName, colors.looks);
-    const soundXML = moveCategory('sound') || sound(isInitialSetup, isStage, targetId, soundName, colors.sounds);
-    const eventsXML = moveCategory('event') || events(isInitialSetup, isStage, targetId, colors.event);
-    const controlXML = moveCategory('control') || control(isInitialSetup, isStage, targetId, colors.control);
-    const sensingXML = moveCategory('sensing') || sensing(isInitialSetup, isStage, targetId, colors.sensing);
-    const operatorsXML = moveCategory('operators') || operators(isInitialSetup, isStage, targetId, colors.operators);
+        pm('looks', looks(isInitialSetup, isStage, targetId, costumeName, backdropName, colors.looks));
+    const soundXML = moveCategory('sound') ||
+        pm('sound', sound(isInitialSetup, isStage, targetId, soundName, colors.sounds));
+    const eventsXML = moveCategory('event') || pm('events', events(isInitialSetup, isStage, targetId, colors.event));
+    const controlXML = moveCategory('control') ||
+        pm('control', control(isInitialSetup, isStage, targetId, colors.control));
+    const sensingXML = moveCategory('sensing') ||
+        pm('sensing', sensing(isInitialSetup, isStage, targetId, colors.sensing));
+    const operatorsXML = moveCategory('operators') ||
+        pm('operators', operators(isInitialSetup, isStage, targetId, colors.operators));
     const variablesXML = moveCategory('data') || variables(isInitialSetup, isStage, targetId, colors.data);
     const myBlocksXML = moveCategory('procedures') || myBlocks(isInitialSetup, isStage, targetId, colors.more);
 

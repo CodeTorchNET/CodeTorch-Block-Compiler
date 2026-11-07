@@ -17,6 +17,7 @@ import {
     reportRefusedExtension
 } from '../lib/ct-extension-restrictions.js';
 import {createPlaceholderExtension} from '../lib/ct-extension-placeholder.js';
+import {classifyExtension} from '../lib/ct-pm-gui.js';
 /* eslint-disable require-atomic-updates */
 
 /**
@@ -278,9 +279,16 @@ class TWSecurityManagerComponent extends React.Component {
         }
         restrictExtensionLoading(extensionManager);
         vmSecurityManager.createPlaceholderExtension = (extensionID, url, blocks, lookup) => {
-            if (!isMinimalMode() || isExtensionAllowed(url || extensionID)) return null;
-            noteRefusedExtension({url, id: extensionID, placeholder: true});
-            return createPlaceholderExtension(extensionID, blocks, lookup);
+            if (isMinimalMode() && !isExtensionAllowed(url || extensionID)) {
+                noteRefusedExtension({url, id: extensionID, placeholder: true});
+                return createPlaceholderExtension(extensionID, blocks, lookup);
+            }
+            const ctPm = this.props.vm.runtime.ctPm;
+            if (ctPm && ctPm.defaultPlaceholders) {
+                noteRefusedExtension({url, id: extensionID, placeholder: true, reason: classifyExtension(extensionID)});
+                return createPlaceholderExtension(extensionID, blocks, lookup);
+            }
+            return null;
         };
         this.props.vm.runtime.on('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
     }
@@ -626,7 +634,10 @@ TWSecurityManagerComponent.propTypes = {
     vm: PropTypes.shape({
         runtime: PropTypes.shape({
             on: PropTypes.func.isRequired,
-            off: PropTypes.func.isRequired
+            off: PropTypes.func.isRequired,
+            ctPm: PropTypes.shape({
+                defaultPlaceholders: PropTypes.bool
+            })
         }).isRequired,
         extensionManager: PropTypes.shape({
             securityManager: PropTypes.shape(

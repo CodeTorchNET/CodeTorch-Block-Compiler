@@ -1,5 +1,6 @@
 import {postMessageToParent} from '../lib/ct-parent-message';
 import {installTestMessageListener} from '../lib/ct-test-messages';
+import {installCtPm} from '../lib/ct-pm-gui';
 import PropTypes from 'prop-types';
 import React from 'react';
 import {compose} from 'redux';
@@ -81,6 +82,7 @@ class GUI extends React.Component {
         }
 
         this.removeTestMessageListener = installTestMessageListener(this.props.vm);
+        this.removeCtPm = installCtPm(this.props.vm);
     }
     componentDidUpdate (prevProps) {
         if (this.props.projectId !== prevProps.projectId) {
@@ -106,6 +108,10 @@ class GUI extends React.Component {
     }
     componentWillUnmount () {
         window.removeEventListener('message', this.handleMessage);
+        if (this.removeCtPm) {
+            this.removeCtPm();
+            this.removeCtPm = null;
+        }
         if (this.removeTestMessageListener) {
             this.removeTestMessageListener();
             this.removeTestMessageListener = null;

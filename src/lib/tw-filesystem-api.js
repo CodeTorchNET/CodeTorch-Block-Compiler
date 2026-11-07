@@ -20,7 +20,7 @@ const showOpenFilePicker = async () => {
             {
                 description: 'Scratch Project',
                 accept: {
-                    'application/x.scratch.sb3': ['.torch' ,'.sb', '.sb2', '.sb3']
+                    'application/x.scratch.sb3': ['.torch' ,'.sb', '.sb2', '.sb3', '.pmp']
                 }
             }
         ]

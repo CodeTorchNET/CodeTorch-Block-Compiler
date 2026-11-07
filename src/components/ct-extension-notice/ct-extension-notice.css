@@ -5,7 +5,7 @@
     top: 3.5rem;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 600;
+    z-index: 500;
     max-width: min(46rem, calc(100vw - 2rem));
     display: flex;
     align-items: flex-start;

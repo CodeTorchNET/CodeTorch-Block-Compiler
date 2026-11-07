@@ -34,6 +34,8 @@ let compileErrorCounter = 0;
  * @param {React.Component} WrappedComponent component to manage VM events for
  * @returns {React.Component} connected component with vm events bound to redux
  */
+const userDataFor = username => ({username, loggedIn: !!username});
+
 const vmListenerHOC = function (WrappedComponent) {
     class VMListener extends React.Component {
         constructor (props) {
@@ -83,11 +85,11 @@ const vmListenerHOC = function (WrappedComponent) {
                 document.addEventListener('keydown', this.handleKeyDown);
                 document.addEventListener('keyup', this.handleKeyUp);
             }
-            this.props.vm.postIOData('userData', {username: this.props.username});
+            this.props.vm.postIOData('userData', userDataFor(this.props.username));
         }
         componentDidUpdate (prevProps) {
             if (prevProps.username !== this.props.username) {
-                this.props.vm.postIOData('userData', {username: this.props.username});
+                this.props.vm.postIOData('userData', userDataFor(this.props.username));
             }
 
             // Re-request a targets update when the shouldUpdateTargets state changes to true

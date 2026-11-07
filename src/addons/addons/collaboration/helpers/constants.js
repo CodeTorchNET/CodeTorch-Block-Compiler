@@ -27,6 +27,11 @@ export function endRemoteApply() {
         remoteApplyDepth--;
         rewindHooks.endSuppress();
     }
+    const runtime = mutableRefs.vm && mutableRefs.vm.runtime;
+    if (remoteApplyDepth === 0 && runtime && runtime.ctPm) {
+        runtime.ctPm.markDirty();
+        runtime.emit('CT_PM_REMOTE_APPLIED');
+    }
 }
 
 export function isApplyingRemote() {

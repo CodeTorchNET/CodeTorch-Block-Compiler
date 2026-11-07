@@ -16,6 +16,8 @@ import extensionLibraryContent, {
 } from '../lib/libraries/extensions/index.jsx';
 import extensionTags from '../lib/libraries/tw-extension-tags';
 import {isExtensionAllowed, reportRefusedExtension} from '../lib/ct-extension-restrictions';
+import ctPmLibraryContent from '../lib/libraries/extensions/ct-pm.jsx';
+import {isAdvancedBlocksOffered, isExtensionsOffered} from '../lib/ct-pm-gui.js';
 
 import LibraryComponent from '../components/library/library.jsx';
 import extensionIcon from '../components/action-menu/icon--sprite.svg';
@@ -218,7 +220,17 @@ class ExtensionLibrary extends React.PureComponent {
     render () {
         let library = null;
         if (this.state.gallery || this.state.galleryError || this.state.galleryTimedOut) {
-            library = extensionLibraryContent.filter(isLibraryItemAllowed).map(toLibraryItem);
+            const advanced = isAdvancedBlocksOffered(this.props.vm);
+            library = extensionLibraryContent
+                .filter(item => !(advanced && item.extensionId === 'procedures_enable_return'))
+                .filter(isLibraryItemAllowed)
+                .map(toLibraryItem);
+            if (isExtensionsOffered(this.props.vm)) {
+                const extra = ctPmLibraryContent
+                    .filter(item => this.props.vm.extensionManager.isBuiltinExtension(item.extensionId))
+                    .filter(isLibraryItemAllowed);
+                if (extra.length) library.push('---', ...extra.map(toLibraryItem));
+            }
             library.push('---');
             if (this.state.gallery) {
                 const locale = this.props.intl.locale;

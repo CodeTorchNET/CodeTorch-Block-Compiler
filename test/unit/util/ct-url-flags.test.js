@@ -29,8 +29,16 @@ describe('ct-url-flags', () => {
                 useJIT: true,
                 minimal: false,
                 chat: true,
-                lesson: false
+                lesson: false,
+                advancedBlocks: true
             });
+        });
+
+        test('advancedBlocks=off closes Advanced blocks (policy); nothing forces them on', () => {
+            expect(flagsFor('?advancedBlocks=off').advancedBlocks).toBe(false);
+            expect(flagsFor('?advancedBlocks=false').advancedBlocks).toBe(false);
+            expect(flagsFor('?advancedBlocks=on').advancedBlocks).toBe(true);
+            expect(flagsFor('?advancedBlocks=garbage').advancedBlocks).toBe(true);
         });
 
         test('useJIT=false turns the compiler off', () => {
@@ -57,7 +65,8 @@ describe('ct-url-flags', () => {
                 useJIT: false,
                 minimal: true,
                 chat: false,
-                lesson: false
+                lesson: false,
+                advancedBlocks: true
             });
         });
 

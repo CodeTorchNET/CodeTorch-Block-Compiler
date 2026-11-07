@@ -1,5 +1,7 @@
 import TorchyBridge from '../helpers/torchyBridge.js';
 import blockDefinitions from '../helpers/blockDefinitions.js';
+import advancedDefinitions from '../helpers/advancedDefinitions.js';
+import {isAdvancedBlocksOffered} from '../../../../lib/ct-pm-gui.js';
 import {handleRawCodeChunk, registerExtensionBlocks} from '../helpers/codeChunkHandler.js';
 import helpers from '../helpers/helpers.js';
 import {
@@ -14,7 +16,8 @@ import SYSTEM_PROMPT from './systemPrompt.js';
 import {requestHeaders} from './providers.js';
 import {createSSEParser, readPayload, readCompletionObject} from './sse.js';
 
-const bridge = new TorchyBridge(blockDefinitions);
+const bridge = new TorchyBridge([...blockDefinitions, ...advancedDefinitions]);
+bridge.setAdvancedOffered(() => isAdvancedBlocksOffered(helpers.getVM()));
 
 const FIRST_BYTE_TIMEOUT_MS = 60000;
 const IDLE_TIMEOUT_MS = 90000;

@@ -102,11 +102,13 @@ describe('placeholder info', () => {
         expect(byOpcode.loop.blockType).toBe(BlockType.CONDITIONAL);
         expect(byOpcode.loop.branchCount).toBe(2);
     });
-    test('every block is a no-op; reporters report an empty string', () => {
+    test('every block is inert: commands do nothing, reporters report 0, booleans report true', () => {
         const ext = createPlaceholderExtension('thing', own, id => blocksById[id] || null);
+        const expected = {[BlockType.REPORTER]: 0, [BlockType.BOOLEAN]: true};
         for (const b of ext.getInfo().blocks) {
             const result = ext[b.func]({}, {});
-            expect(result).toBe(b.blockType === BlockType.REPORTER ? '' : undefined);
+            expect(result).toBe(Object.prototype.hasOwnProperty.call(expected, b.blockType) ?
+                expected[b.blockType] : undefined);
         }
         expect(ext.isCodeTorchPlaceholder).toBe(true);
     });

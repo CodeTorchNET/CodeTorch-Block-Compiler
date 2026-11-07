@@ -49,27 +49,31 @@ export default async function ({ addon, console }) {
 
   function addInputAfter(addInputFn, fnName) {
     return function () {
-      const sourceBlock = selectedField?.sourceBlock_;
+      let sourceBlock = selectedField?.sourceBlock_;
+      if (sourceBlock && sourceBlock.type === "argument_editor_local") sourceBlock = null;
       const proc = sourceBlock ? (sourceBlock.parentBlock_ ? sourceBlock.parentBlock_ : sourceBlock) : this;
 
       // if a label is added, scratch's code will directly append the label text to the procCode
       // We account for this with a hacky method of adding the delimiter at the end of the last label input
       if (fnName === "addLabelExternal") {
-        const lastInput = proc.inputList[proc.inputList.length - 1];
+        const signatureInputs = proc.inputList.filter((input) => !input.ctPmLocalId_);
+        const lastInput = signatureInputs[signatureInputs.length - 1];
         if (lastInput.type === Blockly.DUMMY_INPUT) {
           lastInput.fieldRow[0].setValue(lastInput.fieldRow[0].getValue() + " %l");
         }
       }
 
       proc.onChangeFn(true);
-      if (sourceBlock === null || sourceBlock === undefined || !addon.settings.get("InsertInputsAfter"))
+      const hasRows = proc.inputList.some((input) => input.type === Blockly.NEXT_STATEMENT);
+      if (sourceBlock === null || sourceBlock === undefined || (!addon.settings.get("InsertInputsAfter") && !hasRows))
         return addInputFn.call(this, ...arguments);
 
       let newPosition = getFieldInputNameAndIndex(selectedField, proc.inputList).index + 1;
 
       addInputFn.call(proc, ...arguments);
 
-      const lastInputName = proc.inputList[proc.inputList.length - 1].name;
+      const signature = proc.inputList.filter((input) => !input.ctPmLocalId_);
+      const lastInputName = signature[signature.length - 1].name;
       shiftInput(proc, lastInputName, newPosition);
     };
   }
@@ -97,6 +101,7 @@ export default async function ({ addon, console }) {
       return false;
     }
 
+    Blockly.WidgetDiv.hide(true);
     const originalPosition = procedureBlock.inputList.findIndex((input) => input.name === inputNameToShift);
     const itemToMove = procedureBlock.inputList.splice(originalPosition, 1)[0];
     procedureBlock.inputList.splice(newPosition, 0, itemToMove);
@@ -116,7 +121,7 @@ export default async function ({ addon, console }) {
     if (!input) return;
     if (input.type === Blockly.DUMMY_INPUT) {
       input.fieldRow[0].showEditor_();
-    } else if (input.type === Blockly.INPUT_VALUE) {
+    } else if (input.type === Blockly.INPUT_VALUE || input.type === Blockly.NEXT_STATEMENT) {
       const target = input.connection.targetBlock();
       target.getField("TEXT").showEditor_();
     }
@@ -138,7 +143,8 @@ export default async function ({ addon, console }) {
     procedureDeclaration.onChangeFn = modifiedUpdateDeclarationProcCode;
     procedureDeclaration.removeFieldCallback = modifiedRemoveFieldCallback;
 
-    for (const inputFn of ["addLabelExternal", "addBooleanExternal", "addStringNumberExternal"]) {
+    for (const inputFn of ["addLabelExternal", "addBooleanExternal", "addStringNumberExternal", "addBranchExternal"]) {
+      if (!procedureDeclaration[inputFn]) continue;
       if (save_original) {
         originalAddFns[inputFn] = procedureDeclaration[inputFn];
       }
@@ -154,6 +160,25 @@ export default async function ({ addon, console }) {
     for (const [inputFnName, originalFn] of Object.entries(originalAddFns)) {
       procedureDeclaration[inputFnName] = originalFn;
     }
+  }
+
+  function placeBesideField(field) {
+    const procedures = Blockly.CtPm && Blockly.CtPm.Procedures;
+    if (!procedures || !procedures.belowFirstRow(field)) return;
+    const div = Blockly.WidgetDiv.DIV;
+    const at = (el, left, half) => {
+      if (!el) return;
+      el.style.left = `calc(100% + ${left}px)`;
+      el.style.top = "50%";
+      el.style.marginTop = `-${half}px`;
+      el.style.marginLeft = "0";
+    };
+    const arrows = div.querySelectorAll(".blocklyTextShiftArrow");
+    at(arrows[0], 6, 20);
+    at(div.querySelector(".blocklyTextRemoveIcon"), 26, 12);
+    at(arrows[1], 50, 20);
+    const backdrop = div.querySelector(".ctPmControlsBackdrop");
+    if (backdrop) backdrop.style.width = "68px";
   }
 
   function getExistingProceduresDeclarationBlock() {
@@ -175,8 +200,14 @@ export default async function ({ addon, console }) {
 
     Blockly.FieldTextInputRemovable.prototype.showEditor_ = function () {
       originalShowEditor.call(this);
+      if (this.sourceBlock_ && this.sourceBlock_.type === "argument_editor_local") {
+        placeBesideField(this);
+        selectedField = this;
+        return;
+      }
       createArrow("left", () => shiftFieldCallback(this.sourceBlock_, this, "left"));
       createArrow("right", () => shiftFieldCallback(this.sourceBlock_, this, "right"));
+      placeBesideField(this);
       selectedField = this;
     };
   }

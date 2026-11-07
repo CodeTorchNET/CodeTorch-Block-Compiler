@@ -2,6 +2,7 @@ import bindAll from 'lodash.bindall';
 import debounce from 'lodash.debounce';
 import defaultsDeep from 'lodash.defaultsdeep';
 import makeToolboxXML from '../lib/make-toolbox-xml';
+import {isAdvancedBlocksOffered} from '../lib/ct-pm-gui.js';
 import PropTypes from 'prop-types';
 import React from 'react';
 import {intlShape, injectIntl, defineMessages} from 'react-intl';
@@ -134,7 +135,8 @@ class Blocks extends React.Component {
             'onWorkspaceMetricsChange',
             'setBlocks',
             'setLocale',
-            'handleEnableProcedureReturns'
+            'handleEnableProcedureReturns',
+            'handleCtPmChanged'
         ]);
         this.ScratchBlocks.prompt = this.handlePromptStart;
         this.ScratchBlocks.statusButtonCallback = this.handleConnectionModalStart;
@@ -216,7 +218,7 @@ class Blocks extends React.Component {
             });
 
             toolboxWorkspace.registerButtonCallback('OPEN_RETURN_DOCS', () => {
-                window.open('https://docs.turbowarp.org/return', '_blank');
+                window.open('https://help.codetorch.net/articles/custom-reporters', '_blank');
             });
         }
 
@@ -412,6 +414,7 @@ class Blocks extends React.Component {
         this.props.vm.addListener('MONITORS_UPDATE', this.handleMonitorsUpdate);
         this.props.vm.addListener('EXTENSION_ADDED', this.handleExtensionAdded);
         this.props.vm.addListener('BLOCKSINFO_UPDATE', this.handleBlocksInfoUpdate);
+        this.props.vm.runtime.on('CT_PM_CHANGED', this.handleCtPmChanged);
         this.props.vm.addListener('PERIPHERAL_CONNECTED', this.handleStatusButtonUpdate);
         this.props.vm.addListener('PERIPHERAL_DISCONNECTED', this.handleStatusButtonUpdate);
     }
@@ -426,6 +429,7 @@ class Blocks extends React.Component {
         this.props.vm.removeListener('MONITORS_UPDATE', this.handleMonitorsUpdate);
         this.props.vm.removeListener('EXTENSION_ADDED', this.handleExtensionAdded);
         this.props.vm.removeListener('BLOCKSINFO_UPDATE', this.handleBlocksInfoUpdate);
+        this.props.vm.runtime.off('CT_PM_CHANGED', this.handleCtPmChanged);
         this.props.vm.removeListener('PERIPHERAL_CONNECTED', this.handleStatusButtonUpdate);
         this.props.vm.removeListener('PERIPHERAL_DISCONNECTED', this.handleStatusButtonUpdate);
     }
@@ -500,7 +504,8 @@ class Blocks extends React.Component {
                 targetCostumes[targetCostumes.length - 1].name,
                 stageCostumes[stageCostumes.length - 1].name,
                 targetSounds.length > 0 ? targetSounds[targetSounds.length - 1].name : '',
-                this.props.theme.getBlockColors()
+                this.props.theme.getBlockColors(),
+                isAdvancedBlocksOffered(this.props.vm)
             );
             if (xml) {
                 const allVariables = Object.assign({}, stage.variables, target.variables);
@@ -516,6 +521,7 @@ class Blocks extends React.Component {
         }
     }
     onWorkspaceUpdate (data) {
+        this.applyCtPmWorkspaceOptions();
         // When we change sprites, update the toolbox to have the new sprite's blocks
         const toolboxXML = this.getToolboxXML();
         if (toolboxXML) {
@@ -631,6 +637,26 @@ class Blocks extends React.Component {
         defineBlocks(categoryInfo.blocks);
 
         // Update the toolbox with new blocks if possible
+        const toolboxXML = this.getToolboxXML();
+        if (toolboxXML) {
+            this.props.updateToolboxState(toolboxXML);
+        }
+    }
+    applyCtPmWorkspaceOptions () {
+        const ctPm = this.props.vm.runtime.ctPm;
+        if (!ctPm || !this.ScratchBlocks.CtPm || !this.workspace) return;
+        const offered = isAdvancedBlocksOffered(this.props.vm);
+        this.ScratchBlocks.CtPm.setWorkspaceOptions(this.workspace, {
+            advanced: offered,
+            loose: ctPm.effective.loose,
+            anyType: ctPm.effective.anyType
+        });
+        if (offered && !this.workspace.procedureReturnsEnabled) {
+            this.workspace.enableProcedureReturns();
+        }
+    }
+    handleCtPmChanged () {
+        this.applyCtPmWorkspaceOptions();
         const toolboxXML = this.getToolboxXML();
         if (toolboxXML) {
             this.props.updateToolboxState(toolboxXML);

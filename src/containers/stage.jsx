@@ -1,3 +1,4 @@
+import {createTouchForwarder} from '../lib/ct-pm-touch.js';
 import bindAll from 'lodash.bindall';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -147,6 +148,11 @@ class Stage extends React.Component {
         document.addEventListener('touchend', this.onMouseUp);
         canvas.addEventListener('mousedown', this.onMouseDown);
         canvas.addEventListener('touchstart', this.onMouseDown);
+        this.ctPmTouch = this.ctPmTouch || createTouchForwarder(() => this.props.vm, () => this.rect);
+        canvas.addEventListener('touchstart', this.ctPmTouch.start);
+        document.addEventListener('touchmove', this.ctPmTouch.move);
+        document.addEventListener('touchend', this.ctPmTouch.end);
+        document.addEventListener('touchcancel', this.ctPmTouch.end);
         canvas.addEventListener('wheel', this.onWheel);
         canvas.addEventListener('contextmenu', this.onContextMenu);
     }
@@ -157,6 +163,12 @@ class Stage extends React.Component {
         document.removeEventListener('touchend', this.onMouseUp);
         canvas.removeEventListener('mousedown', this.onMouseDown);
         canvas.removeEventListener('touchstart', this.onMouseDown);
+        if (this.ctPmTouch) {
+            canvas.removeEventListener('touchstart', this.ctPmTouch.start);
+            document.removeEventListener('touchmove', this.ctPmTouch.move);
+            document.removeEventListener('touchend', this.ctPmTouch.end);
+            document.removeEventListener('touchcancel', this.ctPmTouch.end);
+        }
         canvas.removeEventListener('wheel', this.onWheel);
         canvas.removeEventListener('contextmenu', this.onContextMenu);
     }

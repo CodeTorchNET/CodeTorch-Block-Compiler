@@ -1,8 +1,12 @@
 import TorchyBridge from './torchyBridge.js';
 import blockDefinitions from './blockDefinitions.js';
+import advancedDefinitions from './advancedDefinitions.js';
 import GetSVG from './parser.js';
+import helpers from './helpers.js';
+import {isAdvancedBlocksOffered} from '../../../../lib/ct-pm-gui.js';
 
-const bridge = new TorchyBridge(blockDefinitions);
+const bridge = new TorchyBridge([...blockDefinitions, ...advancedDefinitions]);
+bridge.setAdvancedOffered(() => isAdvancedBlocksOffered(helpers.getVM()));
 const blockParser = new GetSVG();
 const xmlParser = new DOMParser();
 const xmlSerializer = new XMLSerializer();

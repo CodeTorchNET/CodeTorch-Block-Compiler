@@ -1,4 +1,5 @@
 import LazyScratchBlocks from './tw-lazy-scratch-blocks';
+import defineCtPmMenus from './ct-pm-blocks.js';
 
 /**
  * Connect scratch blocks with the vm
@@ -367,6 +368,8 @@ export default function (vm) {
         };
         textInput.showEditor_.ctGroupsEdit = true;
     }
+
+    defineCtPmMenus(ScratchBlocks, vm, {jsonForMenuBlock, spriteMenu});
 
     return ScratchBlocks;
 }

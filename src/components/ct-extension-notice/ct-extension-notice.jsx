@@ -16,6 +16,21 @@ const messages = defineMessages({
         defaultMessage: 'This editor can\'t load the extension {name}.',
         description: 'Banner when an extension was refused (for example one shared by a collaborator)'
     },
+    unsafe: {
+        id: 'gui.ctExtensions.unsafe',
+        defaultMessage: 'Extension {name} is known to be unsafe, so it will not run. Its blocks are shown but do nothing.',
+        description: 'Banner when a project (usually from PenguinMod) uses an extension CodeTorch never runs, e.g. one that runs arbitrary JavaScript; the project still opens'
+    },
+    unsupported: {
+        id: 'gui.ctExtensions.unsupported',
+        defaultMessage: 'This project uses {name}, which isn\'t supported yet. Its blocks are shown but do nothing.',
+        description: 'Banner when a project (usually from PenguinMod) uses an extension CodeTorch does not have; the project still opens'
+    },
+    unsafeBlocks: {
+        id: 'gui.ctExtensions.unsafeBlocks',
+        defaultMessage: 'This project uses JavaScript blocks, which are known to be unsafe, so they will not run. They are shown but do nothing.',
+        description: 'Banner when a project from PenguinMod contains its "run JavaScript" blocks; the project still opens'
+    },
     dismiss: {
         id: 'gui.ctExtensions.dismiss',
         defaultMessage: 'Dismiss',
@@ -36,6 +51,15 @@ export const noticeName = notice => {
     } catch (e) {
         return url.slice(0, 80);
     }
+};
+
+/**
+ * @param {{placeholder: boolean, reason: ?string}} notice a refusal
+ * @returns {object} which message describes it
+ */
+const noticeMessage = notice => {
+    if (notice.reason && messages[notice.reason]) return messages[notice.reason];
+    return notice.placeholder ? messages.placeholder : messages.refused;
 };
 
 class CTExtensionNotice extends React.Component {
@@ -69,7 +93,7 @@ class CTExtensionNotice extends React.Component {
                             data-placeholder={n.placeholder ? 'true' : 'false'}
                             key={n.key}
                         >
-                            {intl.formatMessage(n.placeholder ? messages.placeholder : messages.refused, {
+                            {intl.formatMessage(noticeMessage(n), {
                                 name: noticeName(n)
                             })}
                         </div>

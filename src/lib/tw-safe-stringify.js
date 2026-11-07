@@ -18,6 +18,7 @@ const circularReplacer = () => {
  */
 export const safeStringify = input => {
     if (typeof input === 'object' && input !== null) {
+        if (typeof input.customId === 'string') return String(input);
         // TODO: this will not handle -0 inside the input properly, though that is very low priority.
         return JSON.stringify(input, circularReplacer());
     }

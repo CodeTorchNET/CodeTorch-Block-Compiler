@@ -2,6 +2,7 @@ import * as constants from './constants.js';
 import {withCloudMuted} from '../../../../lib/cloud-mute.js';
 import * as Y from 'yjs';
 import * as transformSync from './transformSync.js';
+import ctPmSidecar from 'scratch-vm/src/ct-pm/sidecar';
 
 const targetNameIdCache = new Map();
 
@@ -335,6 +336,9 @@ export function serializeSpriteForYjs(target) {
         const layerOrder = target.getLayerOrder();
         if (typeof layerOrder === 'number') yMap.set('layerOrder', layerOrder);
     }
+    const sidecar = {};
+    ctPmSidecar.decorate(sidecar, target);
+    if (sidecar.ctPm) yMap.set('ctPm', JSON.stringify(sidecar.ctPm));
     return yMap;
 }
 
