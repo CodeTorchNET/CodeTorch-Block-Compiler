@@ -19,6 +19,9 @@ import {
 import {setAutoSaveTimeoutId} from '../reducers/timeout';
 import {setProjectUnchanged} from '../reducers/project-changed';
 import rewindHooks from './rewind/hooks';
+import {COPY_CHANGED, noteDraftState} from './draft';
+import {setDraftState} from '../reducers/draft';
+import {fetchProjectMeta} from './tw-project-meta-fetcher-hoc';
 import rewindController from './rewind/controller';
 import {
     LoadingStates,
@@ -158,7 +161,15 @@ const ProjectSaverHOC = function (WrappedComponent) {
         }
         updateProjectToStorage () {
             this.props.onShowSavingAlert();
-            return this.storeProject(this.props.reduxProjectId)
+            const projectId = this.props.reduxProjectId;
+            return this.storeProject(projectId)
+                .catch(err => {
+                    if (err !== COPY_CHANGED) throw err;
+                    return this.adoptRoomCopy(projectId).then(adopted => {
+                        if (!adopted) throw err;
+                        return this.storeProject(projectId);
+                    });
+                })
                 .then(() => {
                     // there's an http response object available here, but we don't need to examine
                     // it, because there are no values contained in it that we care about
@@ -167,12 +178,34 @@ const ProjectSaverHOC = function (WrappedComponent) {
                     reportLessonSaveResult({kind: 'update', ok: true, projectId: this.props.reduxProjectId});
                 })
                 .catch(err => {
+                    if (err === COPY_CHANGED) {
+                        this.props.onShowAlert('draftCopyChanged');
+                        this.props.onProjectError(err);
+                        return;
+                    }
                     // Always show the savingError alert because it gives the
                     // user the chance to download or retry the save manually.
                     this.props.onShowAlert('savingError');
                     this.props.onProjectError(err);
                     reportLessonSaveResult({kind: 'update', ok: false, error: err});
                 });
+        }
+        /**
+         * A save refused as naming the wrong copy.
+         * @param {string} projectId project being saved
+         * @returns {Promise<boolean>} whether the new copy was adopted
+         */
+        adoptRoomCopy (projectId) {
+            const room = this.props.collabRoom;
+            if (!this.props.isCollabActive || !room) return Promise.resolve(false);
+            return fetchProjectMeta(projectId, false)
+                .then(data => {
+                    if (this.props.reduxProjectId !== projectId || data.collaboratorRoom !== room) return false;
+                    noteDraftState(projectId, data.draft || null);
+                    this.props.onSetDraftState(data.draft || null);
+                    return true;
+                })
+                .catch(() => false);
         }
         createNewProjectToStorage () {
             // In a lesson the project already has its lesson title, which the server should keep.
@@ -363,6 +396,9 @@ const ProjectSaverHOC = function (WrappedComponent) {
                 onProjectError,
                 onRemixing,
                 onSetProjectUnchanged,
+                onSetDraftState,
+                isCollabActive,
+                collabRoom,
                 onSetProjectThumbnailer,
                 onSetProjectSaver,
                 onShowAlert,
@@ -419,6 +455,9 @@ const ProjectSaverHOC = function (WrappedComponent) {
         onSetProjectSaver: PropTypes.func.isRequired,
         onSetProjectThumbnailer: PropTypes.func.isRequired,
         onSetProjectUnchanged: PropTypes.func.isRequired,
+        onSetDraftState: PropTypes.func,
+        isCollabActive: PropTypes.bool,
+        collabRoom: PropTypes.string,
         onShowAlert: PropTypes.func,
         onShowCopySuccessAlert: PropTypes.func,
         onShowCreatingCopyAlert: PropTypes.func,
@@ -460,6 +499,8 @@ const ProjectSaverHOC = function (WrappedComponent) {
             loadingState: loadingState,
             locale: state.locales.locale,
             projectChanged: state.scratchGui.projectChanged,
+            isCollabActive: state.scratchGui.collaboration.isCollabActive,
+            collabRoom: state.scratchGui.collaboration.session.room,
             reduxProjectId: state.scratchGui.projectState.projectId,
             reduxProjectTitle: state.scratchGui.projectTitle,
             vm: state.scratchGui.vm,
@@ -472,6 +513,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
         onCreateProject: () => dispatch(createProject()),
         onProjectError: error => dispatch(projectError(error)),
         onSetProjectUnchanged: () => dispatch(setProjectUnchanged()),
+        onSetDraftState: draftState => dispatch(setDraftState(draftState)),
         onShowAlert: alertType => dispatch(showStandardAlert(alertType)),
         onShowCopySuccessAlert: () => showAlertWithTimeout(dispatch, 'createCopySuccess'),
         onShowRemixSuccessAlert: () => showAlertWithTimeout(dispatch, 'createRemixSuccess'),

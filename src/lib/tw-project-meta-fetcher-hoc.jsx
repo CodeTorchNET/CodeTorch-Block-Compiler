@@ -10,6 +10,8 @@ import {setProjectTitle} from '../reducers/project-title';
 import {setAuthor, setDescription} from '../reducers/tw';
 import {setCollaborationSession} from '../reducers/collaboration';
 import {setRewindMeta} from '../reducers/rewind';
+import {setDraftState} from '../reducers/draft';
+import {noteDraftState} from './draft';
 
 import storage from './storage';
 import rewindController from './rewind/controller';
@@ -126,6 +128,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 this.props.onSetAuthor('', '');
                 this.props.onSetDescription('', '');
                 const projectId = this.props.reduxProjectId;
+                noteDraftState(projectId, null);
+                this.props.onSetDraftState(null);
                 const isScratch = this.props.isScratchProject;
 
                 if (projectId === '0') {
@@ -171,6 +175,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                             });
                         } else {
                             this.props.onSetRewindMeta(data.rewind || null);
+                            noteDraftState(projectId, data.draft || null);
+                            this.props.onSetDraftState(data.draft || null);
                             storage.setCloudOTT(data?.cloudDataOTT);
                             storage.setCustomAchievements(data?.customAchievements);
                             this.props.onSetCollaborationSession({
@@ -223,6 +229,7 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
                 onSetDescription,
                 onSetProjectTitle,
                 onSetRewindMeta,
+                onSetDraftState,
                 ...props
             } = this.props;
             return (
@@ -242,7 +249,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         onSetCollaborationSession: PropTypes.func,
         onSetDescription: PropTypes.func,
         onSetProjectTitle: PropTypes.func,
-        onSetRewindMeta: PropTypes.func
+        onSetRewindMeta: PropTypes.func,
+        onSetDraftState: PropTypes.func
     };
     const mapStateToProps = state => ({
         reduxProjectId: state.scratchGui.projectState.projectId,
@@ -259,7 +267,8 @@ const TWProjectMetaFetcherHOC = function (WrappedComponent) {
         })),
         onSetProjectTitle: title => dispatch(setProjectTitle(title)),
         onSetCollaborationSession: session => dispatch(setCollaborationSession(session)),
-        onSetRewindMeta: meta => dispatch(setRewindMeta(meta))
+        onSetRewindMeta: meta => dispatch(setRewindMeta(meta)),
+        onSetDraftState: draftState => dispatch(setDraftState(draftState))
     });
     return connect(
         mapStateToProps,

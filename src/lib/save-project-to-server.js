@@ -3,6 +3,7 @@ import queryString from 'query-string';
 import xhr from 'xhr';
 import storage from '../lib/storage';
 import rewindHooks from './rewind/hooks';
+import {COPY_CHANGED, draftSaveHeaders} from './draft';
 
 /**
  * Save a project JSON to the project server.
@@ -56,12 +57,19 @@ export default function (projectId, vmState, params) {
                 method: 'put',
                 url: `${storage.CTprojectHost}/${projectId}${qs}`
             });
-            Object.assign(opts.headers, rewindHooks.saveHeaders());
+            Object.assign(opts.headers, rewindHooks.saveHeaders(), draftSaveHeaders(projectId));
         }
 
         return new Promise((resolve, reject) => {
             xhr(opts, (err, response) => {
                 if (err) return reject(err);
+                if (response.statusCode === 409 && !creatingProject) {
+                    try {
+                        if (JSON.parse(response.body).error_code === COPY_CHANGED) return reject(COPY_CHANGED);
+                    } catch (e) {
+                        // ignore
+                    }
+                }
                 if (response.statusCode !== 200) return reject(response.statusCode);
                 let body;
                 try {

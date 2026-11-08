@@ -32,6 +32,7 @@ import vmStatusReducer, {vmStatusInitialState} from './vm-status';
 import workspaceMetricsReducer, {workspaceMetricsInitialState} from './workspace-metrics';
 import collaborationReducer, {collaborationInitialState} from './collaboration';
 import rewindReducer, {rewindInitialState} from './rewind';
+import draftReducer, {draftInitialState} from './draft';
 import throttle from 'redux-throttle';
 
 import decks from '../lib/libraries/decks/index.jsx';
@@ -71,7 +72,8 @@ const guiInitialState = {
     vmStatus: vmStatusInitialState,
     workspaceMetrics: workspaceMetricsInitialState,
     collaboration: collaborationInitialState,
-    rewind: rewindInitialState
+    rewind: rewindInitialState,
+    draft: draftInitialState
 };
 
 const initPlayer = function (currentState) {
@@ -184,6 +186,7 @@ const guiReducer = combineReducers({
     vm: vmReducer,
     collaboration: collaborationReducer,
     rewind: rewindReducer,
+    draft: draftReducer,
     vmStatus: vmStatusReducer,
     workspaceMetrics: workspaceMetricsReducer
 });

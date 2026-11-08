@@ -410,6 +410,132 @@ const alerts = [
         closeButton: true,
         level: AlertLevels.WARN,
         maxDisplaySecs: 8
+    },
+    {
+        alertId: 'draftActive',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['draftActive', 'draftStarted', 'draftPublished', 'draftLimit', 'draftError', 'draftCopyChanged'],
+        content: (
+            <FormattedMessage
+                defaultMessage="You're working on a draft. Everyone else still sees the shared version until you publish it (File menu)."
+                description="Shown in the editor while the project's draft is being edited"
+                id="gui.alerts.draftActive"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    },
+    {
+        alertId: 'draftStarted',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['draftActive', 'draftStarted', 'draftPublished', 'draftLimit', 'draftError', 'draftCopyChanged'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Draft started. Your changes are saved to the draft; everyone else keeps seeing the shared version until you publish."
+                description="Shown after starting a draft of the project from the File menu"
+                id="gui.alerts.draftStarted"
+            />
+        ),
+        iconURL: successImage,
+        closeButton: true,
+        level: AlertLevels.SUCCESS,
+        maxDisplaySecs: 10
+    },
+    {
+        alertId: 'draftPublished',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['draftActive', 'draftStarted', 'draftPublished', 'draftLimit', 'draftError', 'draftCopyChanged'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Draft published. Everyone now sees this version, and your next changes go live again."
+                description="Shown after publishing the project's draft from the File menu"
+                id="gui.alerts.draftPublished"
+            />
+        ),
+        iconURL: successImage,
+        closeButton: true,
+        level: AlertLevels.SUCCESS,
+        maxDisplaySecs: 10
+    },
+    {
+        alertId: 'draftLimit',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['draftActive', 'draftStarted', 'draftPublished', 'draftLimit', 'draftError', 'draftCopyChanged'],
+        content: (
+            <FormattedMessage
+                defaultMessage="You can have up to 5 drafts at a time. Publish or discard one of them first, or get unlimited drafts with Pro. {proLink}"
+                description="Shown when starting a draft but the account already has the most drafts it may have"
+                id="gui.alerts.draftLimit"
+                values={{
+                    proLink: TRUSTED_IFRAME_HOST ? (
+                        <a
+                            href={`${TRUSTED_IFRAME_HOST}/premium`}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                        >
+                            <FormattedMessage
+                                defaultMessage="Get Pro"
+                                description="Link to the Pro plan from the draft limit alert"
+                                id="gui.alerts.draftLimitLink"
+                            />
+                        </a>
+                    ) : null
+                }}
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN,
+        maxDisplaySecs: 15
+    },
+    {
+        alertId: 'draftError',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['draftActive', 'draftStarted', 'draftPublished', 'draftLimit', 'draftError', 'draftCopyChanged'],
+        content: (
+            <FormattedMessage
+                defaultMessage="That didn't work. Please try again."
+                description="Shown when starting, publishing or discarding the project's draft failed"
+                id="gui.alerts.draftError"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN,
+        maxDisplaySecs: 8
+    },
+    {
+        alertId: 'draftCopyChanged',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['draftActive', 'draftStarted', 'draftPublished', 'draftLimit', 'draftError', 'draftCopyChanged',
+            'createSuccess', 'creating', 'createCopySuccess', 'creatingCopy', 'createRemixSuccess', 'creatingRemix',
+            'saveSuccess', 'saving'],
+        content: (
+            <FormattedMessage
+                defaultMessage="This project's draft was started, published or discarded since you opened it, so your latest changes weren't saved. {reload}"
+                description="Shown when a save is refused because the project switched between its draft and its shared version"
+                id="gui.alerts.draftCopyChanged"
+                values={{
+                    reload: (
+                        <a
+                            href="#"
+                            // eslint-disable-next-line react/jsx-no-bind
+                            onClick={e => {
+                                e.preventDefault();
+                                location.reload();
+                            }}
+                        >
+                            <FormattedMessage
+                                defaultMessage="Reload"
+                                description="Link that reloads the editor after its draft changed"
+                                id="gui.alerts.draftCopyChangedReload"
+                            />
+                        </a>
+                    )
+                }}
+            />
+        ),
+        showDownload: true,
+        closeButton: true,
+        level: AlertLevels.WARN
     }
 ];
 

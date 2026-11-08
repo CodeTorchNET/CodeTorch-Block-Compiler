@@ -100,10 +100,14 @@ import sharedMessages from '../../lib/shared-messages';
 
 import SeeInsideButton from './tw-see-inside.jsx';
 import {APP_NAME} from '../../lib/brand.js';
-import {showAlertWithTimeout, showStandardAlert} from '../../reducers/alerts';
+import {closeAlertWithId, showAlertWithTimeout, showStandardAlert} from '../../reducers/alerts';
 import {openRewind, setRewindMeta} from '../../reducers/rewind';
 import {enableFreeRewind} from '../../lib/rewind/free';
 import rewindMessages from '../rewind-viewer/messages';
+import {setDraftState} from '../../reducers/draft';
+import {setProjectUnchanged} from '../../reducers/project-changed';
+import {discardDraft, publishDraft, startDraft} from '../../lib/draft';
+import draftMessages from '../draft/messages';
 
 const isTorchyEnabled = SettingsStore.getAddonEnabled('ai-integration');
 
@@ -214,6 +218,9 @@ class MenuBar extends React.Component {
             'handleClickRestorePoints',
             'handleClickRewind',
             'handleClickEnableRewind',
+            'handleClickStartDraft',
+            'handleClickPublishDraft',
+            'handleClickDiscardDraft',
             'handleClickSeeCommunity',
             'handleClickShare',
             'handleClickTorchy',
@@ -226,6 +233,22 @@ class MenuBar extends React.Component {
     }
     componentDidMount () {
         document.addEventListener('keydown', this.handleKeyPress);
+    }
+    componentDidUpdate (prevProps) {
+        const draft = this.props.draftState;
+        const wasActive = !!(prevProps.draftState && prevProps.draftState.active);
+        if (draft && draft.active && !wasActive && !this.props.isPlayerOnly) {
+            if (this.draftJustStarted) {
+                this.draftJustStarted = false;
+            } else {
+                this.props.onShowAlert('draftActive');
+            }
+        }
+        if (wasActive && !(draft && draft.active)) this.props.onCloseAlert('draftActive');
+        if (this.publishAfterSave && prevProps.isUpdating && !this.props.isUpdating) {
+            this.publishAfterSave = false;
+            if (!this.props.projectChanged) this.publishDraftNow();
+        }
     }
     componentWillUnmount () {
         document.removeEventListener('keydown', this.handleKeyPress);
@@ -294,6 +317,55 @@ class MenuBar extends React.Component {
                 }
             })
             .catch(() => this.props.onShowAlert('rewindEnableError'));
+    }
+    handleClickStartDraft () {
+        this.props.onRequestCloseFile();
+        const draft = this.props.draftState;
+        if (draft && draft.unavailable === 'limit') {
+            this.props.onShowAlert('draftLimit');
+            return;
+        }
+        const projectId = this.props.projectId;
+        startDraft(projectId)
+            .then(state => {
+                if (this.props.projectId !== projectId) return;
+                this.draftJustStarted = true;
+                this.props.onSetDraftState(state);
+                this.props.onShowAlert('draftStarted');
+            })
+            .catch(err => this.props.onShowAlert(err.code === 'draft_limit' ? 'draftLimit' : 'draftError'));
+    }
+    handleClickPublishDraft () {
+        this.props.onRequestCloseFile();
+        // eslint-disable-next-line no-alert
+        if (!confirm(this.props.intl.formatMessage(draftMessages.confirmPublish))) return;
+        if (this.props.projectChanged && this.props.canSave) {
+            this.publishAfterSave = true;
+            this.props.autoUpdateProject();
+        } else {
+            this.publishDraftNow();
+        }
+    }
+    publishDraftNow () {
+        const projectId = this.props.projectId;
+        publishDraft(projectId)
+            .then(state => {
+                if (this.props.projectId !== projectId) return;
+                this.props.onSetDraftState(state);
+                this.props.onShowAlert('draftPublished');
+            })
+            .catch(() => this.props.onShowAlert('draftError'));
+    }
+    handleClickDiscardDraft () {
+        this.props.onRequestCloseFile();
+        // eslint-disable-next-line no-alert
+        if (!confirm(this.props.intl.formatMessage(draftMessages.confirmDiscard))) return;
+        discardDraft(this.props.projectId)
+            .then(() => {
+                this.props.onSetProjectUnchanged();
+                location.reload();
+            })
+            .catch(() => this.props.onShowAlert('draftError'));
     }
     handleClickSeeCommunity (waitForUpdate) {
         if (this.props.shouldSaveBeforeTransition()) {
@@ -469,6 +541,9 @@ class MenuBar extends React.Component {
     }
     render () {
         const canSaveByHand = this.props.canSave && !this.props.isCollabActive;
+        const draft = this.props.draftState;
+        const draftMenu = draft && draft.can_manage && !this.props.isPlayerOnly &&
+            (draft.active || draft.can_start || draft.unavailable === 'limit') ? draft : null;
         const saveNowMessage = (
             <FormattedMessage
                 defaultMessage="Save now"
@@ -676,6 +751,34 @@ class MenuBar extends React.Component {
                                                     onClick={this.handleClickEnableRewind}
                                                 >
                                                     {this.props.intl.formatMessage(rewindMessages.enableMenuItem)}
+                                                </MenuItem>
+                                            )}
+                                        </MenuSection>
+                                    )}
+                                    {draftMenu && (
+                                        <MenuSection>
+                                            {!draftMenu.active && (
+                                                <MenuItem
+                                                    isRtl={this.props.isRtl}
+                                                    onClick={this.handleClickStartDraft}
+                                                >
+                                                    {this.props.intl.formatMessage(draftMessages.startMenuItem)}
+                                                </MenuItem>
+                                            )}
+                                            {draftMenu.active && (
+                                                <MenuItem
+                                                    isRtl={this.props.isRtl}
+                                                    onClick={this.handleClickPublishDraft}
+                                                >
+                                                    {this.props.intl.formatMessage(draftMessages.publishMenuItem)}
+                                                </MenuItem>
+                                            )}
+                                            {draftMenu.active && (
+                                                <MenuItem
+                                                    isRtl={this.props.isRtl}
+                                                    onClick={this.handleClickDiscardDraft}
+                                                >
+                                                    {this.props.intl.formatMessage(draftMessages.discardMenuItem)}
                                                 </MenuItem>
                                             )}
                                         </MenuSection>
@@ -981,6 +1084,16 @@ class MenuBar extends React.Component {
 }
 
 MenuBar.propTypes = {
+    draftState: PropTypes.shape({
+        active: PropTypes.bool,
+        can_manage: PropTypes.bool,
+        can_start: PropTypes.bool,
+        unavailable: PropTypes.string
+    }),
+    projectChanged: PropTypes.bool,
+    onSetDraftState: PropTypes.func,
+    onSetProjectUnchanged: PropTypes.func,
+    onCloseAlert: PropTypes.func,
     canViewRewind: PropTypes.bool,
     canEnableRewind: PropTypes.bool,
     onSetRewindMeta: PropTypes.func,
@@ -1097,6 +1210,8 @@ const mapStateToProps = (state, ownProps) => {
         isUpdating: getIsUpdating(loadingState),
         isShowingProject: getIsShowingProject(loadingState),
         isCollabActive: state.scratchGui.collaboration.isCollabActive,
+        draftState: state.scratchGui.draft ? state.scratchGui.draft.state : null,
+        projectChanged: state.scratchGui.projectChanged,
         canViewRewind: !!(state.scratchGui.rewind && state.scratchGui.rewind.meta &&
             state.scratchGui.rewind.meta.can_view),
         canEnableRewind: !!(state.scratchGui.rewind && state.scratchGui.rewind.meta &&
@@ -1140,6 +1255,9 @@ const mapDispatchToProps = dispatch => ({
     onClickRestorePoints: () => dispatch(openRestorePointModal()),
     onClickRewind: () => dispatch(openRewind()),
     onSetRewindMeta: meta => dispatch(setRewindMeta(meta)),
+    onSetDraftState: draftState => dispatch(setDraftState(draftState)),
+    onCloseAlert: alertId => dispatch(closeAlertWithId(alertId)),
+    onSetProjectUnchanged: () => dispatch(setProjectUnchanged()),
     onShowAlert: alertId => showAlertWithTimeout(dispatch, alertId),
     onClickSettings: () => dispatch(openSettingsMenu()),
     onClickSettingsModal: () => {
