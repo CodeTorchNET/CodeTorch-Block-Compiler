@@ -28,6 +28,10 @@ class ProjectWatcher extends React.Component {
     }
     componentDidUpdate (prevProps) {
         if (this.state.waiting && this.props.isShowingWithId && !prevProps.isShowingWithId) {
+            if (this.props.projectChanged) {
+                this.setState({waiting: false}); // eslint-disable-line react/no-did-update-set-state
+                return;
+            }
             this.fulfill();
         }
     }
@@ -56,7 +60,8 @@ class ProjectWatcher extends React.Component {
 ProjectWatcher.propTypes = {
     children: PropTypes.func,
     isShowingWithId: PropTypes.bool,
-    onDoneUpdating: PropTypes.func
+    onDoneUpdating: PropTypes.func,
+    projectChanged: PropTypes.bool
 };
 
 ProjectWatcher.defaultProps = {
@@ -66,7 +71,8 @@ ProjectWatcher.defaultProps = {
 const mapStateToProps = state => {
     const loadingState = state.scratchGui.projectState.loadingState;
     return {
-        isShowingWithId: getIsShowingWithId(loadingState)
+        isShowingWithId: getIsShowingWithId(loadingState),
+        projectChanged: state.scratchGui.projectChanged
     };
 };
 

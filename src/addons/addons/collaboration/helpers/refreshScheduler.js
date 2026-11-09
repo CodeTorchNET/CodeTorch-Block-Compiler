@@ -160,6 +160,22 @@ export function queueToolboxRefresh() {
     arm();
 }
 
+function refreshPalette() {
+    const workspace = getWorkspace();
+    if (!workspace || workspace.currentGesture_) return;
+    const toolbox = workspace.toolbox_;
+    if (!toolbox || !toolbox.flyout_ || typeof toolbox.refreshSelection !== 'function') return;
+    const categoryId = toolbox.getSelectedCategoryId();
+    const offset = toolbox.getCategoryScrollOffset();
+    toolbox.refreshSelection();
+    const position = toolbox.getCategoryPositionById(categoryId);
+    if (offset < toolbox.getCategoryLengthById(categoryId)) {
+        toolbox.setFlyoutScrollPos(position + offset);
+    } else {
+        toolbox.setFlyoutScrollPos(position);
+    }
+}
+
 function flush() {
     flushTimer = null;
     const vm = constants.mutableRefs.vm;
@@ -250,9 +266,7 @@ function flush() {
             }
         }
 
-        if (doToolbox) {
-            getWorkspace()?.refreshToolboxSelection_();
-        }
+        if (doToolbox) refreshPalette();
     } finally {
         constants.endRemoteApply();
         Blockly.Events.setGroup(previousGroup || false);

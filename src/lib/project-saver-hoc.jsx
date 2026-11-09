@@ -57,8 +57,10 @@ const ProjectSaverHOC = function (WrappedComponent) {
             bindAll(this, [
                 'getProjectThumbnail',
                 'leavePageConfirm',
-                'tryToAutoSave'
+                'tryToAutoSave',
+                'countChange'
             ]);
+            this.changeCount = 0;
         }
         componentWillMount () {
             if (typeof window === 'object') {
@@ -73,6 +75,9 @@ const ProjectSaverHOC = function (WrappedComponent) {
             this.props.onSetProjectThumbnailer(this.getProjectThumbnail);
             this.props.onSetProjectSaver(this.tryToAutoSave);
         }
+        componentDidMount () {
+            this.props.vm.on('PROJECT_CHANGED', this.countChange);
+        }
         componentDidUpdate (prevProps) {
             if (!this.props.isAnyCreatingNewState && prevProps.isAnyCreatingNewState) {
                 this.reportTelemetryEvent('projectWasCreated');
@@ -86,6 +91,9 @@ const ProjectSaverHOC = function (WrappedComponent) {
             }
             if (this.props.isUpdating && !prevProps.isUpdating) {
                 this.updateProjectToStorage();
+            }
+            if (!this.props.isUpdating && prevProps.isUpdating && this.props.projectChanged) {
+                this.scheduleAutoSave();
             }
             if (this.props.isCreatingNew && !prevProps.isCreatingNew) {
                 this.createNewProjectToStorage();
@@ -121,6 +129,7 @@ const ProjectSaverHOC = function (WrappedComponent) {
             }
         }
         componentWillUnmount () {
+            this.props.vm.off('PROJECT_CHANGED', this.countChange);
             this.clearAutoSaveTimeout();
             // Cant unset the beforeunload because it might no longer belong to this component
             // i.e. if another of this component has been mounted before this one gets unmounted
@@ -129,6 +138,9 @@ const ProjectSaverHOC = function (WrappedComponent) {
             // Remove project thumbnailer function since the components are unmounting
             this.props.onSetProjectThumbnailer(null);
             this.props.onSetProjectSaver(null);
+        }
+        countChange () {
+            this.changeCount++;
         }
         leavePageConfirm (e) {
             if (this.props.projectChanged) {
@@ -293,7 +305,14 @@ const ProjectSaverHOC = function (WrappedComponent) {
             // while in the process of saving a project (e.g. the
             // serialized project refers to a newer asset than what
             // we just finished saving).
-            const savedVMState = this.props.vm.toJSON();
+            let savedVMState;
+            try {
+                savedVMState = this.props.vm.toJSON();
+            } catch (err) {
+                log.error(err);
+                return Promise.reject(err);
+            }
+            const changesAtSnapshot = this.changeCount;
             return Promise.all(this.props.vm.assets
                 .filter(asset => !asset.clean)
                 .map(
@@ -314,7 +333,9 @@ const ProjectSaverHOC = function (WrappedComponent) {
             )
                 .then(() => this.props.onUpdateProjectData(projectId, savedVMState, requestParams))
                 .then(response => {
-                    this.props.onSetProjectUnchanged();
+                    if (this.changeCount === changesAtSnapshot) {
+                        this.props.onSetProjectUnchanged();
+                    }
                     const id = response.id.toString();
                     rewindHooks.afterSave({projectId: id, revision: response.contentRevision});
                     if (id && this.props.onUpdateProjectThumbnail) {

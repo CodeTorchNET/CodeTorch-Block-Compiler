@@ -336,6 +336,21 @@ const alerts = [
         level: AlertLevels.WARN
     },
     {
+        alertId: 'extensionLoadFailed',
+        alertType: AlertTypes.STANDARD,
+        clearList: ['extensionLoadFailed'],
+        content: (
+            <FormattedMessage
+                // eslint-disable-next-line max-len
+                defaultMessage="An extension this project uses could not be loaded, so its blocks won't run for now. They are kept in the project and will work again once the extension loads."
+                description="Shown when a project's extension failed to load and its blocks were kept as placeholders."
+                id="gui.alerts.extensionLoadFailed"
+            />
+        ),
+        closeButton: true,
+        level: AlertLevels.WARN
+    },
+    {
         alertId: 'TitleChanged',
         alertType: AlertTypes.INLINE,
         clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess',

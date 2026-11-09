@@ -13,11 +13,13 @@ export default function (Input) {
             super(props);
             bindAll(this, [
                 'handleChange',
+                'handleFocus',
                 'handleKeyPress',
                 'handleFlush'
             ]);
             this.state = {
-                value: null
+                value: null,
+                edited: false
             };
         }
         handleKeyPress (e) {
@@ -29,13 +31,19 @@ export default function (Input) {
         handleFlush () {
             const isNumeric = typeof this.props.value === 'number';
             const validatesNumeric = isNumeric ? !isNaN(this.state.value) : true;
-            if (this.state.value !== null && validatesNumeric) {
+            if (this.state.value !== null && this.state.edited && validatesNumeric) {
                 this.props.onSubmit(isNumeric ? Number(this.state.value) : this.state.value);
             }
-            this.setState({value: null});
+            this.setState({value: null, edited: false});
+        }
+        handleFocus (e) {
+            if (this.state.value === null && typeof this.props.value !== 'undefined') {
+                this.setState({value: this.props.value, edited: false});
+            }
+            if (this.props.onFocus) this.props.onFocus(e);
         }
         handleChange (e) {
-            this.setState({value: e.target.value});
+            this.setState({value: e.target.value, edited: true});
         }
         render () {
             const bufferedValue = this.state.value === null ? this.props.value : this.state.value;
@@ -45,6 +53,7 @@ export default function (Input) {
                     value={bufferedValue}
                     onBlur={this.handleFlush}
                     onChange={this.handleChange}
+                    onFocus={this.handleFocus}
                     onKeyPress={this.handleKeyPress}
                 />
             );
@@ -52,6 +61,7 @@ export default function (Input) {
     }
 
     BufferedInput.propTypes = {
+        onFocus: PropTypes.func,
         onSubmit: PropTypes.func.isRequired,
         value: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     };

@@ -801,6 +801,74 @@ export function stagesDescribed() {
     return stages;
 }
 
+export function dedupeSpriteOrder() {
+    const sharedSprites = constants.mutableRefs.sharedSprites;
+    const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
+    if (!sharedSprites || !sharedSpriteData) return 0;
+    const ids = sharedSprites.toArray();
+    const seen = new Set();
+    const doomed = [];
+    ids.forEach((id, index) => {
+        if (seen.has(id) || !sharedSpriteData.has(id)) doomed.push(index);
+        seen.add(id);
+    });
+    for (let i = doomed.length - 1; i >= 0; i--) sharedSprites.delete(doomed[i], 1);
+    return doomed.length;
+}
+
+function longestIncreasing(seq) {
+    const tails = [];
+    const prev = new Array(seq.length).fill(-1);
+    seq.forEach((value, i) => {
+        let lo = 0;
+        let hi = tails.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (seq[tails[mid]] < value) lo = mid + 1;
+            else hi = mid;
+        }
+        if (lo > 0) prev[i] = tails[lo - 1];
+        tails[lo] = i;
+    });
+    const out = new Set();
+    for (let i = tails.length ? tails[tails.length - 1] : -1; i >= 0; i = prev[i]) out.add(i);
+    return out;
+}
+
+export function publishSpriteOrder() {
+    const vm = constants.mutableRefs.vm;
+    const ydoc = constants.mutableRefs.ydoc;
+    const sharedSprites = constants.mutableRefs.sharedSprites;
+    if (!vm || !ydoc || !sharedSprites) return false;
+    let moved = false;
+    ydoc.transact(() => {
+        dedupeSpriteOrder();
+        const roomSet = new Set(sharedSprites.toArray());
+        const local = vm.runtime.targets
+            .filter(t => t.isOriginal && roomSet.has(t.id))
+            .map(t => t.id)
+            .filter((id, i, all) => all.indexOf(id) === i);
+        const localSet = new Set(local);
+        const relevant = sharedSprites.toArray().filter(id => localSet.has(id));
+        if (relevant.length === local.length && relevant.every((id, i) => id === local[i])) return;
+
+        const position = new Map(relevant.map((id, i) => [id, i]));
+        const keep = longestIncreasing(local.map(id => position.get(id)));
+        local.forEach((id, i) => {
+            if (keep.has(i)) return;
+            let ids = sharedSprites.toArray();
+            for (let at = ids.indexOf(id); at !== -1; at = ids.indexOf(id)) {
+                sharedSprites.delete(at, 1);
+                ids = sharedSprites.toArray();
+            }
+            const insertAt = i === 0 ? 0 : ids.indexOf(local[i - 1]) + 1;
+            sharedSprites.insert(insertAt, [id]);
+            moved = true;
+        });
+    }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+    return moved;
+}
+
 export function remapTargetIdsFromYjs() {
     const vm = constants.mutableRefs.vm;
     const sharedSprites = constants.mutableRefs.sharedSprites;

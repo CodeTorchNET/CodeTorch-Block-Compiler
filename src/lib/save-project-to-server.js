@@ -1,9 +1,26 @@
 import {postMessageToParent} from './ct-parent-message';
+import {requestCaptchaToken} from './ct-captcha-bridge';
 import queryString from 'query-string';
 import xhr from 'xhr';
 import storage from '../lib/storage';
 import rewindHooks from './rewind/hooks';
 import {COPY_CHANGED, draftSaveHeaders} from './draft';
+
+/**
+ * Whether the API refused the save until a captcha is solved.
+ * @param {object} response the xhr response
+ * @returns {boolean} true for a captcha_required refusal
+ */
+const needsCaptcha = response => {
+    if (response.statusCode !== 400) return false;
+    try {
+        const body = JSON.parse(response.body);
+        const action = (body && body.details && body.details.action) || (body && body.action);
+        return action === 'captcha_required';
+    } catch (e) {
+        return false;
+    }
+};
 
 /**
  * Save a project JSON to the project server.
@@ -25,7 +42,8 @@ export default function (projectId, vmState, params) {
         headers: {
             'Content-Type': 'application/json'
         },
-        withCredentials: true
+        withCredentials: true,
+        timeout: 120000
     };
     const creatingProject = projectId === null || typeof projectId === 'undefined';
     const queryParams = {};
@@ -60,37 +78,44 @@ export default function (projectId, vmState, params) {
             Object.assign(opts.headers, rewindHooks.saveHeaders(), draftSaveHeaders(projectId));
         }
 
-        return new Promise((resolve, reject) => {
-            xhr(opts, (err, response) => {
-                if (err) return reject(err);
+        const send = () => new Promise((resolve, reject) => {
+            xhr(opts, (err, response) => (err ? reject(err) : resolve(response)));
+        });
+
+        return send()
+            .then(response => {
+                if (!needsCaptcha(response)) return response;
+                return requestCaptchaToken().then(captchaToken => {
+                    opts.headers['X-Hcaptcha-Token'] = captchaToken;
+                    return send();
+                }, () => response);
+            })
+            .then(response => {
                 if (response.statusCode === 409 && !creatingProject) {
+                    let changed = false;
                     try {
-                        if (JSON.parse(response.body).error_code === COPY_CHANGED) return reject(COPY_CHANGED);
+                        changed = JSON.parse(response.body).error_code === COPY_CHANGED;
                     } catch (e) {
                         // ignore
                     }
+                    if (changed) throw COPY_CHANGED;
                 }
-                if (response.statusCode !== 200) return reject(response.statusCode);
-                let body;
-                try {
+                if (response.statusCode !== 200) throw response.statusCode;
                 // Since we didn't set json: true, we have to parse manually
-                    body = JSON.parse(response.body);
-
-                    if (queryParams.is_remix){
-                    // eslint-disable-next-line max-len
-                        postMessageToParent({type: 'block-compiler-action', action: 'createdRemix', remixId: body['content-name'], remixTitle: body['content-title'], originalId: queryParams.original_id});
-                    }
-                } catch (e) {
-                    return reject(e);
+                const body = JSON.parse(response.body);
+                if (queryParams.is_remix) {
+                    postMessageToParent({
+                        type: 'block-compiler-action',
+                        action: 'createdRemix',
+                        remixId: body['content-name'],
+                        remixTitle: body['content-title'],
+                        originalId: queryParams.original_id
+                    });
                 }
-                body.id = projectId;
+                body.id = creatingProject ? body['content-name'] : projectId;
                 const revision = response.headers && Number(response.headers['x-content-revision']);
                 if (Number.isFinite(revision)) body.contentRevision = revision;
-                if (creatingProject) {
-                    body.id = body['content-name'];
-                }
-                resolve(body);
+                return body;
             });
-        });
     });
 }

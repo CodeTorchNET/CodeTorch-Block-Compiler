@@ -14,6 +14,7 @@ import * as OH from './helpers/observeHandlers.js';
 import * as scheduler from './helpers/refreshScheduler.js';
 import * as recorder from './helpers/recorder.js';
 import * as session from './helpers/session.js';
+import * as fontSync from './helpers/fontSync.js';
 import * as collabSnapshot from '../../../lib/collab-snapshot.js';
 import rewindHooks from '../../../lib/rewind/hooks.js';
 import {isCursorChatEnabled} from '../../../lib/ct-url-flags.js';
@@ -114,9 +115,11 @@ function attachYjsProvider() {
         let hasSynced = false;
         let joinedGeneration = null;
         const pendingSpritePublishes = new Set();
+        const unpublishedSprites = new Set();
         const cancelPendingSpritePublishes = () => {
             pendingSpritePublishes.forEach(id => clearTimeout(id));
             pendingSpritePublishes.clear();
+            unpublishedSprites.clear();
         };
         const snapshot = collabSnapshot.getSnapshot();
         if (snapshot && snapshot.update && snapshot.update.length > 0) {
@@ -174,6 +177,10 @@ function attachYjsProvider() {
             const sharedSpriteData = constants.mutableRefs.sharedSpriteData;
             if (describedTwice('sprite list')) return;
 
+            constants.mutableRefs.ydoc.transact(() => {
+                helper.dedupeSpriteOrder();
+            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+
             const remoteIds = [...new Set(constants.mutableRefs.sharedSprites.toArray())];
             const remoteIdSet = new Set(remoteIds);
 
@@ -219,7 +226,8 @@ function attachYjsProvider() {
 
                 const idsToDelete = [...new Set(
                     runtime.targets
-                        .filter(t => t.isOriginal && !t.isStage && !remoteIdSet.has(t.id))
+                        .filter(t => t.isOriginal && !t.isStage && !remoteIdSet.has(t.id) &&
+                            !unpublishedSprites.has(t.id))
                         .map(t => t.id)
                 )];
                 idsToDelete.forEach(targetId => {
@@ -237,6 +245,9 @@ function attachYjsProvider() {
                     if (t && !newOrder.includes(t)) newOrder.push(t);
                 });
 
+                runtime.targets.forEach(t => {
+                    if (t.isOriginal && unpublishedSprites.has(t.id) && !newOrder.includes(t)) newOrder.push(t);
+                });
                 runtime.targets.forEach(t => {
                     if (!t.isOriginal) newOrder.push(t);
                 });
@@ -445,7 +456,6 @@ function attachYjsProvider() {
                 events.forEach(event => {
                     OH.sharedMonitors(event);
                 });
-                scheduler.queueToolboxRefresh();
             } catch (e) {
                 console.warn('[collaboration] monitor sync failed', e);
             } finally {
@@ -768,24 +778,20 @@ function attachYjsProvider() {
             }
         };
 
-        const handleTargetsIndexChanged = (data) => {
+        const handleTargetsIndexChanged = () => {
             if (constants.isApplyingRemote()) return;
             if (constants.mutableRefs.isInitialRoomSync) return;
-
-            constants.mutableRefs.ydoc.transact(() => {
-                const sharedSprites = constants.mutableRefs.sharedSprites;
-                const { id, currentIndex } = data[0];
-
-                const oldIndex = sharedSprites.toArray().indexOf(id);
-                if (oldIndex !== -1 && oldIndex !== currentIndex) {
-                    sharedSprites.delete(oldIndex, 1);
-                    sharedSprites.insert(Math.min(currentIndex, sharedSprites.length), [id]);
-                }
-            }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+            helper.publishSpriteOrder();
         };
 
         const handleAddSprite = () => {
             if (constants.mutableRefs.isInitialRoomSync) return;
+            constants.mutableRefs.vm.runtime.targets.forEach(target => {
+                if (target.isOriginal && !target.isStage &&
+                    !constants.mutableRefs.sharedSpriteData.has(target.id)) {
+                    unpublishedSprites.add(target.id);
+                }
+            });
             const publishTimer = setTimeout(async () => {
                 pendingSpritePublishes.delete(publishTimer);
                 if (constants.mutableRefs.isInitialRoomSync) return;
@@ -817,6 +823,11 @@ function attachYjsProvider() {
                         }
                     });
                 }, constants.LOCAL_EVENT_SYNC_ORIGIN);
+                unpublishedSprites.forEach(id => {
+                    if (!runtime.getTargetById(id) || constants.mutableRefs.sharedSpriteData.has(id)) {
+                        unpublishedSprites.delete(id);
+                    }
+                });
 
                 helper.reconcileExtensionsToYjs();
             }, 100);
@@ -827,8 +838,11 @@ function attachYjsProvider() {
             if (constants.mutableRefs.isInitialRoomSync) return;
             constants.mutableRefs.ydoc.transact(() => {
                 const sharedSprites = constants.mutableRefs.sharedSprites;
-                const orderIndex = sharedSprites.toArray().indexOf(targetId);
-                if (orderIndex !== -1) sharedSprites.delete(orderIndex, 1);
+                unpublishedSprites.delete(targetId);
+                for (let at = sharedSprites.toArray().indexOf(targetId); at !== -1;
+                    at = sharedSprites.toArray().indexOf(targetId)) {
+                    sharedSprites.delete(at, 1);
+                }
                 if (constants.mutableRefs.sharedSpriteData.has(targetId)) {
                     constants.mutableRefs.sharedSpriteData.delete(targetId);
                 }
@@ -934,6 +948,7 @@ function attachYjsProvider() {
             constants.mutableRefs.isInitialRoomSync = false;
             rewindHooks.roomJoined({id: constants.mutableRefs.roomUUID, generation: joinedGeneration});
             helper.reconcileExtensionsToYjs();
+            fontSync.start();
 
             scheduler.queueFullRefresh();
             setTimeout(() => {
@@ -1438,6 +1453,7 @@ function attachYjsProvider() {
         }
 
         const cleanup = () => {
+            fontSync.stop();
             rewindHooks.roomLeft();
 
             costumeArtSync.flushPendingMints();

@@ -220,7 +220,13 @@ export default async function ({ addon, console, msg }) {
   const fixTargetOrder = () => {
     const { items, changed } = fixOrderOfItemsInFolders(vm.runtime.targets);
     if (changed) {
+      const before = vm.runtime.targets;
       vm.runtime.targets = items;
+      const moved = items
+        .map((target, index) => ({ target, index }))
+        .filter(({ target, index }) => target.isOriginal && before[index] !== target)
+        .map(({ target, index }) => ({ id: target.id, currentIndex: index }));
+      if (moved.length > 0) vm.runtime.emitTargetsIndexChanged(moved);
       vm.emitTargetsUpdate();
     }
   };
