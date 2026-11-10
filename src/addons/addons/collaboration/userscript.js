@@ -1608,6 +1608,16 @@ function collaborationSession() {
         state.scratchGui.collaboration.session) || {};
 }
 
+/**
+ * Whether the session names a room to join. The API answers the string "false" for a project without one,
+ * so a plain truthiness check would treat every solo project as collaborative.
+ * @returns {boolean} true when there is a room
+ */
+function hasCollaborationRoom() {
+    const room = collaborationSession().room;
+    return typeof room === 'string' && room !== '' && room !== 'false';
+}
+
 function collaborationStatus() {
     if (constants.devMode) return 'collaborative';
     return collaborationSession().status || 'unknown';
@@ -1678,7 +1688,7 @@ export default async function ({ addon, console: addonConsole }) {
         function startCollaboratorOffically() {
             if (!constants.mutableRefs.currentCleanupFunction) {
                 if (collaborationStatus() === 'unknown') {
-                    if (collaborationSession().room || constants.devMode) collabUI.showSyncingPopup();
+                    if (hasCollaborationRoom() || constants.devMode) collabUI.showSyncingPopup();
                     setTimeout(() => {
                         startCollaboratorOffically();
                     }, 100);
