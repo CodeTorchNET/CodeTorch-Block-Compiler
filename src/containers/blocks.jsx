@@ -524,7 +524,11 @@ class Blocks extends React.Component {
                 const variables = Object.values(allVariables)
                     .map(v => v.name + v.type + v.id)
                     .sort()
-                    .join(',');
+                    .join(',')
+                    // An XML comment can't contain "--" (or end in "-"), and variable names and ids can;
+                    // escaping keeps every variable list distinct without breaking the toolbox XML.
+                    .replace(/%/g, '%25')
+                    .replace(/-/g, '%2D');
                 return xml.replace('</xml>', `<!-- ${variables} --></xml>`);
             }
             return xml;
